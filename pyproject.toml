@@ -1,0 +1,21 @@
+[project]
+name = "madr-tools"
+version = "0.1.0"
+description = "MADR v4.0.0 ADR toolkit for CLI and LLMs"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "pydantic>=2",
+    "python-frontmatter>=1.1.0",
+    "python-slugify>=8.0.0",
+]
+
+[project.scripts]
+adr = "madr_tools.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
