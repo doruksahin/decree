@@ -1,0 +1,5 @@
+offline = true
+include_fragments = true
+include_verbatim = false
+extensions = ["md"]
+glob_ignore_case = true
