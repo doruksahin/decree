@@ -32,7 +32,7 @@ def run(args: argparse.Namespace) -> int:
 
     adr_dir = get_adr_dir()
     adr_dir.mkdir(parents=True, exist_ok=True)
-    filepath = adr_dir / f"ADR-{number:04d}-{slug}.md"
+    filepath = adr_dir / f"{number:04d}-{slug}.md"
     filepath.write_text(content)
 
     index.run(None)

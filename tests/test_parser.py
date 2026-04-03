@@ -47,7 +47,7 @@ class TestADRFrontmatter:
 
 
 class TestADRDocument:
-    def _make_doc(self, filename="ADR-0001-test.md", body="# ADR-0001 Test Title\n\n## Context and Problem Statement\n\nText.\n"):
+    def _make_doc(self, filename="0001-test.md", body="# ADR-0001 Test Title\n\n## Context and Problem Statement\n\nText.\n"):
         meta = ADRFrontmatter(status="proposed", date=date(2026, 4, 2))
         return ADRDocument(path=Path(f"/fake/{filename}"), meta=meta, body=body)
 
@@ -62,7 +62,7 @@ class TestADRDocument:
 
     def test_title_fallback(self):
         doc = self._make_doc(body="No heading.\n")
-        assert doc.title == "ADR-0001-test"
+        assert doc.title == "0001-test"
 
     def test_sections(self):
         body = "# T\n\n## Context and Problem Statement\n\n## Considered Options\n"
@@ -80,7 +80,7 @@ class TestADRDocument:
 
 class TestFileIO:
     def test_roundtrip(self, tmp_path):
-        f = tmp_path / "ADR-0001-test.md"
+        f = tmp_path / "0001-test.md"
         f.write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n\n# ADR-0001 Test\n")
         doc = load(f)
         assert doc.meta.status == "proposed"
@@ -89,7 +89,7 @@ class TestFileIO:
         assert load(f).meta.status == "accepted"
 
     def test_save_excludes_empty_lists(self, tmp_path):
-        f = tmp_path / "ADR-0001-clean.md"
+        f = tmp_path / "0001-clean.md"
         meta = ADRFrontmatter(status="proposed", date=date(2026, 4, 2), deciders=[])
         doc = ADRDocument(path=f, meta=meta, body="# T\n")
         save(doc)
@@ -102,13 +102,13 @@ class TestFileIO:
     def test_next_number_with_existing(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)
         adr_dir = project_dir / "docs" / "adr"
-        (adr_dir / "ADR-0001-a.md").write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n# T\n")
-        (adr_dir / "ADR-0003-b.md").write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n# T\n")
+        (adr_dir / "0001-a.md").write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n# T\n")
+        (adr_dir / "0003-b.md").write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n# T\n")
         assert next_adr_number() == 4
 
     def test_find_by_id(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)
-        f = project_dir / "docs" / "adr" / "ADR-0001-test.md"
+        f = project_dir / "docs" / "adr" / "0001-test.md"
         f.write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n\n# ADR-0001 Test\n")
         assert find_by_id("ADR-0001").adr_id == "ADR-0001"
 

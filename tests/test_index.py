@@ -7,9 +7,9 @@ from madr_tools.commands.index import run
 def populated_adr_dir(project_dir, monkeypatch):
     monkeypatch.chdir(project_dir)
     d = project_dir / "docs" / "adr"
-    (d / "ADR-0001-first.md").write_text("---\nstatus: accepted\ndate: 2026-04-01\n---\n\n# ADR-0001 First Decision\n")
-    (d / "ADR-0002-second.md").write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n\n# ADR-0002 Second Decision\n")
-    (d / "ADR-TEMPLATE.md").write_text("# Template\n")
+    (d / "0001-first.md").write_text("---\nstatus: accepted\ndate: 2026-04-01\n---\n\n# ADR-0001 First Decision\n")
+    (d / "0002-second.md").write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n\n# ADR-0002 Second Decision\n")
+    (d / "TEMPLATE.md").write_text("# Template\n")
     return d
 
 def test_generates_index(populated_adr_dir):

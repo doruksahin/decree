@@ -13,7 +13,7 @@ def run(args: argparse.Namespace | None = None) -> int:
     errors: list[str] = []
     docs: list[ADRDocument] = []
     required = get_required_sections()
-    paths = sorted(p for p in adr_dir.glob("ADR-*.md") if FILENAME_RE.match(p.name))
+    paths = sorted(p for p in adr_dir.glob("[0-9]*.md") if FILENAME_RE.match(p.name))
 
     for path in paths:
         rel = path.relative_to(adr_dir.parent.parent)

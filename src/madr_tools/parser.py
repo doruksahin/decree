@@ -114,7 +114,7 @@ def load(path: Path) -> ADRDocument:
 def load_all(*, strict: bool = True) -> list[ADRDocument]:
     import sys
     adr_dir = get_adr_dir()
-    paths = sorted(p for p in adr_dir.glob("ADR-*.md") if FILENAME_RE.match(p.name))
+    paths = sorted(p for p in adr_dir.glob("[0-9]*.md") if FILENAME_RE.match(p.name))
     docs = []
     for p in paths:
         try:
@@ -129,8 +129,9 @@ def load_all(*, strict: bool = True) -> list[ADRDocument]:
 def find_by_id(adr_id: str) -> ADRDocument:
     if not ADR_REF_RE.match(adr_id):
         raise ValueError(f"Invalid ADR ID format: '{adr_id}'. Expected ADR-NNNN.")
+    number = adr_id.split("-")[1]  # "ADR-0001" -> "0001"
     adr_dir = get_adr_dir()
-    matches = list(adr_dir.glob(f"{adr_id}-*.md"))
+    matches = list(adr_dir.glob(f"{number}-*.md"))
     if not matches:
         raise FileNotFoundError(f"{adr_id} not found in {adr_dir}")
     if len(matches) > 1:
@@ -142,7 +143,7 @@ def next_adr_number() -> int:
     adr_dir = get_adr_dir()
     existing = [
         int(m.group(1))
-        for p in adr_dir.glob("ADR-*.md")
+        for p in adr_dir.glob("[0-9]*.md")
         if (m := FILENAME_RE.match(p.name))
     ]
     return max(existing, default=0) + 1

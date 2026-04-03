@@ -149,7 +149,7 @@ def get_section_descriptions() -> dict[str, str]:
 
 
 # ── File naming ───────────────────────────────────────────
-FILENAME_RE = re.compile(r"^ADR-(\d{4})-.+\.md$")
+FILENAME_RE = re.compile(r"^(\d{4})-.+\.md$")  # e.g. 0001-use-pulp-solver.md
 SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SLUG_MAX_LENGTH = 60
 

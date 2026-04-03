@@ -33,9 +33,10 @@ class TestCoreDefaults:
         assert "Decision Outcome" in MADR_REQUIRED_SECTIONS
 
     def test_filename_re(self):
-        assert FILENAME_RE.match("ADR-0001-test-slug.md")
+        assert FILENAME_RE.match("0001-test-slug.md")
         assert not FILENAME_RE.match("ADR-TEMPLATE.md")
         assert not FILENAME_RE.match("readme.md")
+        assert not FILENAME_RE.match("ADR-0001-test-slug.md")
 
     def test_adr_ref_re(self):
         assert ADR_REF_RE.match("ADR-0001")
