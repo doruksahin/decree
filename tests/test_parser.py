@@ -45,6 +45,18 @@ class TestADRFrontmatter:
         dumped = fm.model_dump(by_alias=True, exclude_none=True)
         assert "supersedes" not in dumped
 
+    def test_evolve_changes_status(self):
+        fm = ADRFrontmatter(status="proposed", date=date(2026, 4, 2))
+        evolved = fm.evolve(status="accepted")
+        assert evolved.status == "accepted"
+        assert evolved.date == date(2026, 4, 2)  # preserved
+
+    def test_evolve_adds_field(self):
+        fm = ADRFrontmatter(status="proposed", date=date(2026, 4, 2))
+        evolved = fm.evolve(status="superseded", **{"superseded-by": "ADR-0005"})
+        assert evolved.status == "superseded"
+        assert evolved.superseded_by == "ADR-0005"
+
 
 class TestADRDocument:
     def _make_doc(self, filename="0001-test.md", body="# ADR-0001 Test Title\n\n## Context and Problem Statement\n\nText.\n"):

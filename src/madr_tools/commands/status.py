@@ -2,7 +2,7 @@
 import argparse
 import sys
 from madr_tools.config import VALID_TRANSITIONS
-from madr_tools.parser import ADRFrontmatter, find_by_id, save
+from madr_tools.parser import find_by_id, save
 from madr_tools.commands import index
 
 STATUS_ACTION_MAP = {
@@ -11,6 +11,7 @@ STATUS_ACTION_MAP = {
     "deprecate": "deprecated",
     "supersede": "superseded",
 }
+
 
 def run(args: argparse.Namespace) -> int:
     action = args.action
@@ -39,26 +40,13 @@ def run(args: argparse.Namespace) -> int:
         except (FileNotFoundError, ValueError) as e:
             print(f"Error: {e}", file=sys.stderr)
             return 1
-        doc.meta = ADRFrontmatter(
-            status="superseded", date=doc.meta.date, superseded_by=args.target_id,
-            supersedes=doc.meta.supersedes, deciders=doc.meta.deciders,
-            consulted=doc.meta.consulted, informed=doc.meta.informed,
-        )
+
+        doc.meta = doc.meta.evolve(status="superseded", **{"superseded-by": args.target_id})
         save(doc)
-        replacement.meta = ADRFrontmatter(
-            status=replacement.meta.status, date=replacement.meta.date,
-            supersedes=args.adr_id, superseded_by=replacement.meta.superseded_by,
-            deciders=replacement.meta.deciders, consulted=replacement.meta.consulted,
-            informed=replacement.meta.informed,
-        )
+        replacement.meta = replacement.meta.evolve(supersedes=args.adr_id)
         save(replacement)
     else:
-        doc.meta = ADRFrontmatter(
-            status=target_status, date=doc.meta.date,
-            supersedes=doc.meta.supersedes, superseded_by=doc.meta.superseded_by,
-            deciders=doc.meta.deciders, consulted=doc.meta.consulted,
-            informed=doc.meta.informed,
-        )
+        doc.meta = doc.meta.evolve(status=target_status)
         save(doc)
 
     index.run(None)

@@ -49,6 +49,12 @@ class ADRFrontmatter(BaseModel):
             raise ValueError(f"ADR reference '{v}' must match format ADR-NNNN")
         return v
 
+    def evolve(self, **overrides) -> "ADRFrontmatter":
+        """Create a new instance with selected fields changed."""
+        data = self.model_dump(by_alias=True)
+        data.update(overrides)
+        return ADRFrontmatter(**data)
+
     @model_validator(mode="after")
     def status_field_invariants(self) -> "ADRFrontmatter":
         required = STATUS_FIELD_REQUIREMENTS.get(self.status, ())
