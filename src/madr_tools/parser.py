@@ -118,7 +118,7 @@ def load(path: Path) -> ADRDocument:
 
 
 def load_all(*, strict: bool = True) -> list[ADRDocument]:
-    import sys
+    from .log import error as log_error
     adr_dir = get_adr_dir()
     paths = sorted(p for p in adr_dir.glob("[0-9]*.md") if FILENAME_RE.match(p.name))
     docs = []
@@ -128,7 +128,7 @@ def load_all(*, strict: bool = True) -> list[ADRDocument]:
         except Exception as e:
             if strict:
                 raise
-            print(f"Warning: skipping {p.name}: {e}", file=sys.stderr)
+            log_error("load", f"skipping {p.name}: {e}")
     return docs
 
 
