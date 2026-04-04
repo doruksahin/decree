@@ -1,17 +1,16 @@
-"""Generate Mermaid diagrams from ADR metadata."""
+"""Generate Mermaid diagrams from ADR metadata.
+
+Writes directly to docs/adr/index.md, preserving hand-authored content
+above the GENERATED:adr-graph marker.
+"""
 import argparse
 
-from madr_tools.log import info, success
+from madr_tools.config import get_adr_dir
+from madr_tools.log import info, error, success, fail
 from madr_tools.parser import load_all
 
 
-STATUS_COLORS = {
-    "accepted": "#2ea043",
-    "proposed": "#d29922",
-    "rejected": "#f85149",
-    "deprecated": "#8b949e",
-    "superseded": "#8b949e",
-}
+MARKER = "<!-- GENERATED:adr-graph — do not edit below this line -->"
 
 STATUS_ICONS = {
     "accepted": "✅",
@@ -19,6 +18,14 @@ STATUS_ICONS = {
     "rejected": "❌",
     "deprecated": "📦",
     "superseded": "🔄",
+}
+
+STATUS_COLORS = {
+    "accepted": "#2ea043",
+    "proposed": "#d29922",
+    "rejected": "#f85149",
+    "deprecated": "#8b949e",
+    "superseded": "#8b949e",
 }
 
 
@@ -35,7 +42,9 @@ def _timeline(docs: list) -> str:
         lines.append(f"    section {date_str}")
         for doc in by_date[date_str]:
             icon = STATUS_ICONS.get(doc.meta.status, "")
-            lines.append(f"        {doc.adr_id} {icon} : {doc.title}")
+            # Strip ADR-NNNN prefix from title for cleaner display
+            short_title = doc.title.replace(f"{doc.adr_id} ", "")
+            lines.append(f"        {doc.adr_id} {icon} : {short_title}")
 
     return "\n".join(lines)
 
@@ -43,16 +52,13 @@ def _timeline(docs: list) -> str:
 def _supersede_graph(docs: list) -> str | None:
     """Generate a Mermaid flowchart of supersede relationships."""
     edges = []
-    nodes = set()
 
     for doc in docs:
-        nodes.add(doc.adr_id)
         if doc.meta.supersedes:
             edges.append((doc.meta.supersedes, doc.adr_id))
         if doc.meta.superseded_by:
             edges.append((doc.adr_id, doc.meta.superseded_by))
 
-    # Deduplicate edges
     edges = list(set(edges))
 
     if not edges:
@@ -98,29 +104,44 @@ def run(args: argparse.Namespace | None = None) -> int:
         info(prefix, "no ADRs found — nothing to graph")
         return 0
 
-    output_parts = []
+    # Read existing index and preserve content above marker
+    index_file = get_adr_dir() / "index.md"
+    if not index_file.exists():
+        error(prefix, f"{index_file} not found")
+        return 1
 
-    # Timeline
+    content = index_file.read_text()
+    if MARKER not in content:
+        error(prefix, f"marker not found in {index_file}")
+        error(prefix, f"expected: {MARKER}")
+        fail("cannot regenerate — add marker to index.md first")
+        return 1
+
+    header = content[:content.index(MARKER)]
+
+    # Generate diagrams
+    parts = [MARKER, ""]
+
     timeline = _timeline(docs)
-    output_parts.append("## Decision Timeline\n")
-    output_parts.append(f"```mermaid\n{timeline}\n```\n")
+    parts.append("## Decision Timeline\n")
+    parts.append(f"```mermaid\n{timeline}\n```\n")
     info(prefix, "generated timeline diagram")
 
-    # Supersede graph
     graph = _supersede_graph(docs)
     if graph:
-        output_parts.append("## Decision Chain\n")
-        output_parts.append(f"```mermaid\n{graph}\n```\n")
+        parts.append("## Decision Chain\n")
+        parts.append(f"```mermaid\n{graph}\n```\n")
         info(prefix, "generated supersede graph")
     else:
         info(prefix, "no supersede relationships — skipping decision chain")
 
-    # Status pie
     pie = _status_summary(docs)
-    output_parts.append("## Status Distribution\n")
-    output_parts.append(f"```mermaid\n{pie}\n```\n")
+    parts.append("## Status Distribution\n")
+    parts.append(f"```mermaid\n{pie}\n```\n")
     info(prefix, "generated status distribution")
 
-    print("\n".join(output_parts))
-    success(f"generated diagrams for {len(docs)} ADRs")
+    # Write back
+    index_file.write_text(header + "\n".join(parts))
+    info(prefix, f"wrote {index_file}")
+    success(f"generated diagrams for {len(docs)} ADRs → {index_file}")
     return 0
