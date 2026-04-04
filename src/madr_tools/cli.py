@@ -1,7 +1,7 @@
 """ADR toolkit CLI — MADR v4.0.0 management."""
 import argparse
 import sys
-from madr_tools.commands import new, status, lint, index
+from madr_tools.commands import new, status, lint, index, graph
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="adr", description="MADR v4.0.0 ADR management toolkit")
@@ -17,9 +17,10 @@ def main() -> int:
 
     subparsers.add_parser("lint", help="Validate all ADRs")
     subparsers.add_parser("index", help="Regenerate docs/adr/index.md")
+    subparsers.add_parser("graph", help="Generate Mermaid diagrams (timeline, supersede chain, status)")
 
     args = parser.parse_args()
-    commands = {"new": new.run, "status": status.run, "lint": lint.run, "index": index.run}
+    commands = {"new": new.run, "status": status.run, "lint": lint.run, "index": index.run, "graph": graph.run}
     return commands[args.command](args)
 
 if __name__ == "__main__":
