@@ -1,7 +1,7 @@
-"""Tests for madr_tools.commands.lint."""
+"""Tests for decree.commands.lint."""
 import argparse
 import pytest
-from madr_tools.commands.lint import run
+from decree.commands.lint import run
 
 VALID_BODY = (
     "# ADR-0001 Test\n\n"

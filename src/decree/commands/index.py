@@ -1,12 +1,12 @@
 """Generate index.md files from document frontmatter — one per doc type."""
 import argparse
 
-from madr_tools.log import info, success
+from decree.log import info, success
 
 
 def run(args: argparse.Namespace | None = None) -> int:
-    from madr_tools.config import load_doc_types, get_project_root
-    from madr_tools.parser import load_all
+    from decree.config import load_doc_types, get_project_root
+    from decree.parser import load_all
 
     prefix = "index"
     doc_types = load_doc_types()

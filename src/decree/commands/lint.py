@@ -3,13 +3,13 @@ import argparse
 
 from pydantic import ValidationError
 
-from madr_tools.log import info, success, fail
-from madr_tools.validators import validate_sections, validate_cross_file_integrity, validate_cross_type_references
+from decree.log import info, success, fail
+from decree.validators import validate_sections, validate_cross_file_integrity, validate_cross_type_references
 
 
 def run(args: argparse.Namespace | None = None) -> int:
-    from madr_tools.config import load_doc_types, get_project_root
-    from madr_tools.parser import load
+    from decree.config import load_doc_types, get_project_root
+    from decree.parser import load
 
     prefix = "lint"
     doc_types = load_doc_types()

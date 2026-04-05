@@ -5,12 +5,12 @@ from pathlib import Path
 
 from slugify import slugify
 
-from madr_tools.config import DATE_FORMAT, SLUG_MAX_LENGTH, get_project_sections, load_doc_types
-from madr_tools.doctypes import ADR_DEFAULT
-from madr_tools.log import info, error, success
-from madr_tools.parser import next_number, next_adr_number
-from madr_tools.template import render_template
-from madr_tools.commands import index
+from decree.config import DATE_FORMAT, SLUG_MAX_LENGTH, get_project_sections, load_doc_types
+from decree.doctypes import ADR_DEFAULT
+from decree.log import info, error, success
+from decree.parser import next_number, next_adr_number
+from decree.template import render_template
+from decree.commands import index
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 DEFAULT_ADR_TEMPLATE = TEMPLATE_DIR / "madr-v4.md"
@@ -31,7 +31,7 @@ def _resolve_doc_type(name: str):
 
 def _get_template_path(doc_type):
     """Return the template path for a given DocType."""
-    from madr_tools.config import get_project_root, get_template_path
+    from decree.config import get_project_root, get_template_path
     # Custom template from type config
     if doc_type.template:
         custom = get_project_root() / doc_type.template
@@ -68,7 +68,7 @@ def run(args: argparse.Namespace) -> int:
     raw = template_path.read_text()
     content = render_template(raw, number, title, slug, today, doc_type=doc_type)
 
-    from madr_tools.config import get_project_root
+    from decree.config import get_project_root
     type_dir = get_project_root() / doc_type.dir
     type_dir.mkdir(parents=True, exist_ok=True)
 

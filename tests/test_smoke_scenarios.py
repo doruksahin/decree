@@ -55,7 +55,7 @@ from scenarios import (
 def lint_project(proj_path, monkeypatch):
     """Run lint on a scenario project. Returns (exit_code, error_lines)."""
     monkeypatch.chdir(proj_path)
-    from madr_tools.commands.lint import run
+    from decree.commands.lint import run
     import io, sys
 
     captured = io.StringIO()
@@ -73,7 +73,7 @@ def lint_project(proj_path, monkeypatch):
 def collect_all_docs(proj_path, monkeypatch):
     """Load all documents across all types. Returns list of DocDocuments."""
     monkeypatch.chdir(proj_path)
-    from madr_tools.parser import load_all_types
+    from decree.parser import load_all_types
     return load_all_types()
 
 

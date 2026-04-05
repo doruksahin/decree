@@ -1,8 +1,8 @@
-"""Tests for madr_tools.commands.new."""
+"""Tests for decree.commands.new."""
 import argparse
 import pytest
-from madr_tools.commands.new import run
-from madr_tools.parser import load
+from decree.commands.new import run
+from decree.parser import load
 
 @pytest.fixture
 def ready_project(project_dir, monkeypatch):

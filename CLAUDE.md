@@ -1,6 +1,6 @@
-# madr-tools
+# decree
 
-MADR v4.0.0 ADR toolkit for CLI and LLMs.
+Decree — software decision lifecycle toolkit (MADR v4.0.0 ADR management for CLI and LLMs).
 
 ## Quick Reference
 

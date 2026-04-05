@@ -1,11 +1,11 @@
-"""Tests for madr_tools.config — core defaults and project override loading."""
+"""Tests for decree.config — core defaults and project override loading."""
 
 import pytest
 from pathlib import Path
 
-from madr_tools.config import load_doc_types, find_doc_type
+from decree.config import load_doc_types, find_doc_type
 
-from madr_tools.config import (
+from decree.config import (
     STATUSES, VALID_TRANSITIONS, STATUS_FIELD_REQUIREMENTS,
     MADR_REQUIRED_SECTIONS, OPTIONAL_SECTIONS, MADR_SECTION_DESCRIPTIONS,
     FILENAME_RE, SLUG_RE, ADR_REF_RE,

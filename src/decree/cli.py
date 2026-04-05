@@ -1,7 +1,7 @@
 """ADR toolkit CLI — MADR v4.0.0 management."""
 import argparse
 import sys
-from madr_tools.commands import new, status, lint, index, graph
+from decree.commands import new, status, lint, index, graph
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="adr", description="MADR v4.0.0 ADR management toolkit")
@@ -25,7 +25,7 @@ def main() -> int:
 
 def doc_main() -> int:
     """Multi-type document CLI."""
-    parser = argparse.ArgumentParser(prog="doc", description="Structured document management toolkit")
+    parser = argparse.ArgumentParser(prog="decree", description="Decree — software decision lifecycle toolkit")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     p_new = subparsers.add_parser("new")

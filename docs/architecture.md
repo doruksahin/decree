@@ -3,7 +3,7 @@
 ## Module Map
 
 ```
-src/madr_tools/
+src/decree/
 ├── config.py        ← single source of truth (core defaults + project overrides)
 ├── parser.py        ← ONLY module that touches ADR files on disk
 ├── cli.py           ← argparse entry point, dispatches to commands

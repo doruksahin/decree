@@ -70,7 +70,7 @@ LLMs read `CLAUDE.md` for quick reference and `config.py` for the full format co
 ### New project adoption
 
 ```bash
-uv add madr-tools  # or git+https://github.com/...
+uv add decree  # or git+https://github.com/...
 ```
 
 Add to `pyproject.toml`:

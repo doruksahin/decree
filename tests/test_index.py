@@ -1,7 +1,7 @@
-"""Tests for madr_tools.commands.index."""
+"""Tests for decree.commands.index."""
 import argparse
 import pytest
-from madr_tools.commands.index import run
+from decree.commands.index import run
 
 @pytest.fixture
 def populated_adr_dir(project_dir, monkeypatch):

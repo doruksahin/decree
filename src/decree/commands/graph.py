@@ -5,9 +5,9 @@ above the GENERATED:adr-graph marker.
 """
 import argparse
 
-from madr_tools.config import get_adr_dir
-from madr_tools.log import info, error, success, fail
-from madr_tools.parser import load_all
+from decree.config import get_adr_dir
+from decree.log import info, error, success, fail
+from decree.parser import load_all
 
 
 MARKER = "<!-- GENERATED:adr-graph — do not edit below this line -->"

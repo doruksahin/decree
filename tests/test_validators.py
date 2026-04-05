@@ -1,10 +1,10 @@
-"""Tests for madr_tools.validators — pure validation functions."""
+"""Tests for decree.validators — pure validation functions."""
 import pytest
 from datetime import date
 from pathlib import Path
 
-from madr_tools.parser import ADRFrontmatter, ADRDocument
-from madr_tools.validators import validate_sections, validate_cross_file_integrity
+from decree.parser import ADRFrontmatter, ADRDocument
+from decree.validators import validate_sections, validate_cross_file_integrity
 
 
 def _make_doc(adr_id_num="0001", status="proposed", body="# T\n", **fm_kwargs):

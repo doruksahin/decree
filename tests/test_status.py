@@ -1,8 +1,8 @@
-"""Tests for madr_tools.commands.status."""
+"""Tests for decree.commands.status."""
 import argparse
 import pytest
-from madr_tools.commands.status import run
-from madr_tools.parser import load
+from decree.commands.status import run
+from decree.parser import load
 
 @pytest.fixture
 def adr_env(project_dir, monkeypatch):

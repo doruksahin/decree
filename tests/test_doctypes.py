@@ -1,4 +1,4 @@
-from madr_tools.doctypes import DocType, ADR_DEFAULT
+from decree.doctypes import DocType, ADR_DEFAULT
 
 
 def test_adr_default_has_expected_statuses():

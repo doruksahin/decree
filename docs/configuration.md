@@ -32,7 +32,7 @@ Consequences = "Good, bad, and neutral consequences of this decision."
 
 ## Zero-config
 
-If `[tool.adr]` is absent, madr-tools uses defaults:
+If `[tool.adr]` is absent, decree uses defaults:
 - ADR directory: `docs/adr`
 - Required sections: MADR v4 standard only (Context and Problem Statement, Considered Options, Decision Outcome)
 - Template: bundled default

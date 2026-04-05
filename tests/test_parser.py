@@ -1,10 +1,10 @@
-"""Tests for madr_tools.parser — ADR frontmatter parsing and file I/O."""
+"""Tests for decree.parser — ADR frontmatter parsing and file I/O."""
 
 import pytest
 from datetime import date
 from pathlib import Path
 
-from madr_tools.parser import ADRFrontmatter, ADRDocument, load, save, find_by_id, next_adr_number
+from decree.parser import ADRFrontmatter, ADRDocument, load, save, find_by_id, next_adr_number
 
 
 class TestADRFrontmatter:

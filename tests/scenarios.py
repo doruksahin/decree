@@ -1,5 +1,5 @@
 """
-Real-world scenario fixtures for madr-tools smoke tests.
+Real-world scenario fixtures for decree smoke tests.
 
 These fixtures model realistic product development lifecycles,
 primarily a SaaS company adding "Team Billing" to their product.

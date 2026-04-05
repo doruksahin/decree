@@ -6,7 +6,7 @@ ADR-0003 gets superseded by ADR-0004.
 Lint catches the stale reference chain.
 """
 import argparse
-from madr_tools.commands import new, status, lint
+from decree.commands import new, status, lint
 
 
 MULTI_TYPE_CONFIG = """\

@@ -1,5 +1,5 @@
-"""Tests for madr_tools.template — pure template rendering."""
-from madr_tools.template import render_template
+"""Tests for decree.template — pure template rendering."""
+from decree.template import render_template
 
 
 def test_replaces_placeholders():

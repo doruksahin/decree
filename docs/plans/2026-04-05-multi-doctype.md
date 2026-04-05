@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Generalize madr-tools from ADR-only to support configurable document types (ADR, PRD, SPEC, etc.) with cross-type references and validation.
+**Goal:** Generalize decree from ADR-only to support configurable document types (ADR, PRD, SPEC, etc.) with cross-type references and validation.
 
 **Architecture:** Introduce a `DocType` dataclass that encapsulates all type-specific config (prefix, statuses, transitions, sections, template, directory). ADR remains a built-in default. Additional types are defined in `[tool.doc.types.*]` sections of pyproject.toml. The parser and commands become type-parameterized. A new `doc` CLI entry point sits alongside the backward-compatible `adr` entry point.
 
@@ -103,7 +103,7 @@ implement = "implemented"
 ## Task 1: DocType dataclass
 
 **Files:**
-- Create: `src/madr_tools/doctypes.py`
+- Create: `src/decree/doctypes.py`
 - Test: `tests/test_doctypes.py`
 
 This is the core abstraction. Every type-specific constant moves from config.py module-level into a DocType instance.
@@ -112,7 +112,7 @@ This is the core abstraction. Every type-specific constant moves from config.py 
 
 ```python
 # tests/test_doctypes.py
-from madr_tools.doctypes import DocType, ADR_DEFAULT
+from decree.doctypes import DocType, ADR_DEFAULT
 
 def test_adr_default_has_expected_statuses():
     assert ADR_DEFAULT.statuses == ("proposed", "accepted", "rejected", "deprecated", "superseded")
@@ -191,13 +191,13 @@ def test_prd_doctype():
 
 **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest tests/test_doctypes.py -v`
-Expected: FAIL — module `madr_tools.doctypes` does not exist
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest tests/test_doctypes.py -v`
+Expected: FAIL — module `decree.doctypes` does not exist
 
 **Step 3: Implement DocType**
 
 ```python
-# src/madr_tools/doctypes.py
+# src/decree/doctypes.py
 """Document type definitions — the core abstraction for multi-type support."""
 
 import re
@@ -297,18 +297,18 @@ ADR_DEFAULT = DocType(
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest tests/test_doctypes.py -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest tests/test_doctypes.py -v`
 Expected: All PASS
 
 **Step 5: Run existing tests to verify nothing broke**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest -v`
 Expected: All existing tests still PASS (doctypes.py is additive, nothing imports it yet)
 
 **Step 6: Commit**
 
 ```bash
-git add src/madr_tools/doctypes.py tests/test_doctypes.py
+git add src/decree/doctypes.py tests/test_doctypes.py
 git commit -m "feat: add DocType dataclass — core abstraction for multi-type support"
 ```
 
@@ -317,7 +317,7 @@ git commit -m "feat: add DocType dataclass — core abstraction for multi-type s
 ## Task 2: Load DocTypes from pyproject.toml
 
 **Files:**
-- Modify: `src/madr_tools/config.py` — add `load_doc_types()` function
+- Modify: `src/decree/config.py` — add `load_doc_types()` function
 - Test: `tests/test_config.py` — add tests for multi-type loading
 
 This task wires DocType into the config system. `load_doc_types()` returns a list of DocTypes loaded from `[tool.doc.types.*]`, falling back to building a single ADR type from `[tool.adr]`.
@@ -327,8 +327,8 @@ This task wires DocType into the config system. `load_doc_types()` returns a lis
 ```python
 # Add to tests/test_config.py
 
-from madr_tools.doctypes import DocType
-from madr_tools.config import load_doc_types
+from decree.doctypes import DocType
+from decree.config import load_doc_types
 
 
 def test_load_doc_types_from_tool_doc(tmp_path, monkeypatch):
@@ -473,14 +473,14 @@ approved = []
 approve = "approved"
 """)
     monkeypatch.chdir(tmp_path)
-    from madr_tools.config import find_doc_type
+    from decree.config import find_doc_type
     assert find_doc_type("ADR-0001").name == "adr"
     assert find_doc_type("PRD-001").name == "prd"
 ```
 
 **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest tests/test_config.py::test_load_doc_types_from_tool_doc -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest tests/test_config.py::test_load_doc_types_from_tool_doc -v`
 Expected: FAIL — `load_doc_types` not found
 
 **Step 3: Implement load_doc_types**
@@ -590,7 +590,7 @@ Add `load_doc_types` to the reset fixture:
 ```python
 @pytest.fixture(autouse=True)
 def reset_caches():
-    from madr_tools.config import get_project_root, _load_project_config, load_doc_types
+    from decree.config import get_project_root, _load_project_config, load_doc_types
     get_project_root.cache_clear()
     _load_project_config.cache_clear()
     load_doc_types.cache_clear()
@@ -602,13 +602,13 @@ def reset_caches():
 
 **Step 5: Run all tests**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest -v`
 Expected: All PASS (existing + new)
 
 **Step 6: Commit**
 
 ```bash
-git add src/madr_tools/config.py tests/test_config.py tests/conftest.py
+git add src/decree/config.py tests/test_config.py tests/conftest.py
 git commit -m "feat: load DocTypes from [tool.doc.types.*] with [tool.adr] fallback"
 ```
 
@@ -617,7 +617,7 @@ git commit -m "feat: load DocTypes from [tool.doc.types.*] with [tool.adr] fallb
 ## Task 3: Generalize parser — DocFrontmatter + DocDocument
 
 **Files:**
-- Modify: `src/madr_tools/parser.py`
+- Modify: `src/decree/parser.py`
 - Test: `tests/test_parser.py` — update + add type-parameterized tests
 
 The key change: `ADRFrontmatter` becomes `DocFrontmatter`. Status validation uses Pydantic v2 context to accept type-specific statuses. `ADRDocument` becomes `DocDocument`. All I/O functions accept a `DocType` parameter.
@@ -627,7 +627,7 @@ The key change: `ADRFrontmatter` becomes `DocFrontmatter`. Status validation use
 ```python
 # Add to tests/test_parser.py
 
-from madr_tools.doctypes import DocType
+from decree.doctypes import DocType
 
 def _make_prd_type():
     return DocType(
@@ -641,7 +641,7 @@ def _make_prd_type():
 
 def test_doc_frontmatter_validates_custom_statuses():
     """DocFrontmatter accepts statuses from DocType context."""
-    from madr_tools.parser import DocFrontmatter
+    from decree.parser import DocFrontmatter
     prd = _make_prd_type()
     fm = DocFrontmatter.model_validate(
         {"status": "draft", "date": "2026-04-05"},
@@ -650,7 +650,7 @@ def test_doc_frontmatter_validates_custom_statuses():
     assert fm.status == "draft"
 
 def test_doc_frontmatter_rejects_invalid_status_for_type():
-    from madr_tools.parser import DocFrontmatter
+    from decree.parser import DocFrontmatter
     import pytest
     prd = _make_prd_type()
     with pytest.raises(Exception, match="Invalid status"):
@@ -661,7 +661,7 @@ def test_doc_frontmatter_rejects_invalid_status_for_type():
 
 def test_doc_frontmatter_references_field():
     """DocFrontmatter supports optional references list."""
-    from madr_tools.parser import DocFrontmatter
+    from decree.parser import DocFrontmatter
     fm = DocFrontmatter.model_validate(
         {"status": "proposed", "date": "2026-04-05", "references": ["PRD-001", "SPEC-001"]},
     )
@@ -669,7 +669,7 @@ def test_doc_frontmatter_references_field():
 
 def test_doc_document_id_for_custom_type(tmp_path):
     """DocDocument.doc_id uses DocType prefix and digits."""
-    from madr_tools.parser import DocFrontmatter, DocDocument
+    from decree.parser import DocFrontmatter, DocDocument
     prd = _make_prd_type()
     path = tmp_path / "001-user-auth.md"
     meta = DocFrontmatter.model_validate(
@@ -682,8 +682,8 @@ def test_doc_document_id_for_custom_type(tmp_path):
 
 def test_load_with_doc_type(project_dir):
     """load() works with a DocType parameter."""
-    from madr_tools.parser import load, DocDocument
-    from madr_tools.doctypes import ADR_DEFAULT
+    from decree.parser import load, DocDocument
+    from decree.doctypes import ADR_DEFAULT
     adr_dir = project_dir / "docs" / "adr"
     adr_file = adr_dir / "0001-test.md"
     adr_file.write_text("---\nstatus: proposed\ndate: 2026-04-05\n---\n# ADR-0001 Test\n\n## Context and Problem Statement\n")
@@ -693,7 +693,7 @@ def test_load_with_doc_type(project_dir):
 
 def test_find_by_id_with_doc_type(project_dir, monkeypatch):
     """find_by_id resolves type from ID prefix."""
-    from madr_tools.parser import find_by_id
+    from decree.parser import find_by_id
     monkeypatch.chdir(project_dir)
     adr_dir = project_dir / "docs" / "adr"
     (adr_dir / "0001-test.md").write_text("---\nstatus: proposed\ndate: 2026-04-05\n---\n# ADR-0001 Test\n")
@@ -703,7 +703,7 @@ def test_find_by_id_with_doc_type(project_dir, monkeypatch):
 
 **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest tests/test_parser.py::test_doc_frontmatter_validates_custom_statuses -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest tests/test_parser.py::test_doc_frontmatter_validates_custom_statuses -v`
 Expected: FAIL
 
 **Step 3: Implement generalized parser**
@@ -728,13 +728,13 @@ next_adr_number = lambda: next_number(ADR_DEFAULT)
 
 **Step 4: Run ALL tests**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest -v`
 Expected: All PASS — old tests use old names (aliases), new tests use new names
 
 **Step 5: Commit**
 
 ```bash
-git add src/madr_tools/parser.py tests/test_parser.py
+git add src/decree/parser.py tests/test_parser.py
 git commit -m "feat: generalize parser — DocFrontmatter + DocDocument with DocType parameter"
 ```
 
@@ -743,10 +743,10 @@ git commit -m "feat: generalize parser — DocFrontmatter + DocDocument with Doc
 ## Task 4: Generalize `new` command
 
 **Files:**
-- Modify: `src/madr_tools/commands/new.py`
-- Modify: `src/madr_tools/template.py`
-- Create: `src/madr_tools/templates/prd.md`
-- Create: `src/madr_tools/templates/spec.md`
+- Modify: `src/decree/commands/new.py`
+- Modify: `src/decree/template.py`
+- Create: `src/decree/templates/prd.md`
+- Create: `src/decree/templates/spec.md`
 - Test: `tests/test_new.py`
 
 **Step 1: Write failing tests**
@@ -754,7 +754,7 @@ git commit -m "feat: generalize parser — DocFrontmatter + DocDocument with Doc
 ```python
 # Add to tests/test_new.py
 import argparse
-from madr_tools.commands.new import run
+from decree.commands.new import run
 
 def _prd_project(tmp_path):
     """Set up a project with PRD type configured."""
@@ -820,13 +820,13 @@ def test_new_adr_still_works(monkeypatch, project_dir):
 
 **Step 2: Run tests to verify they fail**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest tests/test_new.py::test_new_prd_creates_file -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest tests/test_new.py::test_new_prd_creates_file -v`
 Expected: FAIL
 
 **Step 3: Create built-in templates**
 
 ```markdown
-<!-- src/madr_tools/templates/prd.md -->
+<!-- src/decree/templates/prd.md -->
 ---
 status: __INITIAL_STATUS__
 date: __DATE__
@@ -854,7 +854,7 @@ What is in scope and out of scope?
 ```
 
 ```markdown
-<!-- src/madr_tools/templates/spec.md -->
+<!-- src/decree/templates/spec.md -->
 ---
 status: __INITIAL_STATUS__
 date: __DATE__
@@ -885,14 +885,14 @@ How this will be tested.
 
 **Step 6: Run ALL tests**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest -v`
 Expected: All PASS
 
 **Step 7: Commit**
 
 ```bash
-git add src/madr_tools/commands/new.py src/madr_tools/template.py \
-        src/madr_tools/templates/prd.md src/madr_tools/templates/spec.md \
+git add src/decree/commands/new.py src/decree/template.py \
+        src/decree/templates/prd.md src/decree/templates/spec.md \
         tests/test_new.py
 git commit -m "feat: new command supports multiple document types with built-in templates"
 ```
@@ -902,7 +902,7 @@ git commit -m "feat: new command supports multiple document types with built-in 
 ## Task 5: Generalize `status` command
 
 **Files:**
-- Modify: `src/madr_tools/commands/status.py`
+- Modify: `src/decree/commands/status.py`
 - Test: `tests/test_status.py`
 
 Key change: `status.py` auto-detects DocType from the ID prefix. Uses type-specific transitions and actions. Supersede logic stays ADR-specific (only ADRs have supersede semantics in the built-in config).
@@ -951,12 +951,12 @@ def test_status_invalid_transition_prd(monkeypatch, tmp_path):
 
 **Step 3: Run ALL tests**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest -v`
 
 **Step 4: Commit**
 
 ```bash
-git add src/madr_tools/commands/status.py tests/test_status.py
+git add src/decree/commands/status.py tests/test_status.py
 git commit -m "feat: status command supports type-specific transitions via DocType"
 ```
 
@@ -965,8 +965,8 @@ git commit -m "feat: status command supports type-specific transitions via DocTy
 ## Task 6: Generalize `lint` command + cross-type validation
 
 **Files:**
-- Modify: `src/madr_tools/commands/lint.py`
-- Modify: `src/madr_tools/validators.py`
+- Modify: `src/decree/commands/lint.py`
+- Modify: `src/decree/validators.py`
 - Test: `tests/test_lint.py`, `tests/test_validators.py`
 
 Lint now iterates all configured DocTypes. Cross-type validation checks that `references` point to existing documents and warns when referencing superseded/rejected/deprecated entries.
@@ -978,9 +978,9 @@ Lint now iterates all configured DocTypes. Cross-type validation checks that `re
 
 def test_validate_cross_type_references_valid(tmp_path, monkeypatch):
     """PRD-001 references ADR-0001 — both exist, no errors."""
-    from madr_tools.validators import validate_cross_type_references
-    from madr_tools.parser import DocFrontmatter, DocDocument
-    from madr_tools.doctypes import ADR_DEFAULT
+    from decree.validators import validate_cross_type_references
+    from decree.parser import DocFrontmatter, DocDocument
+    from decree.doctypes import ADR_DEFAULT
 
     prd_type = _make_prd_type()
     adr_meta = DocFrontmatter.model_validate({"status": "accepted", "date": "2026-04-05"})
@@ -1075,7 +1075,7 @@ def run(args):
 **Step 4: Commit**
 
 ```bash
-git add src/madr_tools/commands/lint.py src/madr_tools/validators.py \
+git add src/decree/commands/lint.py src/decree/validators.py \
         tests/test_lint.py tests/test_validators.py
 git commit -m "feat: lint validates all document types + cross-type reference integrity"
 ```
@@ -1085,7 +1085,7 @@ git commit -m "feat: lint validates all document types + cross-type reference in
 ## Task 7: Generalize `index` command
 
 **Files:**
-- Modify: `src/madr_tools/commands/index.py`
+- Modify: `src/decree/commands/index.py`
 - Test: `tests/test_index.py`
 
 Generates one index file per document type in each type's directory.
@@ -1113,7 +1113,7 @@ git commit -m "feat: index command generates per-type index files"
 ## Task 8: Generalize `graph` command
 
 **Files:**
-- Modify: `src/madr_tools/commands/graph.py`
+- Modify: `src/decree/commands/graph.py`
 - Test: `tests/test_graph.py` (new file)
 
 Graph now shows cross-type relationships. Different node colors per document type. Cross-type edges from the `references` field.
@@ -1143,8 +1143,8 @@ git commit -m "feat: graph command shows cross-type relationships with colored n
 ## Task 9: `doc` CLI entry point
 
 **Files:**
-- Modify: `src/madr_tools/cli.py` — add `doc_main()` entry point
-- Modify: `pyproject.toml` — add `doc = "madr_tools.cli:doc_main"` script
+- Modify: `src/decree/cli.py` — add `doc_main()` entry point
+- Modify: `pyproject.toml` — add `doc = "decree.cli:doc_main"` script
 - Test: `tests/test_cli.py`
 
 **Step 1: Write failing tests**
@@ -1192,8 +1192,8 @@ def doc_main() -> int:
 Update `pyproject.toml`:
 ```toml
 [project.scripts]
-adr = "madr_tools.cli:main"
-doc = "madr_tools.cli:doc_main"
+adr = "decree.cli:main"
+doc = "decree.cli:doc_main"
 ```
 
 **Step 3: Run ALL tests, commit**
@@ -1222,7 +1222,7 @@ ADR-0003 gets superseded by ADR-0004.
 Lint catches the stale reference chain.
 """
 import argparse
-from madr_tools.commands import new, status, lint
+from decree.commands import new, status, lint
 
 
 def test_killer_combination(monkeypatch, tmp_path):
@@ -1339,7 +1339,7 @@ implement = "implemented"
 
 **Step 2: Run the integration test**
 
-Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/madr-tools && uv run pytest tests/test_integration.py -v`
+Run: `cd /Users/doruk/Desktop/SIDE_HUSTLE/decree && uv run pytest tests/test_integration.py -v`
 Expected: PASS — all tasks are implemented, the full chain works
 
 **Step 3: Commit**
@@ -1368,7 +1368,7 @@ git commit -m "test: end-to-end killer combination — cross-type references and
 
 ## Not In Scope (Future)
 
-- Package rename from `madr-tools` to something generic
+- Package rename from `decree` to something generic
 - Typed relationships (e.g., `implements: PRD-001` vs generic `references`)
 - `doc query` command
 - doctrace integration (separate tool, reads same files)

@@ -1,9 +1,9 @@
 """Transition document status: accept, reject, deprecate, supersede, or any custom action."""
 import argparse
 
-from madr_tools.log import info, error, success, fail
-from madr_tools.parser import find_by_id, save
-from madr_tools.commands import index
+from decree.log import info, error, success, fail
+from decree.parser import find_by_id, save
+from decree.commands import index
 
 
 def run(args: argparse.Namespace) -> int:
@@ -14,7 +14,7 @@ def run(args: argparse.Namespace) -> int:
     doc_id = getattr(args, "doc_id", None) or getattr(args, "adr_id", None)
 
     # Resolve DocType from the ID prefix
-    from madr_tools.config import find_doc_type
+    from decree.config import find_doc_type
     try:
         doc_type = find_doc_type(doc_id)
     except ValueError as e:
