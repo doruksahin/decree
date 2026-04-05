@@ -23,5 +23,28 @@ def main() -> int:
     commands = {"new": new.run, "status": status.run, "lint": lint.run, "index": index.run, "graph": graph.run}
     return commands[args.command](args)
 
+def doc_main() -> int:
+    """Multi-type document CLI."""
+    parser = argparse.ArgumentParser(prog="doc", description="Structured document management toolkit")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    p_new = subparsers.add_parser("new")
+    p_new.add_argument("doc_type", help="Document type (adr, prd, spec, ...)")
+    p_new.add_argument("title", help="Title of the document")
+
+    p_status = subparsers.add_parser("status")
+    p_status.add_argument("doc_id", help="Document ID (e.g., ADR-0001, PRD-001)")
+    p_status.add_argument("action", help="Action to perform (e.g., accept, approve)")
+    p_status.add_argument("target_id", nargs="?", default=None)
+
+    subparsers.add_parser("lint")
+    subparsers.add_parser("index")
+    subparsers.add_parser("graph")
+
+    args = parser.parse_args()
+    commands = {"new": new.run, "status": status.run, "lint": lint.run, "index": index.run, "graph": graph.run}
+    return commands[args.command](args)
+
+
 if __name__ == "__main__":
     sys.exit(main())

@@ -22,9 +22,11 @@ def project_dir(tmp_path):
 @pytest.fixture(autouse=True)
 def reset_caches():
     """Clear lru_cache between tests."""
-    from madr_tools.config import get_project_root, _load_project_config
+    from madr_tools.config import get_project_root, _load_project_config, load_doc_types
     get_project_root.cache_clear()
     _load_project_config.cache_clear()
+    load_doc_types.cache_clear()
     yield
     get_project_root.cache_clear()
     _load_project_config.cache_clear()
+    load_doc_types.cache_clear()

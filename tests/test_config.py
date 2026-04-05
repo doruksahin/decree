@@ -3,6 +3,8 @@
 import pytest
 from pathlib import Path
 
+from madr_tools.config import load_doc_types, find_doc_type
+
 from madr_tools.config import (
     STATUSES, VALID_TRANSITIONS, STATUS_FIELD_REQUIREMENTS,
     MADR_REQUIRED_SECTIONS, OPTIONAL_SECTIONS, MADR_SECTION_DESCRIPTIONS,
@@ -83,3 +85,140 @@ class TestProjectConfig:
         )
         path = get_template_path()
         assert path == custom
+
+
+class TestLoadDocTypes:
+    def test_from_tool_doc(self, tmp_path, monkeypatch):
+        """[tool.doc.types.*] loads multiple types."""
+        (tmp_path / "pyproject.toml").write_text("""\
+[project]
+name = "test"
+
+[tool.doc.types.adr]
+dir = "docs/adr"
+prefix = "ADR"
+digits = 4
+initial_status = "proposed"
+statuses = ["proposed", "accepted", "rejected"]
+required_sections = ["Context and Problem Statement"]
+
+[tool.doc.types.adr.transitions]
+proposed = ["accepted", "rejected"]
+accepted = []
+rejected = []
+
+[tool.doc.types.adr.actions]
+accept = "accepted"
+reject = "rejected"
+
+[tool.doc.types.prd]
+dir = "docs/prd"
+prefix = "PRD"
+digits = 3
+initial_status = "draft"
+statuses = ["draft", "approved"]
+required_sections = ["Problem Statement", "Requirements"]
+
+[tool.doc.types.prd.transitions]
+draft = ["approved"]
+approved = []
+
+[tool.doc.types.prd.actions]
+approve = "approved"
+""")
+        monkeypatch.chdir(tmp_path)
+        types = load_doc_types()
+        assert len(types) == 2
+        names = {t.name for t in types}
+        assert names == {"adr", "prd"}
+
+    def test_fallback_to_tool_adr(self, tmp_path, monkeypatch):
+        """If no [tool.doc], falls back to [tool.adr] → single ADR type."""
+        (tmp_path / "pyproject.toml").write_text("""\
+[project]
+name = "test"
+
+[tool.adr]
+adr_dir = "my/adrs"
+project_sections = ["Consequences"]
+""")
+        monkeypatch.chdir(tmp_path)
+        types = load_doc_types()
+        assert len(types) == 1
+        assert types[0].name == "adr"
+        assert types[0].dir == "my/adrs"
+        assert "Consequences" in types[0].required_sections
+
+    def test_no_config_returns_adr_default(self, tmp_path, monkeypatch):
+        """If no [tool.doc] and no [tool.adr], returns ADR_DEFAULT."""
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "test"\n')
+        monkeypatch.chdir(tmp_path)
+        types = load_doc_types()
+        assert len(types) == 1
+        assert types[0].name == "adr"
+        assert types[0].prefix == "ADR"
+
+    def test_validates_transitions_match_statuses(self, tmp_path, monkeypatch):
+        """Transitions must only reference defined statuses."""
+        (tmp_path / "pyproject.toml").write_text("""\
+[project]
+name = "test"
+
+[tool.doc.types.bad]
+dir = "docs/bad"
+prefix = "BAD"
+digits = 3
+initial_status = "draft"
+statuses = ["draft", "done"]
+required_sections = []
+
+[tool.doc.types.bad.transitions]
+draft = ["nonexistent"]
+done = []
+
+[tool.doc.types.bad.actions]
+finish = "done"
+""")
+        monkeypatch.chdir(tmp_path)
+        with pytest.raises(ValueError, match="nonexistent"):
+            load_doc_types()
+
+    def test_find_by_prefix(self, tmp_path, monkeypatch):
+        """Can look up a type by its prefix."""
+        (tmp_path / "pyproject.toml").write_text("""\
+[project]
+name = "test"
+
+[tool.doc.types.adr]
+dir = "docs/adr"
+prefix = "ADR"
+digits = 4
+initial_status = "proposed"
+statuses = ["proposed", "accepted"]
+required_sections = []
+
+[tool.doc.types.adr.transitions]
+proposed = ["accepted"]
+accepted = []
+
+[tool.doc.types.adr.actions]
+accept = "accepted"
+
+[tool.doc.types.prd]
+dir = "docs/prd"
+prefix = "PRD"
+digits = 3
+initial_status = "draft"
+statuses = ["draft", "approved"]
+required_sections = []
+
+[tool.doc.types.prd.transitions]
+draft = ["approved"]
+approved = []
+
+[tool.doc.types.prd.actions]
+approve = "approved"
+""")
+        monkeypatch.chdir(tmp_path)
+        assert find_doc_type("ADR-0001").name == "adr"
+        assert find_doc_type("PRD-001").name == "prd"

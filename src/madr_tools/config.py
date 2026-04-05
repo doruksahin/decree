@@ -159,3 +159,104 @@ ADR_REF_RE = re.compile(r"^ADR-\d{4}$")
 # ── Defensive assertions (core only) ─────────────────────
 assert set(STATUS_FIELD_REQUIREMENTS) == set(STATUSES)
 assert set(VALID_TRANSITIONS) == set(STATUSES)
+
+
+# ── Multi-type DocType loading ────────────────────────────
+
+@functools.lru_cache(maxsize=1)
+def load_doc_types():
+    """Load document types from [tool.doc.types.*] or fall back to [tool.adr]."""
+    from .doctypes import DocType, ADR_DEFAULT
+    pyproject = get_project_root() / "pyproject.toml"
+    with open(pyproject, "rb") as f:
+        data = tomllib.load(f)
+
+    tool = data.get("tool", {})
+    doc_config = tool.get("doc", {}).get("types", {})
+
+    if doc_config:
+        return tuple(_build_doc_type(name, cfg) for name, cfg in doc_config.items())
+
+    # Fallback: build ADR type from [tool.adr]
+    adr_cfg = tool.get("adr", {})
+    if adr_cfg:
+        return (_adr_from_legacy_config(adr_cfg),)
+
+    return (ADR_DEFAULT,)
+
+
+def find_doc_type(doc_id: str):
+    """Look up the DocType for a given document ID (e.g., 'ADR-0001' → adr type)."""
+    for dt in load_doc_types():
+        if dt.ref_re.match(doc_id):
+            return dt
+    raise ValueError(f"No document type matches ID '{doc_id}'")
+
+
+def _build_doc_type(name: str, cfg: dict):
+    """Build a DocType from a [tool.doc.types.*] config section."""
+    from .doctypes import DocType
+    statuses = tuple(cfg["statuses"])
+    transitions = {k: tuple(v) for k, v in cfg.get("transitions", {}).items()}
+
+    # Validate transitions reference valid statuses
+    for src, targets in transitions.items():
+        if src not in statuses:
+            raise ValueError(f"Type '{name}': transition source '{src}' not in statuses")
+        for t in targets:
+            if t not in statuses:
+                raise ValueError(
+                    f"Type '{name}': transition target '{t}' not in statuses {statuses}"
+                )
+
+    # Fill missing terminal statuses
+    for s in statuses:
+        if s not in transitions:
+            transitions[s] = ()
+
+    return DocType(
+        name=name,
+        prefix=cfg["prefix"],
+        digits=cfg.get("digits", 4),
+        dir=cfg.get("dir", f"docs/{name}"),
+        initial_status=cfg.get("initial_status", statuses[0]),
+        statuses=statuses,
+        transitions=transitions,
+        actions=cfg.get("actions", {}),
+        warn_on_reference=tuple(cfg.get("warn_on_reference", ())),
+        required_sections=tuple(cfg.get("required_sections", ())),
+        status_field_requirements=_parse_field_requirements(cfg),
+        section_descriptions=cfg.get("section_descriptions", {}),
+        template=cfg.get("template"),
+    )
+
+
+def _adr_from_legacy_config(cfg: dict):
+    """Build ADR DocType from legacy [tool.adr] config."""
+    from .doctypes import ADR_DEFAULT
+    extra_sections = tuple(cfg.get("project_sections", ()))
+    from .doctypes import DocType
+    return DocType(
+        name=ADR_DEFAULT.name,
+        prefix=ADR_DEFAULT.prefix,
+        digits=ADR_DEFAULT.digits,
+        dir=cfg.get("adr_dir", ADR_DEFAULT.dir),
+        initial_status=ADR_DEFAULT.initial_status,
+        statuses=ADR_DEFAULT.statuses,
+        transitions=ADR_DEFAULT.transitions,
+        actions=ADR_DEFAULT.actions,
+        required_sections=(*ADR_DEFAULT.required_sections, *extra_sections),
+        warn_on_reference=ADR_DEFAULT.warn_on_reference,
+        status_field_requirements=ADR_DEFAULT.status_field_requirements,
+        section_descriptions={
+            **ADR_DEFAULT.section_descriptions,
+            **cfg.get("project_section_descriptions", {}),
+        },
+        template=cfg.get("template"),
+    )
+
+
+def _parse_field_requirements(cfg: dict) -> dict[str, tuple[str, ...]]:
+    """Parse status_field_requirements from config, defaulting to empty."""
+    raw = cfg.get("status_field_requirements", {})
+    return {k: tuple(v) for k, v in raw.items()}

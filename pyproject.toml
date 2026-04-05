@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 adr = "madr_tools.cli:main"
+doc = "madr_tools.cli:doc_main"
 
 [build-system]
 requires = ["hatchling"]
