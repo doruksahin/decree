@@ -9,8 +9,7 @@ from decree.config import (
     STATUSES, VALID_TRANSITIONS, STATUS_FIELD_REQUIREMENTS,
     MADR_REQUIRED_SECTIONS, OPTIONAL_SECTIONS, MADR_SECTION_DESCRIPTIONS,
     FILENAME_RE, SLUG_RE, ADR_REF_RE,
-    get_project_root, get_adr_dir, get_required_sections,
-    get_section_descriptions, get_template_path,
+    get_project_root,
 )
 
 
@@ -51,50 +50,33 @@ class TestProjectConfig:
         monkeypatch.chdir(project_dir)
         assert get_project_root() == project_dir
 
-    def test_get_adr_dir(self, project_dir, monkeypatch):
-        monkeypatch.chdir(project_dir)
-        assert get_adr_dir() == project_dir / "docs" / "adr"
-
-    def test_get_required_sections_includes_project(self, project_dir, monkeypatch):
-        monkeypatch.chdir(project_dir)
-        sections = get_required_sections()
-        assert "Context and Problem Statement" in sections
-        assert "Consequences" in sections
-        assert "Affected Files" in sections
-
-    def test_get_required_sections_without_project_config(self, tmp_path, monkeypatch):
-        (tmp_path / "pyproject.toml").write_text('[project]\nname = "bare"\n')
+    def test_get_project_root_not_found(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        sections = get_required_sections()
-        assert sections == MADR_REQUIRED_SECTIONS
+        with pytest.raises(FileNotFoundError, match="decree.toml not found"):
+            get_project_root()
 
-    def test_get_template_path_default(self, project_dir, monkeypatch):
+    def test_load_doc_types_adr(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)
-        path = get_template_path()
-        assert path.name == "madr-v4.md"
+        types = load_doc_types()
+        assert len(types) == 1
+        adr = types[0]
+        assert adr.name == "adr"
+        assert adr.dir == "docs/adr"
 
-    def test_get_template_path_custom(self, project_dir, monkeypatch):
+    def test_load_doc_types_required_sections(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)
-        custom = project_dir / "my-template.md"
-        custom.write_text("---\nstatus: proposed\n---\n# Custom\n")
-        pyproject = project_dir / "pyproject.toml"
-        pyproject.write_text(
-            '[project]\nname = "test"\n\n'
-            '[tool.adr]\n'
-            'template = "my-template.md"\n'
-        )
-        path = get_template_path()
-        assert path == custom
+        types = load_doc_types()
+        adr = types[0]
+        assert "Context and Problem Statement" in adr.required_sections
+        assert "Consequences" in adr.required_sections
+        assert "Affected Files" in adr.required_sections
 
 
 class TestLoadDocTypes:
-    def test_from_tool_doc(self, tmp_path, monkeypatch):
-        """[tool.doc.types.*] loads multiple types."""
-        (tmp_path / "pyproject.toml").write_text("""\
-[project]
-name = "test"
-
-[tool.doc.types.adr]
+    def test_from_types_section(self, tmp_path, monkeypatch):
+        """[types.*] loads multiple types."""
+        (tmp_path / "decree.toml").write_text("""\
+[types.adr]
 dir = "docs/adr"
 prefix = "ADR"
 digits = 4
@@ -102,16 +84,16 @@ initial_status = "proposed"
 statuses = ["proposed", "accepted", "rejected"]
 required_sections = ["Context and Problem Statement"]
 
-[tool.doc.types.adr.transitions]
+[types.adr.transitions]
 proposed = ["accepted", "rejected"]
 accepted = []
 rejected = []
 
-[tool.doc.types.adr.actions]
+[types.adr.actions]
 accept = "accepted"
 reject = "rejected"
 
-[tool.doc.types.prd]
+[types.prd]
 dir = "docs/prd"
 prefix = "PRD"
 digits = 3
@@ -119,11 +101,11 @@ initial_status = "draft"
 statuses = ["draft", "approved"]
 required_sections = ["Problem Statement", "Requirements"]
 
-[tool.doc.types.prd.transitions]
+[types.prd.transitions]
 draft = ["approved"]
 approved = []
 
-[tool.doc.types.prd.actions]
+[types.prd.actions]
 approve = "approved"
 """)
         monkeypatch.chdir(tmp_path)
@@ -132,39 +114,23 @@ approve = "approved"
         names = {t.name for t in types}
         assert names == {"adr", "prd"}
 
-    def test_fallback_to_tool_adr(self, tmp_path, monkeypatch):
-        """If no [tool.doc], falls back to [tool.adr] → single ADR type."""
-        (tmp_path / "pyproject.toml").write_text("""\
-[project]
-name = "test"
-
-[tool.adr]
-adr_dir = "my/adrs"
-project_sections = ["Consequences"]
-""")
+    def test_no_types_raises(self, tmp_path, monkeypatch):
+        """If no [types.*] sections, raises ValueError."""
+        (tmp_path / "decree.toml").write_text("")
         monkeypatch.chdir(tmp_path)
-        types = load_doc_types()
-        assert len(types) == 1
-        assert types[0].name == "adr"
-        assert types[0].dir == "my/adrs"
-        assert "Consequences" in types[0].required_sections
+        with pytest.raises(ValueError, match="no \\[types\\.\\*\\] sections"):
+            load_doc_types()
 
-    def test_no_config_returns_adr_default(self, tmp_path, monkeypatch):
-        """If no [tool.doc] and no [tool.adr], returns ADR_DEFAULT."""
-        (tmp_path / "pyproject.toml").write_text('[project]\nname = "test"\n')
+    def test_no_decree_toml_raises(self, tmp_path, monkeypatch):
+        """If no decree.toml, raises FileNotFoundError."""
         monkeypatch.chdir(tmp_path)
-        types = load_doc_types()
-        assert len(types) == 1
-        assert types[0].name == "adr"
-        assert types[0].prefix == "ADR"
+        with pytest.raises(FileNotFoundError, match="decree.toml not found"):
+            load_doc_types()
 
     def test_validates_transitions_match_statuses(self, tmp_path, monkeypatch):
         """Transitions must only reference defined statuses."""
-        (tmp_path / "pyproject.toml").write_text("""\
-[project]
-name = "test"
-
-[tool.doc.types.bad]
+        (tmp_path / "decree.toml").write_text("""\
+[types.bad]
 dir = "docs/bad"
 prefix = "BAD"
 digits = 3
@@ -172,11 +138,11 @@ initial_status = "draft"
 statuses = ["draft", "done"]
 required_sections = []
 
-[tool.doc.types.bad.transitions]
+[types.bad.transitions]
 draft = ["nonexistent"]
 done = []
 
-[tool.doc.types.bad.actions]
+[types.bad.actions]
 finish = "done"
 """)
         monkeypatch.chdir(tmp_path)
@@ -185,11 +151,8 @@ finish = "done"
 
     def test_find_by_prefix(self, tmp_path, monkeypatch):
         """Can look up a type by its prefix."""
-        (tmp_path / "pyproject.toml").write_text("""\
-[project]
-name = "test"
-
-[tool.doc.types.adr]
+        (tmp_path / "decree.toml").write_text("""\
+[types.adr]
 dir = "docs/adr"
 prefix = "ADR"
 digits = 4
@@ -197,14 +160,14 @@ initial_status = "proposed"
 statuses = ["proposed", "accepted"]
 required_sections = []
 
-[tool.doc.types.adr.transitions]
+[types.adr.transitions]
 proposed = ["accepted"]
 accepted = []
 
-[tool.doc.types.adr.actions]
+[types.adr.actions]
 accept = "accepted"
 
-[tool.doc.types.prd]
+[types.prd]
 dir = "docs/prd"
 prefix = "PRD"
 digits = 3
@@ -212,11 +175,11 @@ initial_status = "draft"
 statuses = ["draft", "approved"]
 required_sections = []
 
-[tool.doc.types.prd.transitions]
+[types.prd.transitions]
 draft = ["approved"]
 approved = []
 
-[tool.doc.types.prd.actions]
+[types.prd.actions]
 approve = "approved"
 """)
         monkeypatch.chdir(tmp_path)

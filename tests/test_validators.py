@@ -3,13 +3,14 @@ import pytest
 from datetime import date
 from pathlib import Path
 
-from decree.parser import ADRFrontmatter, ADRDocument
+from decree.parser import DocFrontmatter, DocDocument
 from decree.validators import validate_sections, validate_cross_file_integrity
+from decree.doctypes import ADR_DEFAULT
 
 
 def _make_doc(adr_id_num="0001", status="proposed", body="# T\n", **fm_kwargs):
-    meta = ADRFrontmatter(status=status, date=date(2026, 4, 2), **fm_kwargs)
-    return ADRDocument(path=Path(f"/fake/{adr_id_num}-test.md"), meta=meta, body=body)
+    meta = DocFrontmatter(status=status, date=date(2026, 4, 2), **fm_kwargs)
+    return DocDocument(path=Path(f"/fake/{adr_id_num}-test.md"), meta=meta, body=body, doc_type=ADR_DEFAULT)
 
 
 class TestValidateSections:

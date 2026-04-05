@@ -11,9 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-adr = "decree.cli:main"
-doc = "decree.cli:doc_main"
-decree = "decree.cli:doc_main"
+decree = "decree.cli:main"
 
 [build-system]
 requires = ["hatchling"]

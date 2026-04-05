@@ -15,9 +15,7 @@ from pydantic import ValidationInfo
 from .config import (
     STATUSES, STATUS_FIELD_REQUIREMENTS,
     ADR_REF_RE, DATE_FORMAT, FILENAME_RE,
-    get_adr_dir, get_required_sections,
 )
-from .doctypes import ADR_DEFAULT
 
 
 class DocFrontmatter(BaseModel):
@@ -62,7 +60,7 @@ class DocFrontmatter(BaseModel):
         if doc_type is not None:
             pattern = doc_type.ref_re
         else:
-            pattern = ADR_REF_RE  # backward compat
+            pattern = ADR_REF_RE
         if not pattern.match(v):
             if doc_type is not None:
                 fmt = f"{doc_type.prefix}-{'N' * doc_type.digits}"
@@ -99,10 +97,6 @@ class DocFrontmatter(BaseModel):
         return instance
 
 
-# Backward compat alias
-ADRFrontmatter = DocFrontmatter
-
-
 class DocDocument:
     """A parsed document file: validated frontmatter + markdown body."""
 
@@ -110,7 +104,7 @@ class DocDocument:
         self.path = path
         self.meta = meta
         self.body = body
-        self.doc_type = doc_type  # None → backward compat (ADR-style)
+        self.doc_type = doc_type
 
     @property
     def doc_id(self) -> str:
@@ -122,7 +116,6 @@ class DocDocument:
                 )
             return self.doc_type.format_id(int(match.group(1)))
         else:
-            # Backward compat: ADR-style
             match = FILENAME_RE.match(self.path.name)
             if not match:
                 raise ValueError(f"Invalid ADR filename: {self.path.name}")
@@ -130,7 +123,7 @@ class DocDocument:
 
     @property
     def adr_id(self) -> str:
-        """Backward compat alias for doc_id."""
+        """Alias for doc_id."""
         return self.doc_id
 
     @property
@@ -166,36 +159,28 @@ class DocDocument:
         if self.doc_type is not None:
             required = self.doc_type.required_sections
         else:
-            required = get_required_sections()
+            from .config import MADR_REQUIRED_SECTIONS
+            required = MADR_REQUIRED_SECTIONS
         present = set(self.sections)
         return [s for s in required if s not in present]
 
 
-# Backward compat alias
-ADRDocument = DocDocument
-
-
 def load(path: Path, doc_type=None) -> DocDocument:
-    """Load a document file. doc_type=None → ADR backward compat (uses module-level STATUSES)."""
+    """Load a document file."""
     post = frontmatter.load(str(path))
     context = {"doc_type": doc_type} if doc_type is not None else None
     meta = DocFrontmatter.model_validate(post.metadata, context=context)
     return DocDocument(path=path, meta=meta, body=post.content, doc_type=doc_type)
 
 
-def load_all(*, strict: bool = True, doc_type=None) -> list[DocDocument]:
-    """Load all docs for a single type. Defaults to ADR if no doc_type given."""
+def load_all(*, strict: bool = True, doc_type) -> list[DocDocument]:
+    """Load all docs for a single type."""
     from .log import error as log_error
-    if doc_type is None:
-        # Legacy path: use get_adr_dir() and FILENAME_RE
-        adr_dir = get_adr_dir()
-        paths = sorted(p for p in adr_dir.glob("[0-9]*.md") if FILENAME_RE.match(p.name))
-    else:
-        from .config import get_project_root
-        type_dir = get_project_root() / doc_type.dir
-        paths = sorted(
-            p for p in type_dir.glob("[0-9]*.md") if doc_type.filename_re.match(p.name)
-        )
+    from .config import get_project_root
+    type_dir = get_project_root() / doc_type.dir
+    paths = sorted(
+        p for p in type_dir.glob("[0-9]*.md") if doc_type.filename_re.match(p.name)
+    )
     docs = []
     for p in paths:
         try:
@@ -230,22 +215,10 @@ def load_all_types(*, strict: bool = True) -> list[DocDocument]:
 def find_by_id(doc_id: str) -> DocDocument:
     """Find a document by ID, auto-detecting type from the ID prefix."""
     from .config import find_doc_type, get_project_root
-    try:
-        doc_type = find_doc_type(doc_id)
-    except ValueError:
-        # Fallback: try ADR-style for backward compat
-        if not ADR_REF_RE.match(doc_id):
-            raise ValueError(f"Invalid document ID format: '{doc_id}'.")
-        doc_type = None
-
-    if doc_type is not None:
-        number_str = doc_id.split("-", 1)[1]
-        type_dir = get_project_root() / doc_type.dir
-        matches = list(type_dir.glob(f"{number_str}-*.md"))
-    else:
-        number = doc_id.split("-")[1]  # "ADR-0001" -> "0001"
-        adr_dir = get_adr_dir()
-        matches = list(adr_dir.glob(f"{number}-*.md"))
+    doc_type = find_doc_type(doc_id)
+    number_str = doc_id.split("-", 1)[1]
+    type_dir = get_project_root() / doc_type.dir
+    matches = list(type_dir.glob(f"{number_str}-*.md"))
 
     if not matches:
         raise FileNotFoundError(f"{doc_id} not found")
@@ -262,17 +235,6 @@ def next_number(doc_type) -> int:
         int(m.group(1))
         for p in type_dir.glob("[0-9]*.md")
         if (m := doc_type.filename_re.match(p.name))
-    ]
-    return max(existing, default=0) + 1
-
-
-def next_adr_number() -> int:
-    """Backward compat: next ADR number."""
-    adr_dir = get_adr_dir()
-    existing = [
-        int(m.group(1))
-        for p in adr_dir.glob("[0-9]*.md")
-        if (m := FILENAME_RE.match(p.name))
     ]
     return max(existing, default=0) + 1
 

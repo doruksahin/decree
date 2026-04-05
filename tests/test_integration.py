@@ -10,10 +10,7 @@ from decree.commands import new, status, lint
 
 
 MULTI_TYPE_CONFIG = """\
-[project]
-name = "test-project"
-
-[tool.doc.types.adr]
+[types.adr]
 dir = "docs/adr"
 prefix = "ADR"
 digits = 4
@@ -22,23 +19,23 @@ statuses = ["proposed", "accepted", "rejected", "deprecated", "superseded"]
 required_sections = ["Context and Problem Statement", "Considered Options", "Decision Outcome"]
 warn_on_reference = ["rejected", "deprecated", "superseded"]
 
-[tool.doc.types.adr.transitions]
+[types.adr.transitions]
 proposed = ["accepted", "rejected"]
 accepted = ["deprecated", "superseded"]
 rejected = []
 deprecated = []
 superseded = []
 
-[tool.doc.types.adr.actions]
+[types.adr.actions]
 accept = "accepted"
 reject = "rejected"
 deprecate = "deprecated"
 supersede = "superseded"
 
-[tool.doc.types.adr.status_field_requirements]
+[types.adr.status_field_requirements]
 superseded = ["superseded-by"]
 
-[tool.doc.types.prd]
+[types.prd]
 dir = "docs/prd"
 prefix = "PRD"
 digits = 3
@@ -46,18 +43,18 @@ initial_status = "draft"
 statuses = ["draft", "review", "approved", "implemented"]
 required_sections = ["Problem Statement", "Requirements", "Success Criteria"]
 
-[tool.doc.types.prd.transitions]
+[types.prd.transitions]
 draft = ["review"]
 review = ["approved", "draft"]
 approved = ["implemented"]
 implemented = []
 
-[tool.doc.types.prd.actions]
+[types.prd.actions]
 submit = "review"
 approve = "approved"
 implement = "implemented"
 
-[tool.doc.types.spec]
+[types.spec]
 dir = "docs/spec"
 prefix = "SPEC"
 digits = 3
@@ -65,12 +62,12 @@ initial_status = "draft"
 statuses = ["draft", "approved", "implemented"]
 required_sections = ["Overview", "Technical Design", "Testing Strategy"]
 
-[tool.doc.types.spec.transitions]
+[types.spec.transitions]
 draft = ["approved"]
 approved = ["implemented"]
 implemented = []
 
-[tool.doc.types.spec.actions]
+[types.spec.actions]
 approve = "approved"
 implement = "implemented"
 """
@@ -86,8 +83,7 @@ def _add_references(path, refs):
 
 def test_killer_combination(monkeypatch, tmp_path):
     # 1. Set up multi-type project
-    pyproject = tmp_path / "pyproject.toml"
-    pyproject.write_text(MULTI_TYPE_CONFIG)
+    (tmp_path / "decree.toml").write_text(MULTI_TYPE_CONFIG)
     (tmp_path / "docs" / "adr").mkdir(parents=True)
     (tmp_path / "docs" / "prd").mkdir(parents=True)
     (tmp_path / "docs" / "spec").mkdir(parents=True)

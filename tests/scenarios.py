@@ -46,10 +46,7 @@ Relationship graph for the happy-path fixture:
 # "implemented" is terminal but healthy. "rejected" is terminal and dead.
 
 MULTI_TYPE_CONFIG = """\
-[project]
-name = "saas-app"
-
-[tool.doc.types.adr]
+[types.adr]
 dir = "docs/adr"
 prefix = "ADR"
 digits = 4
@@ -58,23 +55,23 @@ statuses = ["proposed", "accepted", "rejected", "deprecated", "superseded"]
 warn_on_reference = ["rejected", "deprecated", "superseded"]
 required_sections = ["Context and Problem Statement", "Considered Options", "Decision Outcome"]
 
-[tool.doc.types.adr.transitions]
+[types.adr.transitions]
 proposed = ["accepted", "rejected"]
 accepted = ["deprecated", "superseded"]
 rejected = []
 deprecated = []
 superseded = []
 
-[tool.doc.types.adr.actions]
+[types.adr.actions]
 accept = "accepted"
 reject = "rejected"
 deprecate = "deprecated"
 supersede = "superseded"
 
-[tool.doc.types.adr.status_field_requirements]
+[types.adr.status_field_requirements]
 superseded = ["superseded-by"]
 
-[tool.doc.types.prd]
+[types.prd]
 dir = "docs/prd"
 prefix = "PRD"
 digits = 3
@@ -83,20 +80,20 @@ statuses = ["draft", "review", "approved", "implemented", "archived"]
 warn_on_reference = ["archived"]
 required_sections = ["Problem Statement", "Requirements", "Success Criteria"]
 
-[tool.doc.types.prd.transitions]
+[types.prd.transitions]
 draft = ["review"]
 review = ["approved", "draft"]
 approved = ["implemented", "archived"]
 implemented = ["archived"]
 archived = []
 
-[tool.doc.types.prd.actions]
+[types.prd.actions]
 submit = "review"
 approve = "approved"
 implement = "implemented"
 archive = "archived"
 
-[tool.doc.types.spec]
+[types.spec]
 dir = "docs/spec"
 prefix = "SPEC"
 digits = 3
@@ -105,13 +102,13 @@ statuses = ["draft", "review", "approved", "implemented"]
 warn_on_reference = []
 required_sections = ["Overview", "Technical Design", "Testing Strategy"]
 
-[tool.doc.types.spec.transitions]
+[types.spec.transitions]
 draft = ["review"]
 review = ["approved", "draft"]
 approved = ["implemented"]
 implemented = []
 
-[tool.doc.types.spec.actions]
+[types.spec.actions]
 submit = "review"
 approve = "approved"
 implement = "implemented"
@@ -206,8 +203,8 @@ def _slug(title):
 # ── Project scaffolding ──────────────────────────────────────
 
 def scaffold_project(tmp_path):
-    """Create the pyproject.toml and empty doc directories."""
-    (tmp_path / "pyproject.toml").write_text(MULTI_TYPE_CONFIG)
+    """Create the decree.toml and empty doc directories."""
+    (tmp_path / "decree.toml").write_text(MULTI_TYPE_CONFIG)
     for d in ("docs/adr", "docs/prd", "docs/spec"):
         (tmp_path / d).mkdir(parents=True, exist_ok=True)
     return tmp_path

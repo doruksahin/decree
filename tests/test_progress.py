@@ -83,19 +83,31 @@ class TestPct:
 
 class TestProgressRun:
     def test_no_documents(self, tmp_path, monkeypatch):
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('[project]\nname = "test"\n')
+        decree_toml = tmp_path / "decree.toml"
+        decree_toml.write_text("""\
+[types.adr]
+dir = "docs/adr"
+prefix = "ADR"
+digits = 4
+initial_status = "proposed"
+statuses = ["proposed", "accepted"]
+required_sections = []
+
+[types.adr.transitions]
+proposed = ["accepted"]
+accepted = []
+
+[types.adr.actions]
+accept = "accepted"
+""")
         monkeypatch.chdir(tmp_path)
         result = run(None)
         assert result == 0
 
     def test_documents_with_checkboxes(self, tmp_path, monkeypatch):
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text("""\
-[project]
-name = "test"
-
-[tool.doc.types.prd]
+        decree_toml = tmp_path / "decree.toml"
+        decree_toml.write_text("""\
+[types.prd]
 dir = "decree/prd"
 prefix = "PRD"
 digits = 3
@@ -103,10 +115,12 @@ initial_status = "draft"
 statuses = ["draft", "approved"]
 warn_on_reference = []
 required_sections = ["Problem Statement", "Requirements", "Success Criteria"]
-[tool.doc.types.prd.transitions]
+
+[types.prd.transitions]
 draft = ["approved"]
 approved = []
-[tool.doc.types.prd.actions]
+
+[types.prd.actions]
 approve = "approved"
 """)
         prd_dir = tmp_path / "decree" / "prd"

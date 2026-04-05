@@ -1,9 +1,13 @@
 """
-MADR v4.0.0 format rules — core defaults + project overrides.
+Decree configuration — loaded from decree.toml at project root.
 
-Core rules (statuses, transitions, MADR sections) are hardcoded.
-Project-specific extensions (extra sections, adr_dir) are loaded
-from pyproject.toml [tool.adr] at runtime.
+Config schema:
+    [types.<name>]
+    dir = "decree/adr"
+    prefix = "ADR"
+    ...
+
+decree.toml is the only supported config format. No pyproject.toml fallback.
 """
 
 import functools
@@ -22,48 +26,13 @@ MADR_SPEC_VERSION = "4.0.0"
 
 @functools.lru_cache(maxsize=1)
 def get_project_root() -> Path:
-    """Walk up from cwd to find the directory containing pyproject.toml."""
+    """Walk up from cwd to find the directory containing decree.toml."""
     for parent in (Path.cwd(), *Path.cwd().parents):
-        if (parent / "pyproject.toml").exists():
+        if (parent / "decree.toml").exists():
             return parent
-    raise FileNotFoundError("Could not find pyproject.toml in any parent directory")
-
-
-@functools.lru_cache(maxsize=1)
-def _load_project_config() -> dict:
-    """Load [tool.adr] from the consuming project's pyproject.toml."""
-    pyproject = get_project_root() / "pyproject.toml"
-    with open(pyproject, "rb") as f:
-        data = tomllib.load(f)
-    return data.get("tool", {}).get("adr", {})
-
-
-# ── Paths (project-configurable) ─────────────────────────
-
-
-def get_adr_dir() -> Path:
-    cfg = _load_project_config()
-    rel = cfg.get("adr_dir", "docs/adr")
-    return get_project_root() / rel
-
-
-def get_adr_index_file() -> Path:
-    return get_adr_dir() / "index.md"
-
-
-TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
-DEFAULT_TEMPLATE = "madr-v4.md"
-
-
-def get_template_path() -> Path:
-    """Return project-override template or default."""
-    cfg = _load_project_config()
-    custom = cfg.get("template")
-    if custom:
-        p = get_project_root() / custom
-        if p.exists():
-            return p
-    return TEMPLATE_DIR / DEFAULT_TEMPLATE
+    raise FileNotFoundError(
+        "decree.toml not found. Run 'decree init' or create one."
+    )
 
 
 # ── Frontmatter (core) ───────────────────────────────────
@@ -102,22 +71,12 @@ STATUS_FIELD_REQUIREMENTS = {
 #   - If supersedes is present, the referenced ADR file must exist
 #   - If superseded-by is present, the referenced ADR file must exist
 
-# ── Sections (core + project-configurable) ────────────────
+# ── Sections (core) ──────────────────────────────────────
 MADR_REQUIRED_SECTIONS = (
     "Context and Problem Statement",
     "Considered Options",
     "Decision Outcome",
 )
-
-
-def get_project_sections() -> tuple[str, ...]:
-    cfg = _load_project_config()
-    return tuple(cfg.get("project_sections", ()))
-
-
-def get_required_sections() -> tuple[str, ...]:
-    return (*MADR_REQUIRED_SECTIONS, *get_project_sections())
-
 
 OPTIONAL_SECTIONS = (
     "Decision Drivers",
@@ -125,7 +84,7 @@ OPTIONAL_SECTIONS = (
     "More Information",
 )
 
-# ── Section descriptions (core + project-configurable) ────
+# ── Section descriptions (core) ──────────────────────────
 MADR_SECTION_DESCRIPTIONS = {
     "Context and Problem Statement": "What is the issue or force motivating this decision?",
     "Considered Options": (
@@ -140,13 +99,6 @@ MADR_SECTION_DESCRIPTIONS = {
     "Pros and Cons of the Options": "Detailed per-option pros/cons as H3 subsections.",
     "More Information": "Links to related ADRs, external references, meeting notes.",
 }
-
-
-def get_section_descriptions() -> dict[str, str]:
-    cfg = _load_project_config()
-    project_descs = cfg.get("project_section_descriptions", {})
-    return {**MADR_SECTION_DESCRIPTIONS, **project_descs}
-
 
 # ── File naming ───────────────────────────────────────────
 FILENAME_RE = re.compile(r"^(\d{4})-.+\.md$")  # e.g. 0001-use-pulp-solver.md
@@ -165,24 +117,19 @@ assert set(VALID_TRANSITIONS) == set(STATUSES)
 
 @functools.lru_cache(maxsize=1)
 def load_doc_types():
-    """Load document types from [tool.doc.types.*] or fall back to [tool.adr]."""
-    from .doctypes import DocType, ADR_DEFAULT
-    pyproject = get_project_root() / "pyproject.toml"
-    with open(pyproject, "rb") as f:
+    """Load document types from [types.*] in decree.toml."""
+    decree_toml = get_project_root() / "decree.toml"
+    with open(decree_toml, "rb") as f:
         data = tomllib.load(f)
 
-    tool = data.get("tool", {})
-    doc_config = tool.get("doc", {}).get("types", {})
+    types_config = data.get("types", {})
+    if not types_config:
+        raise ValueError(
+            "decree.toml has no [types.*] sections. "
+            "Define at least one document type."
+        )
 
-    if doc_config:
-        return tuple(_build_doc_type(name, cfg) for name, cfg in doc_config.items())
-
-    # Fallback: build ADR type from [tool.adr]
-    adr_cfg = tool.get("adr", {})
-    if adr_cfg:
-        return (_adr_from_legacy_config(adr_cfg),)
-
-    return (ADR_DEFAULT,)
+    return tuple(_build_doc_type(name, cfg) for name, cfg in types_config.items())
 
 
 def find_doc_type(doc_id: str):
@@ -194,7 +141,7 @@ def find_doc_type(doc_id: str):
 
 
 def _build_doc_type(name: str, cfg: dict):
-    """Build a DocType from a [tool.doc.types.*] config section."""
+    """Build a DocType from a [types.*] config section."""
     from .doctypes import DocType
     statuses = tuple(cfg["statuses"])
     transitions = {k: tuple(v) for k, v in cfg.get("transitions", {}).items()}
@@ -227,31 +174,6 @@ def _build_doc_type(name: str, cfg: dict):
         required_sections=tuple(cfg.get("required_sections", ())),
         status_field_requirements=_parse_field_requirements(cfg),
         section_descriptions=cfg.get("section_descriptions", {}),
-        template=cfg.get("template"),
-    )
-
-
-def _adr_from_legacy_config(cfg: dict):
-    """Build ADR DocType from legacy [tool.adr] config."""
-    from .doctypes import ADR_DEFAULT
-    extra_sections = tuple(cfg.get("project_sections", ()))
-    from .doctypes import DocType
-    return DocType(
-        name=ADR_DEFAULT.name,
-        prefix=ADR_DEFAULT.prefix,
-        digits=ADR_DEFAULT.digits,
-        dir=cfg.get("adr_dir", ADR_DEFAULT.dir),
-        initial_status=ADR_DEFAULT.initial_status,
-        statuses=ADR_DEFAULT.statuses,
-        transitions=ADR_DEFAULT.transitions,
-        actions=ADR_DEFAULT.actions,
-        required_sections=(*ADR_DEFAULT.required_sections, *extra_sections),
-        warn_on_reference=ADR_DEFAULT.warn_on_reference,
-        status_field_requirements=ADR_DEFAULT.status_field_requirements,
-        section_descriptions={
-            **ADR_DEFAULT.section_descriptions,
-            **cfg.get("project_section_descriptions", {}),
-        },
         template=cfg.get("template"),
     )
 

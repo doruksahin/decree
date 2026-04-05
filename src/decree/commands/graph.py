@@ -1,13 +1,11 @@
-"""Generate Mermaid diagrams from ADR metadata.
+"""Generate Mermaid diagrams from document metadata.
 
-Writes directly to docs/adr/index.md, preserving hand-authored content
-above the GENERATED:adr-graph marker.
+Writes directly to each type's index.md, preserving hand-authored content
+above the GENERATED marker.
 """
 import argparse
 
-from decree.config import get_adr_dir
 from decree.log import info, error, success, fail
-from decree.parser import load_all
 
 
 MARKER = "<!-- GENERATED:adr-graph — do not edit below this line -->"
@@ -29,9 +27,10 @@ STATUS_COLORS = {
 }
 
 
-def _timeline(docs: list) -> str:
+def _timeline(docs: list, doc_type) -> str:
     """Generate a Mermaid timeline diagram."""
-    lines = ["timeline", "    title ADR Decision Timeline"]
+    type_upper = doc_type.name.upper()
+    lines = ["timeline", f"    title {type_upper} Decision Timeline"]
 
     by_date: dict[str, list] = {}
     for doc in docs:
@@ -42,9 +41,8 @@ def _timeline(docs: list) -> str:
         lines.append(f"    section {date_str}")
         for doc in by_date[date_str]:
             icon = STATUS_ICONS.get(doc.meta.status, "")
-            # Strip ADR-NNNN prefix from title for cleaner display
-            short_title = doc.title.replace(f"{doc.adr_id} ", "")
-            lines.append(f"        {doc.adr_id} {icon} : {short_title}")
+            short_title = doc.title.replace(f"{doc.doc_id} ", "")
+            lines.append(f"        {doc.doc_id} {icon} : {short_title}")
 
     return "\n".join(lines)
 
@@ -55,9 +53,9 @@ def _supersede_graph(docs: list) -> str | None:
 
     for doc in docs:
         if doc.meta.supersedes:
-            edges.append((doc.meta.supersedes, doc.adr_id))
+            edges.append((doc.meta.supersedes, doc.doc_id))
         if doc.meta.superseded_by:
-            edges.append((doc.adr_id, doc.meta.superseded_by))
+            edges.append((doc.doc_id, doc.meta.superseded_by))
 
     edges = list(set(edges))
 
@@ -69,11 +67,11 @@ def _supersede_graph(docs: list) -> str | None:
     for doc in docs:
         status = doc.meta.status
         color = STATUS_COLORS.get(status, "#8b949e")
-        short_title = doc.title.replace(f"{doc.adr_id} ", "")
+        short_title = doc.title.replace(f"{doc.doc_id} ", "")
         if len(short_title) > 40:
             short_title = short_title[:37] + "..."
-        lines.append(f'    {doc.adr_id}["{doc.adr_id}<br/>{short_title}"]')
-        lines.append(f"    style {doc.adr_id} fill:{color},color:#fff")
+        lines.append(f'    {doc.doc_id}["{doc.doc_id}<br/>{short_title}"]')
+        lines.append(f"    style {doc.doc_id} fill:{color},color:#fff")
 
     for src, dst in edges:
         lines.append(f"    {src} -->|superseded by| {dst}")
@@ -81,13 +79,14 @@ def _supersede_graph(docs: list) -> str | None:
     return "\n".join(lines)
 
 
-def _status_summary(docs: list) -> str:
-    """Generate a Mermaid pie chart of ADR statuses."""
+def _status_summary(docs: list, doc_type) -> str:
+    """Generate a Mermaid pie chart of document statuses."""
+    type_upper = doc_type.name.upper()
     counts: dict[str, int] = {}
     for doc in docs:
         counts[doc.meta.status] = counts.get(doc.meta.status, 0) + 1
 
-    lines = ['pie title ADR Status Distribution']
+    lines = [f'pie title {type_upper} Status Distribution']
     for status, count in sorted(counts.items()):
         lines.append(f'    "{status}" : {count}')
 
@@ -96,52 +95,62 @@ def _status_summary(docs: list) -> str:
 
 def run(args: argparse.Namespace | None = None) -> int:
     prefix = "graph"
+    from decree.config import load_doc_types, get_project_root
+    from decree.parser import load_all
 
-    docs = load_all(strict=False)
-    info(prefix, f"loaded {len(docs)} ADRs")
+    doc_types = load_doc_types()
+    total_diagrams = 0
 
-    if not docs:
-        info(prefix, "no ADRs found — nothing to graph")
-        return 0
+    for dt in doc_types:
+        type_dir = get_project_root() / dt.dir
+        if not type_dir.exists():
+            continue
 
-    # Read existing index and preserve content above marker
-    index_file = get_adr_dir() / "index.md"
-    if not index_file.exists():
-        error(prefix, f"{index_file} not found")
-        return 1
+        docs = load_all(strict=False, doc_type=dt)
+        info(prefix, f"loaded {len(docs)} {dt.name.upper()} documents")
 
-    content = index_file.read_text()
-    if MARKER not in content:
-        error(prefix, f"marker not found in {index_file}")
-        error(prefix, f"expected: {MARKER}")
-        fail("cannot regenerate — add marker to index.md first")
-        return 1
+        if not docs:
+            info(prefix, f"no {dt.name.upper()} documents found — skipping")
+            continue
 
-    header = content[:content.index(MARKER)]
+        index_file = type_dir / "index.md"
+        if not index_file.exists():
+            error(prefix, f"{index_file} not found")
+            return 1
 
-    # Generate diagrams
-    parts = [MARKER, ""]
+        content = index_file.read_text()
+        if MARKER not in content:
+            error(prefix, f"marker not found in {index_file}")
+            error(prefix, f"expected: {MARKER}")
+            fail("cannot regenerate — add marker to index.md first")
+            return 1
 
-    timeline = _timeline(docs)
-    parts.append("## Decision Timeline\n")
-    parts.append(f"```mermaid\n{timeline}\n```\n")
-    info(prefix, "generated timeline diagram")
+        header = content[:content.index(MARKER)]
 
-    graph = _supersede_graph(docs)
-    if graph:
-        parts.append("## Decision Chain\n")
-        parts.append(f"```mermaid\n{graph}\n```\n")
-        info(prefix, "generated supersede graph")
-    else:
-        info(prefix, "no supersede relationships — skipping decision chain")
+        # Generate diagrams
+        parts = [MARKER, ""]
 
-    pie = _status_summary(docs)
-    parts.append("## Status Distribution\n")
-    parts.append(f"```mermaid\n{pie}\n```\n")
-    info(prefix, "generated status distribution")
+        timeline = _timeline(docs, dt)
+        parts.append("## Decision Timeline\n")
+        parts.append(f"```mermaid\n{timeline}\n```\n")
+        info(prefix, f"generated timeline for {dt.name}")
 
-    # Write back
-    index_file.write_text(header + "\n".join(parts))
-    info(prefix, f"wrote {index_file}")
-    success(f"generated diagrams for {len(docs)} ADRs → {index_file}")
+        graph = _supersede_graph(docs)
+        if graph:
+            parts.append("## Decision Chain\n")
+            parts.append(f"```mermaid\n{graph}\n```\n")
+            info(prefix, f"generated supersede graph for {dt.name}")
+        else:
+            info(prefix, f"no supersede relationships for {dt.name} — skipping decision chain")
+
+        pie = _status_summary(docs, dt)
+        parts.append("## Status Distribution\n")
+        parts.append(f"```mermaid\n{pie}\n```\n")
+        info(prefix, f"generated status distribution for {dt.name}")
+
+        index_file.write_text(header + "\n".join(parts))
+        info(prefix, f"wrote {index_file}")
+        total_diagrams += 1
+
+    success(f"generated diagrams for {total_diagrams} type(s)")
     return 0

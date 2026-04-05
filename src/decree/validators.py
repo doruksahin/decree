@@ -1,7 +1,5 @@
 """Pure validation functions — no I/O, no side effects."""
 
-from .config import get_required_sections
-
 
 def validate_sections(doc) -> list[str]:
     """Check required sections are present. Returns list of error messages."""

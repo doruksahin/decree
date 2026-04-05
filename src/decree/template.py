@@ -1,7 +1,5 @@
 """Pure template rendering — no I/O."""
 
-from .config import get_project_sections, get_section_descriptions
-
 
 def render_template(
     template_content: str,
@@ -11,7 +9,7 @@ def render_template(
     today: str,
     doc_type=None,
 ) -> str:
-    """Fill template placeholders and append project sections."""
+    """Fill template placeholders and append any required sections not in the template."""
     digits = doc_type.digits if doc_type is not None else 4
     prefix = doc_type.prefix if doc_type is not None else "ADR"
     initial_status = doc_type.initial_status if doc_type is not None else "proposed"
@@ -24,13 +22,17 @@ def render_template(
     content = content.replace("__PREFIX__", prefix)
     content = content.replace("__INITIAL_STATUS__", initial_status)
 
-    # Append project sections (legacy [tool.adr] mechanism).
-    # In the new [tool.doc.types.*] config, templates already contain all sections.
-    project_sections = get_project_sections()
-    if project_sections:
-        descs = get_section_descriptions()
-        for section in project_sections:
-            desc = descs.get(section, "TODO")
-            content += f"\n## {section}\n\n{desc}\n"
+    # Append required sections that the template doesn't already contain.
+    if doc_type is not None:
+        existing_sections = {
+            line.lstrip("# ").strip()
+            for line in content.splitlines()
+            if line.startswith("## ")
+        }
+        descs = doc_type.section_descriptions
+        for section in doc_type.required_sections:
+            if section not in existing_sections:
+                desc = descs.get(section, "TODO")
+                content += f"\n## {section}\n\n{desc}\n"
 
     return content

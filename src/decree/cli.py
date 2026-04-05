@@ -18,9 +18,8 @@ examples:
   decree progress
 
 config:
-  Document types are defined in pyproject.toml under [tool.doc.types.*].
+  Document types are defined in decree.toml under [types.*].
   Each type has: prefix, digits, statuses, transitions, warn_on_reference.
-  Run without config → falls back to ADR-only mode.
 
 claude code skills (if decree plugin is installed):
   /decree:init   Scaffold decree/ folder with working PRD/ADR/SPEC examples
@@ -32,31 +31,6 @@ claude code skills (if decree plugin is installed):
 
 
 def main() -> int:
-    """Backward-compatible ADR-only CLI (the `adr` entry point)."""
-    parser = argparse.ArgumentParser(
-        prog="adr",
-        description="ADR management (backward-compatible entry point). For multi-type support, use `decree`.",
-    )
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    p_new = subparsers.add_parser("new", help="Create a new ADR")
-    p_new.add_argument("title", help="Title of the decision")
-
-    p_status = subparsers.add_parser("status", help="Transition ADR status")
-    p_status.add_argument("action", choices=["accept", "reject", "deprecate", "supersede"])
-    p_status.add_argument("adr_id", help="ADR ID (e.g. ADR-0004)")
-    p_status.add_argument("target_id", nargs="?", default=None, help="Replacement ADR ID (for supersede)")
-
-    subparsers.add_parser("lint", help="Validate all ADRs")
-    subparsers.add_parser("index", help="Regenerate docs/adr/index.md")
-    subparsers.add_parser("graph", help="Generate Mermaid diagrams (timeline, supersede chain, status)")
-
-    args = parser.parse_args()
-    commands = {"new": new.run, "status": status.run, "lint": lint.run, "index": index.run, "graph": graph.run}
-    return commands[args.command](args)
-
-
-def doc_main() -> int:
     """Multi-type document CLI (the `decree` entry point)."""
     parser = argparse.ArgumentParser(
         prog="decree",
@@ -78,7 +52,7 @@ def doc_main() -> int:
     )
     p_new.add_argument(
         "doc_type",
-        help="Document type: adr, prd, spec (must be configured in pyproject.toml)",
+        help="Document type: adr, prd, spec (must be configured in decree.toml)",
     )
     p_new.add_argument(
         "title",
