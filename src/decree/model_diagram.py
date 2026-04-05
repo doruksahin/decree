@@ -1,0 +1,257 @@
+"""Generate a Graphviz DOT diagram explaining the decree document model.
+
+Shows how PRD, ADR, SPEC, and Implementation relate — cardinalities,
+reference direction, lifecycle flow, and the decision chain.
+
+Usage:
+    from decree.model_diagram import generate_model_dot
+    dot_source = generate_model_dot()
+    Path("model.dot").write_text(dot_source)
+    # Then: dot -Tpng model.dot -o model.png
+    # Or:   dot -Tsvg model.dot -o model.svg
+"""
+
+
+def generate_model_dot() -> str:
+    """Generate DOT source for the decree document relationship model."""
+    return """\
+digraph decree_model {
+    // ── Global ──────────────────────────────────────────────
+    rankdir=TB
+    fontname="Helvetica"
+    fontsize=12
+    bgcolor="white"
+    newrank=true
+    compound=true
+    nodesep=0.8
+    ranksep=1.0
+
+    // ── Node defaults ───────────────────────────────────────
+    node [
+        fontname="Helvetica"
+        fontsize=11
+        style="filled,rounded"
+        shape=record
+    ]
+    edge [
+        fontname="Helvetica"
+        fontsize=9
+        color="#555555"
+    ]
+
+    // ════════════════════════════════════════════════════════
+    // DOCUMENT TYPES
+    // ════════════════════════════════════════════════════════
+
+    subgraph cluster_docs {
+        label="Document Types"
+        style="dashed"
+        color="#cccccc"
+        fontcolor="#888888"
+
+        prd [
+            label="{PRD\\nProduct Requirements|the WHAT and WHY|draft → review → approved → implemented → archived}"
+            fillcolor="#dbeafe"
+            color="#3b82f6"
+        ]
+
+        adr [
+            label="{ADR\\nArchitecture Decision|the HOW decision|proposed → accepted → deprecated/superseded}"
+            fillcolor="#fef3c7"
+            color="#f59e0b"
+        ]
+
+        spec [
+            label="{SPEC\\nTechnical Specification|the BLUEPRINT|draft → review → approved → implemented}"
+            fillcolor="#d1fae5"
+            color="#10b981"
+        ]
+    }
+
+    // ════════════════════════════════════════════════════════
+    // IMPLEMENTATION (not a decree doc — the actual code)
+    // ════════════════════════════════════════════════════════
+
+    impl [
+        label="{Implementation|Code, Tests, CI|src/, tests/}"
+        fillcolor="#f3e8ff"
+        color="#8b5cf6"
+        shape=record
+    ]
+
+    // ════════════════════════════════════════════════════════
+    // CROSS-TYPE RELATIONSHIPS
+    // ════════════════════════════════════════════════════════
+
+    // PRD → ADR: one feature needs multiple architecture decisions
+    prd -> adr [
+        label="  1 : N\\nmotivates"
+        style="bold"
+        color="#3b82f6"
+        fontcolor="#3b82f6"
+    ]
+
+    // PRD → SPEC: one feature needs multiple technical designs
+    prd -> spec [
+        label="1 : N  \\nrequires  "
+        style="dashed"
+        color="#3b82f6"
+        fontcolor="#3b82f6"
+    ]
+
+    // ADR → SPEC: one decision informs multiple specs
+    adr -> spec [
+        label="  1 : N\\ninforms"
+        style="bold"
+        color="#f59e0b"
+        fontcolor="#f59e0b"
+    ]
+
+    // SPEC → Implementation: one spec = one implementation unit
+    spec -> impl [
+        label="  1 : 1\\nimplements"
+        style="bold"
+        color="#10b981"
+        fontcolor="#10b981"
+    ]
+
+    // ════════════════════════════════════════════════════════
+    // SAME-TYPE RELATIONSHIPS
+    // ════════════════════════════════════════════════════════
+
+    // ADR supersedes ADR
+    adr -> adr [
+        label="supersedes\\n1 : 1"
+        style="dotted"
+        color="#f59e0b"
+        fontcolor="#f59e0b"
+        constraint=false
+    ]
+
+    // PRD lineage (split/merge)
+    prd -> prd [
+        label="splits into\\n1 : N"
+        style="dotted"
+        color="#3b82f6"
+        fontcolor="#3b82f6"
+        constraint=false
+    ]
+
+    // SPEC extends SPEC
+    spec -> spec [
+        label="extends\\nN : N"
+        style="dotted"
+        color="#10b981"
+        fontcolor="#10b981"
+        constraint=false
+    ]
+
+    // ════════════════════════════════════════════════════════
+    // REFERENCE DIRECTION ANNOTATION
+    // ════════════════════════════════════════════════════════
+
+    subgraph cluster_legend {
+        label="Reference Direction"
+        style="rounded"
+        color="#e5e7eb"
+        fillcolor="#f9fafb"
+        fontcolor="#6b7280"
+
+        legend [
+            shape=plaintext
+            fillcolor="#f9fafb"
+            label=<
+<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="4">
+  <TR><TD ALIGN="LEFT"><B>Downstream references upstream:</B></TD></TR>
+  <TR><TD ALIGN="LEFT">SPEC.references → [ADR-0001, PRD-001]</TD></TR>
+  <TR><TD ALIGN="LEFT">ADR.references → [PRD-001]</TD></TR>
+  <TR><TD ALIGN="LEFT">PRD.references → [] (origin)</TD></TR>
+  <TR><TD ALIGN="LEFT"> </TD></TR>
+  <TR><TD ALIGN="LEFT"><B>Arrows show dependency direction:</B></TD></TR>
+  <TR><TD ALIGN="LEFT">── bold = primary chain</TD></TR>
+  <TR><TD ALIGN="LEFT">-- dashed = cross-link</TD></TR>
+  <TR><TD ALIGN="LEFT">·· dotted = same-type</TD></TR>
+</TABLE>
+            >
+        ]
+    }
+
+    // ════════════════════════════════════════════════════════
+    // WORKFLOW STEPS
+    // ════════════════════════════════════════════════════════
+
+    subgraph cluster_workflow {
+        label="Workflow (typical order)"
+        style="rounded"
+        color="#e5e7eb"
+        fillcolor="#f9fafb"
+        fontcolor="#6b7280"
+
+        step1 [label="1. Define the need" shape=plaintext fillcolor="#f9fafb" fontcolor="#3b82f6"]
+        step2 [label="2. Decide the approach" shape=plaintext fillcolor="#f9fafb" fontcolor="#f59e0b"]
+        step3 [label="3. Design the solution" shape=plaintext fillcolor="#f9fafb" fontcolor="#10b981"]
+        step4 [label="4. Build it" shape=plaintext fillcolor="#f9fafb" fontcolor="#8b5cf6"]
+        step5 [label="5. Track progress\\n   (checkboxes in specs)" shape=plaintext fillcolor="#f9fafb" fontcolor="#6b7280"]
+
+        step1 -> step2 -> step3 -> step4 -> step5 [
+            color="#d1d5db"
+            arrowsize=0.7
+        ]
+    }
+
+    // ════════════════════════════════════════════════════════
+    // CARDINALITY SUMMARY
+    // ════════════════════════════════════════════════════════
+
+    subgraph cluster_cardinality {
+        label="Cardinality Summary"
+        style="rounded"
+        color="#e5e7eb"
+        fillcolor="#f9fafb"
+        fontcolor="#6b7280"
+
+        card [
+            shape=plaintext
+            fillcolor="#f9fafb"
+            label=<
+<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+  <TR>
+    <TD BGCOLOR="#f3f4f6"><B>From</B></TD>
+    <TD BGCOLOR="#f3f4f6"><B>To</B></TD>
+    <TD BGCOLOR="#f3f4f6"><B>Cardinality</B></TD>
+    <TD BGCOLOR="#f3f4f6"><B>Example</B></TD>
+  </TR>
+  <TR>
+    <TD>PRD</TD><TD>ADR</TD><TD>1 : N</TD>
+    <TD>PRD-001 → ADR-0001, ADR-0002, ADR-0003</TD>
+  </TR>
+  <TR>
+    <TD>PRD</TD><TD>SPEC</TD><TD>1 : N</TD>
+    <TD>PRD-001 → SPEC-001, SPEC-002</TD>
+  </TR>
+  <TR>
+    <TD>ADR</TD><TD>SPEC</TD><TD>1 : N</TD>
+    <TD>ADR-0001 → SPEC-001, SPEC-003</TD>
+  </TR>
+  <TR>
+    <TD>SPEC</TD><TD>Impl</TD><TD>1 : 1</TD>
+    <TD>SPEC-001 → src/storage.py</TD>
+  </TR>
+  <TR>
+    <TD>ADR</TD><TD>ADR</TD><TD>1 : 1</TD>
+    <TD>ADR-0003 supersedes ADR-0001</TD>
+  </TR>
+  <TR>
+    <TD>PRD</TD><TD>PRD</TD><TD>1 : N</TD>
+    <TD>PRD-001 splits into PRD-002, PRD-003</TD>
+  </TR>
+  <TR>
+    <TD>SPEC</TD><TD>SPEC</TD><TD>N : N</TD>
+    <TD>SPEC-001 ↔ SPEC-002 (co-dependent)</TD>
+  </TR>
+</TABLE>
+            >
+        ]
+    }
+}
+"""
