@@ -12,6 +12,39 @@ Software decision lifecycle toolkit. Track the chain from business need (PRD) th
 | **ADR** | Architecture decisions | proposed → accepted / rejected / deprecated / superseded | ADR-0001 "Use SQLite" |
 | **SPEC** | Technical blueprint | draft → review → approved → implemented | SPEC-001 "Storage API" |
 
+## Decree Driven Development
+
+```
+Without decree:
+  idea → brainstorming → write plan → execute → code
+
+With decree:
+  idea → /decree:prd → /decree:adr → /decree:spec → write plan → execute → code
+           (what)        (how)         (blueprint)     (tasks)      (build)
+```
+
+Decree owns **decisions**. Your planning/execution tools own **implementation**. The SPEC is the handoff point — decree produces it, your planner consumes it.
+
+Run `/decree:ddd` to see where you are:
+
+```
+$ /decree:ddd
+
+Checking project state...
+
+decree progress:
+  PRD-001   User Auth        approved   ██████████ 100%
+  ADR-0001  Use JWT          accepted   ██████████ 100%
+  SPEC-001  Token Storage    draft      ░░░░░░░░░░   0% (0/8)
+
+→ SPEC-001 has acceptance criteria but 0% progress.
+  Next: write an implementation plan from this spec.
+
+  Option A: /superpowers:write-plan (reads SPEC-001 as input)
+  Option B: Start implementing directly
+  Option C: The spec needs more work first
+```
+
 ## Install
 
 ```bash
