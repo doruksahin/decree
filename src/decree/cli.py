@@ -21,6 +21,13 @@ config:
   Document types are defined in pyproject.toml under [tool.doc.types.*].
   Each type has: prefix, digits, statuses, transitions, warn_on_reference.
   Run without config → falls back to ADR-only mode.
+
+claude code skills (if decree plugin is installed):
+  /decree:init   Scaffold decree/ folder with working PRD/ADR/SPEC examples
+  /decree:prd    Create a PRD with section guidance and lint validation
+  /decree:adr    Create an ADR with reference discovery across existing docs
+  /decree:spec   Create a SPEC with stale-reference warnings
+  /decree:lint   Validate all documents, create tasks per error found
 """
 
 
