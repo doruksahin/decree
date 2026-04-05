@@ -54,9 +54,9 @@ $ decree progress
 |---------|-------------|
 | `decree new <type> "title"` | Create a new document |
 | `decree status <ID> <action>` | Transition document status |
-| `decree lint` | Validate all types + cross-type references |
+| `decree lint` | Validate all types + cross-type references + C4 |
 | `decree index` | Regenerate per-type index files |
-| `decree graph` | Generate Mermaid diagrams |
+| `decree graph` | Generate Mermaid diagrams + C4 container view |
 | `decree progress` | Show checkbox completion across all docs |
 
 ## Configuration
@@ -95,6 +95,37 @@ See [docs/configuration.md](docs/configuration.md) for full schema with ADR and 
 - **Duplicate IDs** — two files map to the same ADR-0001
 - **Supersede symmetry** — ADR-0001 says superseded-by ADR-0002, but ADR-0002 doesn't say supersedes ADR-0001
 - **Missing sections** — SPEC-001 is missing required "Testing Strategy" section
+- **C4 hierarchy** (opt-in) — parent/depends-on don't resolve, duplicate C4 ids, invalid c4_type
+
+## C4 Architecture Support
+
+Add `[types.spec.c4]` to `decree.toml` to enable C4 validation on SPECs:
+
+```toml
+[types.spec.c4]
+enabled = true
+id_field = "id"
+levels = ["system", "container", "component"]
+```
+
+Specs gain C4 fields in frontmatter:
+
+```yaml
+---
+status: approved
+date: 2026-04-05
+references: [PRD-001, ADR-0001]
+
+id: demand_model
+c4_type: container
+c4_name: Demand Model
+c4_tech: Python / scipy
+parent: markdown_optimization_poc
+depends-on: ["data_preparation"]
+---
+```
+
+`decree lint` validates C4 hierarchy. `decree graph` generates C4Container Mermaid diagrams. Non-C4 projects are unaffected.
 
 ## Key design
 

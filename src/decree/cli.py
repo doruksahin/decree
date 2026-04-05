@@ -20,6 +20,7 @@ examples:
 config:
   Document types are defined in decree.toml under [types.*].
   Each type has: prefix, digits, statuses, transitions, warn_on_reference.
+  C4 architecture support: add [types.spec.c4] with enabled, id_field, levels.
 
 claude code skills (if decree plugin is installed):
   /decree:init   Scaffold decree/ folder with working PRD/ADR/SPEC examples
