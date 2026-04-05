@@ -148,6 +148,15 @@ def run(args: argparse.Namespace | None = None) -> int:
         parts.append(f"```mermaid\n{pie}\n```\n")
         info(prefix, f"generated status distribution for {dt.name}")
 
+        # C4 diagram (if configured for this type)
+        if dt.c4 and dt.c4.enabled:
+            from decree.c4 import generate_c4_container
+            c4_diagram = generate_c4_container(docs, dt.c4)
+            if c4_diagram:
+                parts.append("## C4 Container View\n")
+                parts.append(f"```mermaid\n{c4_diagram}\n```\n")
+                info(prefix, f"generated C4 container diagram for {dt.name}")
+
         index_file.write_text(header + "\n".join(parts))
         info(prefix, f"wrote {index_file}")
         total_diagrams += 1

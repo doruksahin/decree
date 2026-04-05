@@ -175,6 +175,20 @@ def _build_doc_type(name: str, cfg: dict):
         status_field_requirements=_parse_field_requirements(cfg),
         section_descriptions=cfg.get("section_descriptions", {}),
         template=cfg.get("template"),
+        c4=_parse_c4_config(cfg),
+    )
+
+
+def _parse_c4_config(cfg: dict):
+    """Parse [types.*.c4] section into a C4Config, or None if absent."""
+    c4_raw = cfg.get("c4")
+    if not c4_raw or not c4_raw.get("enabled"):
+        return None
+    from .c4 import C4Config
+    return C4Config(
+        enabled=True,
+        id_field=c4_raw.get("id_field", "id"),
+        levels=tuple(c4_raw.get("levels", ("system", "container", "component"))),
     )
 
 

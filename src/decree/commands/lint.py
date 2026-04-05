@@ -50,6 +50,14 @@ def run(args: argparse.Namespace | None = None) -> int:
     cross_type_errors = validate_cross_type_references(all_docs)
     errors.extend(cross_type_errors)
 
+    # C4 validation (per type, only if c4 is configured)
+    for dt in doc_types:
+        if dt.c4 and dt.c4.enabled:
+            from decree.c4 import validate_c4
+            type_docs = [d for d in all_docs if d.doc_type == dt]
+            c4_errors = validate_c4(type_docs, dt.c4)
+            errors.extend(c4_errors)
+
     if errors:
         print()
         for e in errors:
