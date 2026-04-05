@@ -1,7 +1,7 @@
 """ADR toolkit CLI — MADR v4.0.0 management."""
 import argparse
 import sys
-from decree.commands import new, status, lint, index, graph
+from decree.commands import new, status, lint, index, graph, progress
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="adr", description="MADR v4.0.0 ADR management toolkit")
@@ -40,9 +40,10 @@ def doc_main() -> int:
     subparsers.add_parser("lint")
     subparsers.add_parser("index")
     subparsers.add_parser("graph")
+    subparsers.add_parser("progress", help="Show checkbox progress across all documents")
 
     args = parser.parse_args()
-    commands = {"new": new.run, "status": status.run, "lint": lint.run, "index": index.run, "graph": graph.run}
+    commands = {"new": new.run, "status": status.run, "lint": lint.run, "index": index.run, "graph": graph.run, "progress": progress.run}
     return commands[args.command](args)
 
 
