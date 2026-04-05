@@ -32,7 +32,7 @@ adr lint                                # validate ADRs only
 ```
 src/decree/
   doctypes.py       ← DocType dataclass (prefix, statuses, transitions, warn_on_reference)
-  config.py         ← loads [tool.doc.types.*] from pyproject.toml, falls back to [tool.adr]
+  config.py         ← loads [types.*] from decree.toml
   parser.py         ← DocFrontmatter + DocDocument (Pydantic v2, type-parameterized)
   validators.py     ← cross-file integrity + cross-type reference validation
   scanner.py        ← (not yet) reference scanning

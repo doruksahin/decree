@@ -61,10 +61,10 @@ $ decree progress
 
 ## Configuration
 
-Add to `pyproject.toml`:
+Create `decree.toml` in your project root:
 
 ```toml
-[tool.doc.types.prd]
+[types.prd]
 dir = "decree/prd"
 prefix = "PRD"
 digits = 3
@@ -73,14 +73,14 @@ statuses = ["draft", "review", "approved", "implemented", "archived"]
 warn_on_reference = ["archived"]
 required_sections = ["Problem Statement", "Requirements", "Success Criteria"]
 
-[tool.doc.types.prd.transitions]
+[types.prd.transitions]
 draft = ["review"]
 review = ["approved", "draft"]
 approved = ["implemented", "archived"]
 implemented = ["archived"]
 archived = []
 
-[tool.doc.types.prd.actions]
+[types.prd.actions]
 approve = "approved"
 implement = "implemented"
 ```
