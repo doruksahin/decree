@@ -12,10 +12,8 @@ from typing import Any
 from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator
 from pydantic import ValidationInfo
 
-from .config import (
-    STATUSES, STATUS_FIELD_REQUIREMENTS,
-    ADR_REF_RE, DATE_FORMAT, FILENAME_RE,
-)
+from .config import DATE_FORMAT
+from .doctypes import ADR_DEFAULT
 
 
 class DocFrontmatter(BaseModel):
@@ -45,7 +43,7 @@ class DocFrontmatter(BaseModel):
         if doc_type is not None:
             valid = doc_type.statuses
         else:
-            valid = STATUSES
+            valid = ADR_DEFAULT.statuses
         if v not in valid:
             raise ValueError(f"Invalid status '{v}'. Must be one of: {valid}")
         return v
@@ -60,7 +58,7 @@ class DocFrontmatter(BaseModel):
         if doc_type is not None:
             pattern = doc_type.ref_re
         else:
-            pattern = ADR_REF_RE
+            pattern = ADR_DEFAULT.ref_re
         if not pattern.match(v):
             if doc_type is not None:
                 fmt = f"{doc_type.prefix}-{'N' * doc_type.digits}"
@@ -86,7 +84,7 @@ class DocFrontmatter(BaseModel):
         if doc_type is not None:
             field_reqs = doc_type.status_field_requirements
         else:
-            field_reqs = STATUS_FIELD_REQUIREMENTS
+            field_reqs = ADR_DEFAULT.status_field_requirements
         required = field_reqs.get(instance.status, ())
         for field_name in required:
             attr = field_name.replace("-", "_")
@@ -100,11 +98,12 @@ class DocFrontmatter(BaseModel):
 class DocDocument:
     """A parsed document file: validated frontmatter + markdown body."""
 
-    def __init__(self, path: Path, meta: DocFrontmatter, body: str, doc_type=None):
+    def __init__(self, path: Path, meta: DocFrontmatter, body: str, doc_type=None, raw_metadata: dict | None = None):
         self.path = path
         self.meta = meta
         self.body = body
         self.doc_type = doc_type
+        self.raw_metadata: dict = raw_metadata if raw_metadata is not None else {}
 
     @property
     def doc_id(self) -> str:
@@ -116,15 +115,10 @@ class DocDocument:
                 )
             return self.doc_type.format_id(int(match.group(1)))
         else:
-            match = FILENAME_RE.match(self.path.name)
+            match = ADR_DEFAULT.filename_re.match(self.path.name)
             if not match:
                 raise ValueError(f"Invalid ADR filename: {self.path.name}")
             return f"ADR-{match.group(1)}"
-
-    @property
-    def adr_id(self) -> str:
-        """Alias for doc_id."""
-        return self.doc_id
 
     @property
     def number(self) -> int:
@@ -134,7 +128,7 @@ class DocDocument:
                 raise ValueError(f"Invalid filename: {self.path.name}")
             return int(match.group(1))
         else:
-            match = FILENAME_RE.match(self.path.name)
+            match = ADR_DEFAULT.filename_re.match(self.path.name)
             if not match:
                 raise ValueError(f"Invalid ADR filename: {self.path.name}")
             return int(match.group(1))
@@ -159,8 +153,7 @@ class DocDocument:
         if self.doc_type is not None:
             required = self.doc_type.required_sections
         else:
-            from .config import MADR_REQUIRED_SECTIONS
-            required = MADR_REQUIRED_SECTIONS
+            required = ADR_DEFAULT.required_sections
         present = set(self.sections)
         return [s for s in required if s not in present]
 
@@ -170,7 +163,7 @@ def load(path: Path, doc_type=None) -> DocDocument:
     post = frontmatter.load(str(path))
     context = {"doc_type": doc_type} if doc_type is not None else None
     meta = DocFrontmatter.model_validate(post.metadata, context=context)
-    return DocDocument(path=path, meta=meta, body=post.content, doc_type=doc_type)
+    return DocDocument(path=path, meta=meta, body=post.content, doc_type=doc_type, raw_metadata=post.metadata)
 
 
 def load_all(*, strict: bool = True, doc_type) -> list[DocDocument]:

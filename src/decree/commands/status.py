@@ -10,8 +10,7 @@ def run(args: argparse.Namespace) -> int:
     prefix = "status"
     action = args.action
 
-    # Support both old (adr_id) and new (doc_id) argument names
-    doc_id = getattr(args, "doc_id", None) or getattr(args, "adr_id", None)
+    doc_id = args.doc_id
 
     # Resolve DocType from the ID prefix
     from decree.config import find_doc_type

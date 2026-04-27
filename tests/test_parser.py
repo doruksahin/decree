@@ -67,9 +67,6 @@ class TestDocDocument:
     def test_doc_id(self):
         assert self._make_doc().doc_id == "ADR-0001"
 
-    def test_adr_id_alias(self):
-        assert self._make_doc().adr_id == "ADR-0001"
-
     def test_number(self):
         assert self._make_doc().number == 1
 
