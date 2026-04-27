@@ -80,6 +80,18 @@ depends-on: ["data_preparation"]
 
 Key distinction: `references` is decree's document chain (SPEC references ADR). `depends-on` is C4's component chain (demand_model depends on data_preparation). Different concepts, coexist in same frontmatter.
 
+## Attachments
+
+Optional file path references in frontmatter:
+
+```yaml
+attachments:
+  - .stitch/designs/overview.png
+  - docs/wireframes/detail.png
+```
+
+`decree lint` ignores these by default. `decree lint --check-attachments` validates paths exist on disk.
+
 ## Key Design Decisions
 
 - `warn_on_reference` (dead statuses) != `terminal_statuses` — "implemented" is terminal but healthy to reference

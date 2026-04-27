@@ -129,6 +129,27 @@ See [docs/configuration.md](docs/configuration.md) for full schema with ADR and 
 - **Supersede symmetry** — ADR-0001 says superseded-by ADR-0002, but ADR-0002 doesn't say supersedes ADR-0001
 - **Missing sections** — SPEC-001 is missing required "Testing Strategy" section
 - **C4 hierarchy** (opt-in) — parent/depends-on don't resolve, duplicate C4 ids, invalid c4_type
+- **Missing attachments** (opt-in: `--check-attachments`) — referenced design files don't exist on disk
+
+## Attachments
+
+Documents can reference external artifacts — design screenshots, Figma exports, architecture diagrams:
+
+```yaml
+---
+status: approved
+references: [ADR-0001]
+attachments:
+  - .stitch/designs/overview.png
+  - docs/wireframes/detail-view.png
+---
+```
+
+Paths are relative to the project root. By default, `decree lint` ignores attachments (won't break CI where files aren't committed). Opt in to path validation:
+
+```bash
+decree lint --check-attachments
+```
 
 ## C4 Architecture Support
 
