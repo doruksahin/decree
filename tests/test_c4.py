@@ -51,7 +51,7 @@ def _make_spec(tmp_path, number, title, status="approved",
         {"status": status, "date": "2026-04-05"},
         context={"doc_type": dt},
     )
-    return DocDocument(path=path, meta=meta, body=body, doc_type=dt)
+    return DocDocument(path=path, meta=meta, body=body, doc_type=dt, raw_metadata=fm)
 
 
 # ── validate_c4 tests ───────────────────────────────────────
@@ -92,7 +92,8 @@ class TestValidateC4:
         path.write_text("---\nstatus: approved\ndate: 2026-04-05\nid: bar\nc4_type: container\n---\n# SPEC-002\n\n## Overview\n\n## Technical Design\n\n## Testing Strategy\n")
         dt = _spec_type()
         meta = DocFrontmatter.model_validate({"status": "approved", "date": "2026-04-05"}, context={"doc_type": dt})
-        doc = DocDocument(path=path, meta=meta, body="", doc_type=dt)
+        raw = {"status": "approved", "date": "2026-04-05", "id": "bar", "c4_type": "container"}
+        doc = DocDocument(path=path, meta=meta, body="", doc_type=dt, raw_metadata=raw)
         errors = validate_c4([doc], c4)
         assert len(errors) == 1
         assert "c4_name" in errors[0]
@@ -189,7 +190,8 @@ class TestGenerateC4Container:
         path = tmp_path / "001-no-c4.md"
         path.write_text("---\nstatus: approved\ndate: 2026-04-05\n---\n# SPEC-001\n")
         meta = DocFrontmatter.model_validate({"status": "approved", "date": "2026-04-05"}, context={"doc_type": dt})
-        doc = DocDocument(path=path, meta=meta, body="", doc_type=dt)
+        raw = {"status": "approved", "date": "2026-04-05"}
+        doc = DocDocument(path=path, meta=meta, body="", doc_type=dt, raw_metadata=raw)
         assert generate_c4_container([doc], c4) is None
 
     def test_dead_docs_excluded_from_diagram(self, tmp_path):

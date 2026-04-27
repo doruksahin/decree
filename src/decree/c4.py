@@ -199,13 +199,11 @@ def generate_c4_container(docs: list[DocDocument], c4_config: C4Config) -> str |
 def _get_raw_metadata(doc: DocDocument) -> dict:
     """Get the raw frontmatter dict from a document.
 
-    Uses python-frontmatter to re-read, since DocFrontmatter only
-    stores decree's own fields. C4 fields are in the raw metadata.
+    Returns the raw metadata captured during initial parsing.
+    DocFrontmatter only stores decree's own fields; C4 fields
+    live in raw_metadata.
     """
-    import frontmatter
-
-    post = frontmatter.load(str(doc.path))
-    return post.metadata
+    return doc.raw_metadata
 
 
 def _render_container(
