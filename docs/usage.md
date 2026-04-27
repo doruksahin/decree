@@ -2,69 +2,77 @@
 
 ## CLI Commands
 
-### `adr new "title"`
+### `decree new adr "title"`
 
-Create a new ADR from template. Auto-numbers, generates slug, stamps today's date, appends project sections from `[tool.adr]`, regenerates index.
+Create a new document from template. Auto-numbers, generates slug, stamps today's date, appends required sections from `decree.toml`, regenerates index.
 
 ```bash
-adr new "Use PuLP Solver"
-# creates docs/adr/ADR-0001-use-pulp-solver.md
+decree new adr "Use PuLP Solver"
+# creates decree/adr/ADR-0001-use-pulp-solver.md
 ```
 
-### `adr status accept ADR-0004`
+### `decree status accept ADR-0004`
 
 Transition a proposed ADR to accepted.
 
-### `adr status reject ADR-0004`
+### `decree status reject ADR-0004`
 
 Transition a proposed ADR to rejected (terminal).
 
-### `adr status deprecate ADR-0002`
+### `decree status deprecate ADR-0002`
 
 Transition an accepted ADR to deprecated (terminal).
 
-### `adr status supersede ADR-0001 ADR-0005`
+### `decree status supersede ADR-0001 ADR-0005`
 
 Mark ADR-0001 as superseded by ADR-0005. Sets symmetric links on both files:
 - ADR-0001 gets `superseded-by: ADR-0005` and `status: superseded`
 - ADR-0005 gets `supersedes: ADR-0001`
 
-### `adr lint`
+### `decree lint`
 
-Validate all ADRs. Per-file checks: frontmatter validity, required sections. Cross-file checks: supersede symmetry, referenced ADRs exist. Exit 1 on any error.
+Validate all documents. Per-file checks: frontmatter validity, required sections. Cross-file checks: supersede symmetry, referenced documents exist. Exit 1 on any error.
 
 Output format: `{filepath}: {message}` — one line per error, machine-parseable.
 
-### `adr index`
+### `decree index`
 
-Regenerate `docs/adr/index.md` table from frontmatter. Grouped by status: accepted first, then proposed, then deprecated/superseded/rejected.
+Regenerate index tables from frontmatter. Grouped by status.
+
+### `decree progress`
+
+Show progress summary across all document types — counts by status, completion percentages.
+
+### `decree graph`
+
+Generate a dependency/reference graph across documents.
 
 ## Integration Points
 
 ### Pre-commit hook
 
-Runs `adr lint` + `adr index` when ADR files are staged. Auto-stages regenerated index.
+Runs `decree lint` + `decree index` when document files are staged. Auto-stages regenerated index.
 
 ```bash
 # add to .githooks/pre-commit (before final exit)
-ADR_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '^docs/adr/ADR-.*\.md$' || true)
-if [ -n "$ADR_STAGED" ]; then
-    uv run adr lint || { echo "ADR lint failed."; exit 1; }
-    uv run adr index
-    git add docs/adr/index.md
+DOC_STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
+if [ -n "$DOC_STAGED" ]; then
+    uv run decree lint || { echo "decree lint failed."; exit 1; }
+    uv run decree index
+    git add decree/*/index.md
 fi
 ```
 
 ### LLM (Claude Code, Cursor, Copilot)
 
-LLMs read `CLAUDE.md` for quick reference and `config.py` for the full format contract. They create and transition ADRs via CLI — never edit frontmatter manually.
+LLMs read `CLAUDE.md` for quick reference and `config.py` for the full format contract. They create and transition documents via CLI — never edit frontmatter manually.
 
 ### CI
 
-`adr lint` returns exit code 1 on failure. Wire into any CI pipeline:
+`decree lint` returns exit code 1 on failure. Wire into any CI pipeline:
 
 ```yaml
-- run: uv run adr lint
+- run: uv run decree lint
 ```
 
 ### New project adoption
@@ -73,11 +81,20 @@ LLMs read `CLAUDE.md` for quick reference and `config.py` for the full format co
 uv add decree  # or git+https://github.com/...
 ```
 
-Add to `pyproject.toml`:
+Create a `decree.toml` in your project root:
 
 ```toml
-[tool.adr]
-project_sections = ["Consequences", "Affected Files"]
+[types.adr]
+dir = "docs/adr"
+prefix = "ADR"
+digits = 4
+initial_status = "proposed"
+statuses = ["proposed", "accepted", "rejected", "deprecated", "superseded"]
+required_sections = ["Context and Problem Statement", "Considered Options", "Decision Outcome"]
+
+[types.adr.transitions]
+proposed = ["accepted", "rejected"]
+accepted = ["deprecated", "superseded"]
 ```
 
 See [Configuration](configuration.md) for all options.
@@ -87,35 +104,35 @@ See [Configuration](configuration.md) for all options.
 ### Proposing a decision
 
 ```bash
-adr new "Use Redis for caching"
+decree new adr "Use Redis for caching"
 # edit the generated file
-git add docs/adr/ADR-0004-use-redis-for-caching.md
+git add decree/adr/ADR-0004-use-redis-for-caching.md
 git commit -m "docs(adr): propose Redis for caching"
 ```
 
 ### Accepting after discussion
 
 ```bash
-adr status accept ADR-0004
-git add docs/adr/
+decree status accept ADR-0004
+git add decree/adr/
 git commit -m "docs(adr): accept ADR-0004 Redis for caching"
 ```
 
 ### Replacing a decision
 
 ```bash
-adr new "Use Valkey instead of Redis"
-adr status supersede ADR-0004 ADR-0005
-git add docs/adr/
+decree new adr "Use Valkey instead of Redis"
+decree status supersede ADR-0004 ADR-0005
+git add decree/adr/
 git commit -m "docs(adr): supersede ADR-0004 with ADR-0005 Valkey"
 ```
 
 ### Validating before merge
 
 ```bash
-adr lint  # exit 0 = clean, exit 1 = errors
+decree lint  # exit 0 = clean, exit 1 = errors
 ```
 
 ### Onboarding someone
 
-Point them to `docs/adr/index.md` — auto-generated table of all decisions with status, date, and supersede links.
+Point them to the index file for a given document type — auto-generated table of all documents with status, date, and supersede links.

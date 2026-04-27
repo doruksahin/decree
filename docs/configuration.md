@@ -1,73 +1,122 @@
 # Configuration
 
-All configuration lives in the consuming project's `pyproject.toml` under `[tool.adr]`.
+All configuration lives in `decree.toml` at the project root.
 
-## Options
+## File Location and Format
 
-```toml
-[tool.adr]
-# Directory where ADR files live (relative to project root)
-# Default: "docs/adr"
-adr_dir = "docs/adr"
+Decree looks for `decree.toml` by walking up from the current working directory. The file uses TOML format and defines one or more document types under `[types.<name>]` sections.
 
-# Project-specific required sections appended after MADR v4 standard sections
-# Default: [] (only MADR v4 sections enforced)
-project_sections = [
-    "Consequences",
-    "Affected Files",
-    "Validation Needed",
-]
+## Document Type Sections
 
-# Custom template file (relative to project root)
-# Default: bundled MADR v4 template
-# template = "templates/my-adr-template.md"
+Each `[types.<name>]` section defines a document type. You can define as many types as you need (e.g., `adr`, `prd`, `spec`).
 
-[tool.adr.project_section_descriptions]
-# LLM-facing descriptions for project sections.
-# Used by `adr new` to populate section guidance text.
-Consequences = "Good, bad, and neutral consequences of this decision."
-"Affected Files" = "Paths relative to project root, one per bullet."
-"Validation Needed" = "What evidence or check is required before implementation?"
-```
+### Fields
 
-## Zero-config
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `dir` | string | no | `"docs/<name>"` | Directory where documents of this type live (relative to project root) |
+| `prefix` | string | **yes** | — | ID prefix used in filenames and references (e.g., `"ADR"`, `"PRD"`) |
+| `digits` | integer | no | `4` | Number of zero-padded digits in document IDs (e.g., `4` → `ADR-0001`) |
+| `initial_status` | string | no | first entry in `statuses` | Status assigned to newly created documents |
+| `statuses` | list of strings | **yes** | — | All valid statuses for this document type |
+| `warn_on_reference` | list of strings | no | `[]` | Statuses that trigger a lint warning when referenced by other documents |
+| `required_sections` | list of strings | no | `[]` | Markdown H2 sections that must be present in every document of this type |
+| `template` | string | no | bundled default | Path to a custom template file (relative to project root) |
 
-If `[tool.adr]` is absent, decree uses defaults:
-- ADR directory: `docs/adr`
-- Required sections: MADR v4 standard only (Context and Problem Statement, Considered Options, Decision Outcome)
-- Template: bundled default
+### Transitions
 
-## MADR v4 Standard Sections (always enforced)
+`[types.<name>.transitions]` defines which status transitions are allowed. Each key is a source status, and its value is a list of valid target statuses. Statuses not listed as keys are treated as terminal (no transitions out).
 
-These are hardcoded in the package and cannot be removed:
+### Actions
 
-1. Context and Problem Statement
-2. Considered Options
-3. Decision Outcome
+`[types.<name>.actions]` defines named shortcuts for status transitions. Each key is an action name (used as a CLI verb), and its value is the target status.
 
-## Status Lifecycle (not configurable)
+For example, `accept = "accepted"` allows `decree status accept ADR-0004` instead of specifying the target status directly.
 
-```
-proposed → accepted | rejected
-accepted → deprecated | superseded
-rejected    (terminal)
-deprecated  (terminal)
-superseded  (terminal)
-```
+### Status Field Requirements
 
-## Custom Templates
+`[types.<name>.status_field_requirements]` defines frontmatter fields that must be present when a document is in a given status. For example, requiring a `superseded-by` field when status is `superseded`.
 
-Override the default template by setting `template` in `[tool.adr]`:
+### Section Descriptions
+
+`[types.<name>.section_descriptions]` provides LLM-facing guidance text for required sections. Used by `decree new` to populate section descriptions in generated documents.
+
+## C4 Model Diagrams (Optional)
+
+`[types.<name>.c4]` enables C4 model diagram generation for a document type.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Whether C4 diagrams are enabled |
+| `id_field` | string | `"id"` | Frontmatter field used as the C4 element identifier |
+| `levels` | list of strings | `["system", "container", "component"]` | C4 abstraction levels to generate |
+
+## Example Configuration
 
 ```toml
-[tool.adr]
-template = "templates/my-adr-template.md"
+[types.prd]
+dir = "decree/prd"
+prefix = "PRD"
+digits = 3
+initial_status = "draft"
+statuses = ["draft", "review", "approved", "implemented", "archived"]
+warn_on_reference = ["archived"]
+required_sections = ["Problem Statement", "Requirements", "Success Criteria"]
+
+[types.prd.transitions]
+draft = ["review"]
+review = ["approved", "draft"]
+approved = ["implemented", "archived"]
+implemented = ["archived"]
+archived = []
+
+[types.prd.actions]
+submit = "review"
+approve = "approved"
+implement = "implemented"
+archive = "archived"
+
+[types.adr]
+dir = "decree/adr"
+prefix = "ADR"
+digits = 4
+initial_status = "proposed"
+statuses = ["proposed", "accepted", "rejected", "deprecated", "superseded"]
+warn_on_reference = ["rejected", "deprecated", "superseded"]
+required_sections = ["Context and Problem Statement", "Considered Options", "Decision Outcome"]
+
+[types.adr.transitions]
+proposed = ["accepted", "rejected"]
+accepted = ["deprecated", "superseded"]
+rejected = []
+deprecated = []
+superseded = []
+
+[types.adr.actions]
+accept = "accepted"
+reject = "rejected"
+deprecate = "deprecated"
+supersede = "superseded"
+
+[types.adr.status_field_requirements]
+superseded = ["superseded-by"]
+
+[types.spec]
+dir = "decree/spec"
+prefix = "SPEC"
+digits = 3
+initial_status = "draft"
+statuses = ["draft", "review", "approved", "implemented"]
+required_sections = ["Overview", "Technical Design", "Testing Strategy"]
+
+[types.spec.transitions]
+draft = ["review"]
+review = ["approved", "draft"]
+approved = ["implemented"]
+implemented = []
+
+[types.spec.actions]
+submit = "review"
+approve = "approved"
+implement = "implemented"
 ```
-
-Templates use `__VARIABLE__` placeholders (not `{braces}`):
-- `__NUMBER__` — zero-padded ADR number (e.g. `0004`)
-- `__TITLE__` — raw title from CLI argument
-- `__SLUG__` — slugified title (e.g. `use-pulp-solver`)
-- `__DATE__` — today's date in ISO 8601 (e.g. `2026-04-02`)
-
-Project sections from `[tool.adr] project_sections` are appended after the template content by the `new` command.

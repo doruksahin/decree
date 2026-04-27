@@ -4,31 +4,40 @@
 
 ```
 src/decree/
-├── config.py        ← single source of truth (core defaults + project overrides)
-├── parser.py        ← ONLY module that touches ADR files on disk
-├── cli.py           ← argparse entry point, dispatches to commands
+├── config.py           ← single source of truth (core defaults + decree.toml loading)
+├── doctypes.py         ← DocType dataclass — one instance per [types.*] section
+├── parser.py           ← ONLY module that touches document files on disk
+├── validators.py       ← per-file and cross-file validation logic
+├── template.py         ← template rendering with __VARIABLE__ placeholders
+├── log.py              ← logging configuration
+├── c4.py               ← C4 model diagram config and generation
+├── model_diagram.py    ← document relationship diagram generation
+├── cli.py              ← argparse entry point, dispatches to commands
 ├── commands/
-│   ├── new.py       ← create ADR from template
-│   ├── status.py    ← enforce lifecycle transitions
-│   ├── lint.py      ← validate all ADRs (per-file + cross-file)
-│   └── index.py     ← generate index.md from frontmatter
-└── templates/
-    └── madr-v4.md   ← default MADR v4 template
+│   ├── new.py          ← create document from template
+│   ├── status.py       ← enforce lifecycle transitions
+│   ├── lint.py         ← validate all documents (per-file + cross-file)
+│   ├── index.py        ← generate index.md from frontmatter
+│   ├── progress.py     ← progress summary across document types
+│   └── graph.py        ← dependency/reference graph generation
+├── templates/
+│   └── madr-v4.md      ← default MADR v4 template
+└── examples/           ← example decree.toml and document files
 ```
 
 ## Design Principles
 
 ### Config as schema
 
-`config.py` is the schema — no JSON schema file. Core MADR v4 rules are hardcoded tuples. Project-specific extensions are loaded at runtime from `pyproject.toml [tool.adr]`. Defensive asserts at import time catch drift between related constants.
+`config.py` is the schema — no JSON schema file. Core MADR v4 rules are hardcoded tuples. Multi-type document configuration is loaded at runtime from `decree.toml` via `[types.*]` sections. Each type becomes a `DocType` instance in `doctypes.py`. Defensive asserts at import time catch drift between related constants.
 
 ### Pydantic at the boundary
 
-`ADRFrontmatter` (pydantic model) validates YAML frontmatter at the deserialization boundary in `parser.py`. All status enum checks, ADR ref format validation, and status-field invariants happen here. Config module uses bare tuples — no pydantic for static constants.
+`DocFrontmatter` (pydantic model) validates YAML frontmatter at the deserialization boundary in `parser.py`. All status enum checks, document ref format validation, and status-field invariants happen here. Config module uses bare tuples — no pydantic for static constants.
 
 ### Single I/O module
 
-`parser.py` is the only module that reads/writes ADR files. Commands never call `open()` or `frontmatter.load()` directly. When `python-frontmatter` changes its API, you fix one file.
+`parser.py` is the only module that reads/writes document files. Commands never call `open()` or `frontmatter.load()` directly. When `python-frontmatter` changes its API, you fix one file.
 
 ### Command interface
 
@@ -37,17 +46,19 @@ Every command module exposes `run(args: Namespace) -> int`. CLI dispatches to th
 ## Data Flow
 
 ```
-pyproject.toml [tool.adr]
-        ↓
-    config.py (loads project overrides)
-        ↓
+decree.toml [types.*]
+        |
+    config.py (loads doc type definitions)
+        |
+    doctypes.py (DocType instances)
+        |
     parser.py (validates frontmatter, reads/writes files)
-        ↓
-    commands/ (new, status, lint, index)
-        ↓
+        |
+    commands/ (new, status, lint, index, progress, graph)
+        |
     cli.py (argparse dispatch)
-        ↓
-    `adr` CLI entry point
+        |
+    `decree` CLI entry point
 ```
 
 ## Dependencies
