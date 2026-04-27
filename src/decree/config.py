@@ -19,8 +19,6 @@ try:
 except ImportError:
     import tomli as tomllib
 
-MADR_SPEC_VERSION = "4.0.0"
-
 # ── Project root discovery ────────────────────────────────
 
 
@@ -31,7 +29,8 @@ def get_project_root() -> Path:
         if (parent / "decree.toml").exists():
             return parent
     raise FileNotFoundError(
-        "decree.toml not found. Run 'decree init' or create one."
+        "decree.toml not found. Create one in your project root.\n"
+        "See https://github.com/doruksahin/decree#configuration"
     )
 
 
@@ -46,71 +45,9 @@ OPTIONAL_FRONTMATTER = (
 )
 DATE_FORMAT = "%Y-%m-%d"
 
-# ── Status lifecycle (core) ──────────────────────────────
-STATUSES = ("proposed", "accepted", "rejected", "deprecated", "superseded")
-
-VALID_TRANSITIONS = {
-    "proposed": ("accepted", "rejected"),
-    "accepted": ("deprecated", "superseded"),
-    "rejected": (),
-    "deprecated": (),
-    "superseded": (),
-}
-
-STATUS_FIELD_REQUIREMENTS = {
-    "proposed": (),
-    "accepted": (),
-    "rejected": (),
-    "deprecated": (),
-    "superseded": ("superseded-by",),
-}
-
-# Cross-file invariants (enforced by lint command):
-#   - If ADR-X has superseded-by: ADR-Y, then ADR-Y must have supersedes: ADR-X
-#   - If ADR-X has supersedes: ADR-Y, then ADR-Y must have status: superseded
-#   - If supersedes is present, the referenced ADR file must exist
-#   - If superseded-by is present, the referenced ADR file must exist
-
-# ── Sections (core) ──────────────────────────────────────
-MADR_REQUIRED_SECTIONS = (
-    "Context and Problem Statement",
-    "Considered Options",
-    "Decision Outcome",
-)
-
-OPTIONAL_SECTIONS = (
-    "Decision Drivers",
-    "Pros and Cons of the Options",
-    "More Information",
-)
-
-# ── Section descriptions (core) ──────────────────────────
-MADR_SECTION_DESCRIPTIONS = {
-    "Context and Problem Statement": "What is the issue or force motivating this decision?",
-    "Considered Options": (
-        "Bullet list of candidate options. Detailed pros/cons go in "
-        "'Pros and Cons of the Options'."
-    ),
-    "Decision Outcome": (
-        "State the chosen option and why. Use: "
-        "'Chosen option: \"[option]\", because [justification]'."
-    ),
-    "Decision Drivers": "Bullet list of forces or concerns influencing the decision.",
-    "Pros and Cons of the Options": "Detailed per-option pros/cons as H3 subsections.",
-    "More Information": "Links to related ADRs, external references, meeting notes.",
-}
-
 # ── File naming ───────────────────────────────────────────
-FILENAME_RE = re.compile(r"^(\d{4})-.+\.md$")  # e.g. 0001-use-pulp-solver.md
 SLUG_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SLUG_MAX_LENGTH = 60
-
-# ── Link format ───────────────────────────────────────────
-ADR_REF_RE = re.compile(r"^ADR-\d{4}$")
-
-# ── Defensive assertions (core only) ─────────────────────
-assert set(STATUS_FIELD_REQUIREMENTS) == set(STATUSES)
-assert set(VALID_TRANSITIONS) == set(STATUSES)
 
 
 # ── Multi-type DocType loading ────────────────────────────
