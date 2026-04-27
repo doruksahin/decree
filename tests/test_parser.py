@@ -46,6 +46,17 @@ class TestDocFrontmatter:
         dumped = fm.model_dump(by_alias=True, exclude_none=True)
         assert "supersedes" not in dumped
 
+    def test_attachments_roundtrip(self):
+        fm = DocFrontmatter(status="proposed", date=date(2026, 4, 2),
+                            attachments=[".stitch/overview.png"])
+        dumped = fm.model_dump(by_alias=True, exclude_none=True)
+        assert dumped["attachments"] == [".stitch/overview.png"]
+
+    def test_attachments_none_excluded(self):
+        fm = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
+        dumped = fm.model_dump(by_alias=True, exclude_none=True)
+        assert "attachments" not in dumped
+
     def test_evolve_changes_status(self):
         fm = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
         evolved = fm.evolve(status="accepted")

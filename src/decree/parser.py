@@ -27,6 +27,7 @@ class DocFrontmatter(BaseModel):
     consulted: list[str] | None = None
     informed: list[str] | None = None
     references: list[str] | None = None
+    attachments: list[str] | None = None
 
     model_config = {"populate_by_name": True}
 

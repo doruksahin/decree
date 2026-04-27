@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 from decree.parser import DocFrontmatter, DocDocument
-from decree.validators import validate_sections, validate_cross_file_integrity
+from decree.validators import validate_sections, validate_cross_file_integrity, validate_attachments_exist
 from decree.doctypes import ADR_DEFAULT
 
 
@@ -52,3 +52,31 @@ class TestCrossFileIntegrity:
         old = _make_doc("0001", "superseded", **{"superseded-by": "ADR-0099"})
         errors = validate_cross_file_integrity([old])
         assert any("does not exist" in e for e in errors)
+
+
+class TestValidateAttachments:
+    def test_existing_file_passes(self, tmp_path):
+        f = tmp_path / ".stitch" / "overview.png"
+        f.parent.mkdir(parents=True)
+        f.touch()
+        doc = _make_doc(attachments=[".stitch/overview.png"])
+        assert validate_attachments_exist([doc], tmp_path) == []
+
+    def test_missing_file_errors(self, tmp_path):
+        doc = _make_doc(attachments=[".stitch/missing.png"])
+        errors = validate_attachments_exist([doc], tmp_path)
+        assert len(errors) == 1
+        assert "does not exist" in errors[0]
+        assert "missing.png" in errors[0]
+
+    def test_no_attachments_passes(self, tmp_path):
+        doc = _make_doc()
+        assert validate_attachments_exist([doc], tmp_path) == []
+
+    def test_multiple_partial_missing(self, tmp_path):
+        existing = tmp_path / "a.png"
+        existing.touch()
+        doc = _make_doc(attachments=["a.png", "b.png"])
+        errors = validate_attachments_exist([doc], tmp_path)
+        assert len(errors) == 1
+        assert "b.png" in errors[0]

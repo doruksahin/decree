@@ -85,7 +85,7 @@ def main() -> int:
     )
 
     # ── lint ─────────────────────────────────────────────────
-    subparsers.add_parser(
+    p_lint = subparsers.add_parser(
         "lint",
         help="Validate all documents and cross-type references",
         description="Validate all configured document types. Checks: "
@@ -93,6 +93,11 @@ def main() -> int:
                     "duplicate IDs, dangling references, stale references "
                     "(to rejected/deprecated/superseded/archived docs), "
                     "and self-references.",
+    )
+    p_lint.add_argument(
+        "--check-attachments",
+        action="store_true",
+        help="Validate that attachment file paths exist on disk",
     )
 
     # ── index ────────────────────────────────────────────────

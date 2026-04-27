@@ -50,6 +50,11 @@ def run(args: argparse.Namespace | None = None) -> int:
     cross_type_errors = validate_cross_type_references(all_docs)
     errors.extend(cross_type_errors)
 
+    # Attachment file existence (opt-in)
+    if getattr(args, "check_attachments", False):
+        from decree.validators import validate_attachments_exist
+        errors.extend(validate_attachments_exist(all_docs, get_project_root()))
+
     # C4 validation (per type, only if c4 is configured)
     for dt in doc_types:
         if dt.c4 and dt.c4.enabled:

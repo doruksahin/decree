@@ -1,4 +1,6 @@
-"""Pure validation functions — no I/O, no side effects."""
+"""Validation functions for decree documents."""
+
+from pathlib import Path
 
 
 def validate_sections(doc) -> list[str]:
@@ -72,4 +74,16 @@ def validate_cross_type_references(docs: list) -> list[str]:
                         f"(status: {target.meta.status})"
                     )
 
+    return errors
+
+
+def validate_attachments_exist(docs: list, project_root: Path) -> list[str]:
+    """Check that attachment file paths exist on disk. Opt-in via --check-attachments."""
+    errors: list[str] = []
+    for doc in docs:
+        if not doc.meta.attachments:
+            continue
+        for path_str in doc.meta.attachments:
+            if not (project_root / path_str).exists():
+                errors.append(f"{doc.doc_id}: attachment '{path_str}' does not exist")
     return errors
