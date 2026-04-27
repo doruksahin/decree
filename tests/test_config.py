@@ -3,46 +3,42 @@
 import pytest
 from pathlib import Path
 
-from decree.config import load_doc_types, find_doc_type
-
-from decree.config import (
-    STATUSES, VALID_TRANSITIONS, STATUS_FIELD_REQUIREMENTS,
-    MADR_REQUIRED_SECTIONS, OPTIONAL_SECTIONS, MADR_SECTION_DESCRIPTIONS,
-    FILENAME_RE, SLUG_RE, ADR_REF_RE,
-    get_project_root,
-)
+from decree.config import load_doc_types, find_doc_type, get_project_root
+from decree.doctypes import ADR_DEFAULT
 
 
-class TestCoreDefaults:
+class TestAdrDefault:
+    """Test the ADR_DEFAULT DocType in doctypes.py (replaces old hardcoded config constants)."""
+
     def test_statuses(self):
-        assert "proposed" in STATUSES
-        assert "accepted" in STATUSES
-        assert len(STATUSES) == 5
+        assert "proposed" in ADR_DEFAULT.statuses
+        assert "accepted" in ADR_DEFAULT.statuses
+        assert len(ADR_DEFAULT.statuses) == 5
 
     def test_transitions_cover_all_statuses(self):
-        assert set(VALID_TRANSITIONS) == set(STATUSES)
+        assert set(ADR_DEFAULT.transitions) == set(ADR_DEFAULT.statuses)
 
     def test_status_field_requirements_cover_all_statuses(self):
-        assert set(STATUS_FIELD_REQUIREMENTS) == set(STATUSES)
+        assert set(ADR_DEFAULT.status_field_requirements) == set(ADR_DEFAULT.statuses)
 
     def test_superseded_requires_link(self):
-        assert "superseded-by" in STATUS_FIELD_REQUIREMENTS["superseded"]
+        assert "superseded-by" in ADR_DEFAULT.status_field_requirements["superseded"]
 
-    def test_madr_required_sections(self):
-        assert "Context and Problem Statement" in MADR_REQUIRED_SECTIONS
-        assert "Considered Options" in MADR_REQUIRED_SECTIONS
-        assert "Decision Outcome" in MADR_REQUIRED_SECTIONS
+    def test_required_sections(self):
+        assert "Context and Problem Statement" in ADR_DEFAULT.required_sections
+        assert "Considered Options" in ADR_DEFAULT.required_sections
+        assert "Decision Outcome" in ADR_DEFAULT.required_sections
 
     def test_filename_re(self):
-        assert FILENAME_RE.match("0001-test-slug.md")
-        assert not FILENAME_RE.match("ADR-TEMPLATE.md")
-        assert not FILENAME_RE.match("readme.md")
-        assert not FILENAME_RE.match("ADR-0001-test-slug.md")
+        assert ADR_DEFAULT.filename_re.match("0001-test-slug.md")
+        assert not ADR_DEFAULT.filename_re.match("ADR-TEMPLATE.md")
+        assert not ADR_DEFAULT.filename_re.match("readme.md")
+        assert not ADR_DEFAULT.filename_re.match("ADR-0001-test-slug.md")
 
-    def test_adr_ref_re(self):
-        assert ADR_REF_RE.match("ADR-0001")
-        assert not ADR_REF_RE.match("0001")
-        assert not ADR_REF_RE.match("ADR-0001-slug.md")
+    def test_ref_re(self):
+        assert ADR_DEFAULT.ref_re.match("ADR-0001")
+        assert not ADR_DEFAULT.ref_re.match("0001")
+        assert not ADR_DEFAULT.ref_re.match("ADR-0001-slug.md")
 
 
 class TestProjectConfig:
