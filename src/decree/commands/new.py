@@ -46,7 +46,7 @@ def _get_template_path(doc_type):
 def run(args: argparse.Namespace) -> int:
     prefix = "new"
     title = args.title
-    doc_type_name = getattr(args, "doc_type", None) or "adr"
+    doc_type_name = args.doc_type
 
     # Resolve DocType
     doc_type = _resolve_doc_type(doc_type_name)
