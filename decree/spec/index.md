@@ -7,19 +7,3 @@
 | SPEC-001 | SPEC-001 C4 Validation and Diagram Generation | draft | 2026-04-05 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->
-
-## Decision Timeline
-
-```mermaid
-timeline
-    title SPEC Decision Timeline
-    section 2026-04-05
-        SPEC-001  : C4 Validation and Diagram Generation
-```
-
-## Status Distribution
-
-```mermaid
-pie title SPEC Status Distribution
-    "draft" : 1
-```
