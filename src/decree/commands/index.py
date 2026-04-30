@@ -4,6 +4,8 @@ import argparse
 
 from decree.log import info, success
 
+GRAPH_MARKER = "<!-- GENERATED:decree-graph — do not edit below this line -->"
+
 
 def run(args: argparse.Namespace | None = None) -> int:
     from decree.config import get_project_root, load_doc_types
@@ -73,6 +75,8 @@ def run(args: argparse.Namespace | None = None) -> int:
             for doc in docs:
                 lines.append(f"| {doc.doc_id} | {doc.title} | {doc.meta.status} | {doc.meta.date} |")
 
+        lines.append("")
+        lines.append(GRAPH_MARKER)
         lines.append("")
 
         index_file = type_dir / "index.md"

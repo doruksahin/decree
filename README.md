@@ -131,11 +131,51 @@ Produces tables like:
 
 ### Graph — Mermaid diagrams
 
-Generates decision timelines, supersede chains, status distribution pie charts, and C4 container views.
+Generates decision timelines, supersede chains, status distribution pie charts, and C4 container views. Appended to each type's `index.md` below a generated marker.
 
-```bash
-decree graph
 ```
+$ decree graph
+[graph] generated timeline for adr
+[graph] generated supersede graph for adr
+[graph] generated status distribution for adr
+✓ generated diagrams for 3 type(s)
+```
+
+Example output in `index.md`:
+
+````markdown
+<!-- GENERATED:decree-graph — do not edit below this line -->
+
+## Decision Timeline
+
+```mermaid
+timeline
+    title ADR Decision Timeline
+    section 2026-04-01
+        ADR-0001 🔄 : Auth via JWT
+    section 2026-04-02
+        ADR-0002 ✅ : Session Cookies Instead
+```
+
+## Decision Chain
+
+```mermaid
+graph LR
+    ADR-0001["ADR-0001<br/>Auth via JWT"]
+    style ADR-0001 fill:#8b949e,color:#fff
+    ADR-0002["ADR-0002<br/>Session Cookies Instead"]
+    style ADR-0002 fill:#2ea043,color:#fff
+    ADR-0001 -->|superseded by| ADR-0002
+```
+
+## Status Distribution
+
+```mermaid
+pie title ADR Status Distribution
+    "accepted" : 1
+    "superseded" : 1
+```
+````
 
 ### Attachments — link external artifacts
 

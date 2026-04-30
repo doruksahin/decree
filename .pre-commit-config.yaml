@@ -8,6 +8,11 @@ repos:
 
   - repo: local
     hooks:
+      - id: lychee
+        name: lychee (link check)
+        entry: lychee --no-progress
+        language: system
+        types: [markdown]
       - id: tests
         name: tests
         entry: uv run pytest -q

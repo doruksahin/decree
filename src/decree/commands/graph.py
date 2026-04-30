@@ -6,9 +6,10 @@ above the GENERATED marker.
 
 import argparse
 
-from decree.log import error, fail, info, success
+from decree.commands.index import GRAPH_MARKER
+from decree.log import error, info, success
 
-MARKER = "<!-- GENERATED:adr-graph — do not edit below this line -->"
+_LEGACY_MARKER = "<!-- GENERATED:adr-graph — do not edit below this line -->"
 
 STATUS_ICONS = {
     "accepted": "✅",
@@ -115,20 +116,29 @@ def run(args: argparse.Namespace | None = None) -> int:
 
         index_file = type_dir / "index.md"
         if not index_file.exists():
-            error(prefix, f"{index_file} not found")
+            error(prefix, f"{index_file} not found — run `decree index` first")
             return 1
 
         content = index_file.read_text()
-        if MARKER not in content:
-            error(prefix, f"marker not found in {index_file}")
-            error(prefix, f"expected: {MARKER}")
-            fail("cannot regenerate — add marker to index.md first")
-            return 1
 
-        header = content[: content.index(MARKER)]
+        # Find the marker — support both current and legacy names
+        if GRAPH_MARKER in content:
+            marker = GRAPH_MARKER
+        elif _LEGACY_MARKER in content:
+            marker = _LEGACY_MARKER
+        else:
+            # Index was generated before markers were added — regenerate it
+            info(prefix, f"marker not found in {index_file} — running `decree index`")
+            from decree.commands.index import run as index_run
+
+            index_run(None)
+            content = index_file.read_text()
+            marker = GRAPH_MARKER
+
+        header = content[: content.index(marker)]
 
         # Generate diagrams
-        parts = [MARKER, ""]
+        parts = [GRAPH_MARKER, ""]
 
         timeline = _timeline(docs, dt)
         parts.append("## Decision Timeline\n")

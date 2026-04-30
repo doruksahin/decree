@@ -5,3 +5,21 @@
 | PRD | Title | Status | Date |
 |-----|-----|-----|-----|
 | PRD-001 | PRD-001 C4 Architecture Support | approved | 2026-04-05 |
+
+<!-- GENERATED:decree-graph — do not edit below this line -->
+
+## Decision Timeline
+
+```mermaid
+timeline
+    title PRD Decision Timeline
+    section 2026-04-05
+        PRD-001  : C4 Architecture Support
+```
+
+## Status Distribution
+
+```mermaid
+pie title PRD Status Distribution
+    "approved" : 1
+```
