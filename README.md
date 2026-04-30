@@ -249,6 +249,10 @@ Decree ships as a [Claude Code](https://claude.ai/code) plugin with skills for A
 | `/decree:lint` | Validate all documents, create tasks per error found |
 | `/decree:ddd` | Check project state, guide next step in the PRD→ADR→SPEC flow |
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, developer guidelines, and code style.
+
 ## Design Principles
 
 - **No LLM calls** — decree is deterministic and offline. AI tooling sits on top, consuming decree's output.

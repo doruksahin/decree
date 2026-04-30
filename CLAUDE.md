@@ -55,6 +55,8 @@ uv run decree lint              # validate dogfood docs
 
 Pre-commit runs ruff, lychee, and pytest automatically. CI runs the same on Python 3.11-3.13.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for developer guidelines — rules for adding commands, extending config, writing tests, and code style.
+
 ## Testing
 
 See [tests/CLAUDE.md](tests/CLAUDE.md) for test conventions and fixtures.
