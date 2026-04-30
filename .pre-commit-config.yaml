@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: lychee
         name: lychee (link check)
-        entry: lychee --no-progress
+        entry: lychee --config .lychee.toml --no-progress
         language: system
         types: [markdown]
       - id: tests

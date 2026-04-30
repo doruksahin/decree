@@ -249,6 +249,35 @@ Decree ships as a [Claude Code](https://claude.ai/code) plugin with skills for A
 | `/decree:lint` | Validate all documents, create tasks per error found |
 | `/decree:ddd` | Check project state, guide next step in the PRD→ADR→SPEC flow |
 
+## Live Example: Decree Managing Itself
+
+Decree dogfoods its own workflow. This repo uses decree to track its own features:
+
+```
+$ decree progress
+✓ 32/54 items complete (59%) across 4 documents
+  ADR-0001  Coupled C4 Module vs Plugin Architecture  accepted  ░░░░░░░░░░   — 
+  PRD-001   C4 Architecture Support                   approved  ░░░░░░░░░░   — 
+  PRD-002   DDD CLI Command and Proofshot Integra...  approved  ░░░░░░░░░░   0% (0/17)
+  SPEC-001  C4 Validation and Diagram Generation      draft     █████████░  86% (32/37)
+```
+
+Two features tracked, at different lifecycle stages:
+
+**Feature 1: C4 Architecture Support** (86% complete)
+```
+PRD-001 (approved) → ADR-0001 (accepted) → SPEC-001 (draft, 86%)
+```
+The decision chain is complete. The PRD defined what C4 support means, the ADR chose a coupled module over a plugin architecture, and the SPEC has 32 of 37 acceptance criteria checked off.
+
+**Feature 2: DDD CLI & Proofshot** (just approved)
+```
+PRD-002 (approved) → needs ADRs → needs SPECs
+```
+The PRD is approved with 17 acceptance criteria. Next step: create ADRs for architectural decisions (report format, hook mechanism), then SPECs for the technical blueprint.
+
+This is what Decree Driven Development looks like — every feature has a traceable chain from business need to implementation, with checkboxes tracking progress at every level.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, developer guidelines, and code style.
