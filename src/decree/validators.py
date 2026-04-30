@@ -17,10 +17,7 @@ def validate_cross_file_integrity(docs: list) -> list[str]:
     for doc in docs:
         doc_id = doc.doc_id
         if doc_id in docs_by_id:
-            errors.append(
-                f"DUPLICATE-ID: {doc_id} claimed by both "
-                f"{docs_by_id[doc_id].path.name} and {doc.path.name}"
-            )
+            errors.append(f"DUPLICATE-ID: {doc_id} claimed by both {docs_by_id[doc_id].path.name} and {doc.path.name}")
         else:
             docs_by_id[doc_id] = doc
 
@@ -32,8 +29,7 @@ def validate_cross_file_integrity(docs: list) -> list[str]:
                 errors.append(f"{doc.doc_id}: superseded-by {tid} does not exist")
             elif docs_by_id[tid].meta.supersedes != doc.doc_id:
                 errors.append(
-                    f"CROSS-FILE: {doc.doc_id} has superseded-by {tid}, "
-                    f"but {tid} has no supersedes {doc.doc_id}"
+                    f"CROSS-FILE: {doc.doc_id} has superseded-by {tid}, but {tid} has no supersedes {doc.doc_id}"
                 )
 
         if doc.meta.supersedes:
@@ -42,8 +38,7 @@ def validate_cross_file_integrity(docs: list) -> list[str]:
                 errors.append(f"{doc.doc_id}: supersedes {tid} does not exist")
             elif docs_by_id[tid].meta.status != "superseded":
                 errors.append(
-                    f"CROSS-FILE: {doc.doc_id} supersedes {tid}, "
-                    f"but {tid} has status '{docs_by_id[tid].meta.status}'"
+                    f"CROSS-FILE: {doc.doc_id} supersedes {tid}, but {tid} has status '{docs_by_id[tid].meta.status}'"
                 )
 
     return errors
@@ -69,10 +64,7 @@ def validate_cross_type_references(docs: list) -> list[str]:
                 # (it iterates load_doc_types()). The guard prevents AttributeError if
                 # someone calls this function with legacy-loaded documents directly.
                 if target.doc_type is not None and target.meta.status in target.doc_type.warn_on_reference:
-                    errors.append(
-                        f"CROSS-TYPE: {doc.doc_id} references {ref_id} "
-                        f"(status: {target.meta.status})"
-                    )
+                    errors.append(f"CROSS-TYPE: {doc.doc_id} references {ref_id} (status: {target.meta.status})")
 
     return errors
 

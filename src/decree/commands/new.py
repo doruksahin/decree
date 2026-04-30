@@ -1,15 +1,16 @@
 """Create a new document from a template (ADR, PRD, SPEC, etc.)."""
+
 import argparse
 from datetime import date
 from pathlib import Path
 
 from slugify import slugify
 
+from decree.commands import index
 from decree.config import DATE_FORMAT, SLUG_MAX_LENGTH, load_doc_types
-from decree.log import info, error, success
+from decree.log import error, info, success
 from decree.parser import next_number
 from decree.template import render_template
-from decree.commands import index
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
 DEFAULT_ADR_TEMPLATE = TEMPLATE_DIR / "madr-v4.md"
@@ -31,6 +32,7 @@ def _resolve_doc_type(name: str):
 def _get_template_path(doc_type):
     """Return the template path for a given DocType."""
     from decree.config import get_project_root
+
     # Custom template from type config
     if doc_type.template:
         custom = get_project_root() / doc_type.template
@@ -68,6 +70,7 @@ def run(args: argparse.Namespace) -> int:
     content = render_template(raw, number, title, slug, today, doc_type=doc_type)
 
     from decree.config import get_project_root
+
     type_dir = get_project_root() / doc_type.dir
     type_dir.mkdir(parents=True, exist_ok=True)
 

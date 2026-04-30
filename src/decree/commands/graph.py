@@ -3,10 +3,10 @@
 Writes directly to each type's index.md, preserving hand-authored content
 above the GENERATED marker.
 """
+
 import argparse
 
-from decree.log import info, error, success, fail
-
+from decree.log import error, fail, info, success
 
 MARKER = "<!-- GENERATED:adr-graph — do not edit below this line -->"
 
@@ -86,7 +86,7 @@ def _status_summary(docs: list, doc_type) -> str:
     for doc in docs:
         counts[doc.meta.status] = counts.get(doc.meta.status, 0) + 1
 
-    lines = [f'pie title {type_upper} Status Distribution']
+    lines = [f"pie title {type_upper} Status Distribution"]
     for status, count in sorted(counts.items()):
         lines.append(f'    "{status}" : {count}')
 
@@ -95,7 +95,7 @@ def _status_summary(docs: list, doc_type) -> str:
 
 def run(args: argparse.Namespace | None = None) -> int:
     prefix = "graph"
-    from decree.config import load_doc_types, get_project_root
+    from decree.config import get_project_root, load_doc_types
     from decree.parser import load_all
 
     doc_types = load_doc_types()
@@ -125,7 +125,7 @@ def run(args: argparse.Namespace | None = None) -> int:
             fail("cannot regenerate — add marker to index.md first")
             return 1
 
-        header = content[:content.index(MARKER)]
+        header = content[: content.index(MARKER)]
 
         # Generate diagrams
         parts = [MARKER, ""]
@@ -141,7 +141,10 @@ def run(args: argparse.Namespace | None = None) -> int:
             parts.append(f"```mermaid\n{graph}\n```\n")
             info(prefix, f"generated supersede graph for {dt.name}")
         else:
-            info(prefix, f"no supersede relationships for {dt.name} — skipping decision chain")
+            info(
+                prefix,
+                f"no supersede relationships for {dt.name} — skipping decision chain",
+            )
 
         pie = _status_summary(docs, dt)
         parts.append("## Status Distribution\n")
@@ -151,6 +154,7 @@ def run(args: argparse.Namespace | None = None) -> int:
         # C4 diagram (if configured for this type)
         if dt.c4 and dt.c4.enabled:
             from decree.c4 import generate_c4_container
+
             c4_diagram = generate_c4_container(docs, dt.c4)
             if c4_diagram:
                 parts.append("## C4 Container View\n")

@@ -117,8 +117,8 @@ implement = "implemented"
 
 # ── Document content builders ────────────────────────────────
 
-def _adr(number, title, status, references=None,
-         supersedes=None, superseded_by=None):
+
+def _adr(number, title, status, references=None, supersedes=None, superseded_by=None):
     """Build an ADR markdown string."""
     fm_lines = ["---", f"status: {status}", "date: 2026-04-01"]
     if references:
@@ -202,6 +202,7 @@ def _slug(title):
 
 # ── Project scaffolding ──────────────────────────────────────
 
+
 def scaffold_project(tmp_path):
     """Create the decree.toml and empty doc directories."""
     (tmp_path / "decree.toml").write_text(MULTI_TYPE_CONFIG)
@@ -224,6 +225,7 @@ def write_doc(tmp_path, doc_type, number, title, content):
 # PASSING scenarios — lint should report 0 errors
 # ══════════════════════════════════════════════════════════════
 
+
 def scenario_happy_path(tmp_path):
     """
     Everything aligned. All references valid. Lint passes clean.
@@ -244,22 +246,54 @@ def scenario_happy_path(tmp_path):
     Expected: PASS — ADR-0002 is superseded but nothing references it directly.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Team Billing",
-              _prd(1, "Team Billing", "approved"))
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted", references=["PRD-001"]))
-    write_doc(proj, "adr", 2, "Per-seat billing",
-              _adr(2, "Per-seat billing", "superseded",
-                   references=["PRD-001"], superseded_by="ADR-0003"))
-    write_doc(proj, "adr", 3, "Metered billing",
-              _adr(3, "Metered billing", "accepted",
-                   references=["PRD-001"], supersedes="ADR-0002"))
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "approved",
-                    references=["PRD-001", "ADR-0001", "ADR-0003"]))
-    write_doc(proj, "spec", 2, "Stripe Webhooks",
-              _spec(2, "Stripe Webhooks", "draft",
-                    references=["ADR-0001", "SPEC-001"]))
+    write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Stripe",
+        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "adr",
+        2,
+        "Per-seat billing",
+        _adr(
+            2,
+            "Per-seat billing",
+            "superseded",
+            references=["PRD-001"],
+            superseded_by="ADR-0003",
+        ),
+    )
+    write_doc(
+        proj,
+        "adr",
+        3,
+        "Metered billing",
+        _adr(
+            3,
+            "Metered billing",
+            "accepted",
+            references=["PRD-001"],
+            supersedes="ADR-0002",
+        ),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0001", "ADR-0003"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        2,
+        "Stripe Webhooks",
+        _spec(2, "Stripe Webhooks", "draft", references=["ADR-0001", "SPEC-001"]),
+    )
     return proj
 
 
@@ -279,18 +313,35 @@ def scenario_shared_adr(tmp_path):
     Expected: PASS — one ADR serving multiple PRDs is valid.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Real-time Dashboard",
-              _prd(1, "Real-time Dashboard", "approved"))
-    write_doc(proj, "prd", 2, "Session Caching",
-              _prd(2, "Session Caching", "approved"))
-    write_doc(proj, "adr", 1, "Use Redis",
-              _adr(1, "Use Redis", "accepted", references=["PRD-001", "PRD-002"]))
-    write_doc(proj, "spec", 1, "Redis Setup",
-              _spec(1, "Redis Setup", "approved",
-                    references=["ADR-0001", "PRD-001"]))
-    write_doc(proj, "spec", 2, "Cache Layer",
-              _spec(2, "Cache Layer", "draft",
-                    references=["ADR-0001", "PRD-002"]))
+    write_doc(
+        proj,
+        "prd",
+        1,
+        "Real-time Dashboard",
+        _prd(1, "Real-time Dashboard", "approved"),
+    )
+    write_doc(proj, "prd", 2, "Session Caching", _prd(2, "Session Caching", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Redis",
+        _adr(1, "Use Redis", "accepted", references=["PRD-001", "PRD-002"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Redis Setup",
+        _spec(1, "Redis Setup", "approved", references=["ADR-0001", "PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        2,
+        "Cache Layer",
+        _spec(2, "Cache Layer", "draft", references=["ADR-0001", "PRD-002"]),
+    )
     return proj
 
 
@@ -306,11 +357,20 @@ def scenario_infra_no_prd(tmp_path):
     Expected: PASS — no PRD required.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Migrate to PostgreSQL 16",
-              _adr(1, "Migrate to PostgreSQL 16", "accepted"))
-    write_doc(proj, "spec", 1, "PG16 Migration Runbook",
-              _spec(1, "PG16 Migration Runbook", "draft",
-                    references=["ADR-0001"]))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Migrate to PostgreSQL 16",
+        _adr(1, "Migrate to PostgreSQL 16", "accepted"),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "PG16 Migration Runbook",
+        _spec(1, "PG16 Migration Runbook", "draft", references=["ADR-0001"]),
+    )
     return proj
 
 
@@ -326,16 +386,28 @@ def scenario_lateral_spec_references(tmp_path):
     Expected: PASS — same-type references are valid.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Team Billing",
-              _prd(1, "Team Billing", "approved"))
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted", references=["PRD-001"]))
-    write_doc(proj, "spec", 1, "Core Billing API",
-              _spec(1, "Core Billing API", "approved",
-                    references=["ADR-0001"]))
-    write_doc(proj, "spec", 2, "Billing Webhooks",
-              _spec(2, "Billing Webhooks", "draft",
-                    references=["SPEC-001"]))
+    write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Stripe",
+        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Core Billing API",
+        _spec(1, "Core Billing API", "approved", references=["ADR-0001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        2,
+        "Billing Webhooks",
+        _spec(2, "Billing Webhooks", "draft", references=["SPEC-001"]),
+    )
     return proj
 
 
@@ -352,14 +424,21 @@ def scenario_reference_implemented_spec(tmp_path):
     This is the critical test that distinguishes terminal from dead.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted"))
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "implemented",
-                    references=["ADR-0001"]))
-    write_doc(proj, "spec", 2, "Billing Webhooks",
-              _spec(2, "Billing Webhooks", "draft",
-                    references=["SPEC-001"]))
+    write_doc(proj, "adr", 1, "Use Stripe", _adr(1, "Use Stripe", "accepted"))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "implemented", references=["ADR-0001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        2,
+        "Billing Webhooks",
+        _spec(2, "Billing Webhooks", "draft", references=["SPEC-001"]),
+    )
     return proj
 
 
@@ -376,12 +455,20 @@ def scenario_circular_spec_references(tmp_path):
     Expected: PASS — circular references are allowed.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "spec", 1, "Auth API",
-              _spec(1, "Auth API", "approved",
-                    references=["SPEC-002"]))
-    write_doc(proj, "spec", 2, "Session Management",
-              _spec(2, "Session Management", "approved",
-                    references=["SPEC-001"]))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Auth API",
+        _spec(1, "Auth API", "approved", references=["SPEC-002"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        2,
+        "Session Management",
+        _spec(2, "Session Management", "approved", references=["SPEC-001"]),
+    )
     return proj
 
 
@@ -398,11 +485,14 @@ def scenario_spec_before_adr_accepted(tmp_path):
     Expected: PASS — "proposed" is not in warn_on_reference.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Auth via JWT",
-              _adr(1, "Auth via JWT", "proposed"))
-    write_doc(proj, "spec", 1, "JWT Token API",
-              _spec(1, "JWT Token API", "draft",
-                    references=["ADR-0001"]))
+    write_doc(proj, "adr", 1, "Auth via JWT", _adr(1, "Auth via JWT", "proposed"))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "JWT Token API",
+        _spec(1, "JWT Token API", "draft", references=["ADR-0001"]),
+    )
     return proj
 
 
@@ -417,11 +507,20 @@ def scenario_reverse_reference(tmp_path):
     Expected: PASS — direction is not enforced.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted", references=["SPEC-001"]))
-    write_doc(proj, "spec", 1, "Stripe Integration",
-              _spec(1, "Stripe Integration", "approved",
-                    references=["ADR-0001"]))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Stripe",
+        _adr(1, "Use Stripe", "accepted", references=["SPEC-001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Stripe Integration",
+        _spec(1, "Stripe Integration", "approved", references=["ADR-0001"]),
+    )
     return proj
 
 
@@ -439,14 +538,28 @@ def scenario_competing_adrs(tmp_path):
     Expected: PASS — multiple proposed ADRs is valid workflow.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "User Auth",
-              _prd(1, "User Auth", "approved"))
-    write_doc(proj, "adr", 1, "Auth via JWT",
-              _adr(1, "Auth via JWT", "proposed", references=["PRD-001"]))
-    write_doc(proj, "adr", 2, "Auth via OAuth2",
-              _adr(2, "Auth via OAuth2", "proposed", references=["PRD-001"]))
-    write_doc(proj, "adr", 3, "Auth via SAML",
-              _adr(3, "Auth via SAML", "proposed", references=["PRD-001"]))
+    write_doc(proj, "prd", 1, "User Auth", _prd(1, "User Auth", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Auth via JWT",
+        _adr(1, "Auth via JWT", "proposed", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "adr",
+        2,
+        "Auth via OAuth2",
+        _adr(2, "Auth via OAuth2", "proposed", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "adr",
+        3,
+        "Auth via SAML",
+        _adr(3, "Auth via SAML", "proposed", references=["PRD-001"]),
+    )
     return proj
 
 
@@ -462,10 +575,14 @@ def scenario_prd_references_prd(tmp_path):
     Expected: PASS — PRD-to-PRD references are valid.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Team Billing",
-              _prd(1, "Team Billing", "approved"))
-    write_doc(proj, "prd", 2, "Enterprise Billing",
-              _prd(2, "Enterprise Billing", "approved", references=["PRD-001"]))
+    write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
+    write_doc(
+        proj,
+        "prd",
+        2,
+        "Enterprise Billing",
+        _prd(2, "Enterprise Billing", "approved", references=["PRD-001"]),
+    )
     return proj
 
 
@@ -542,29 +659,61 @@ def scenario_deep_chain_no_transitive_staleness(tmp_path):
     SPEC-002 and SPEC-003 are NOT flagged because staleness is direct-only.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Team Billing",
-              _prd(1, "Team Billing", "approved"))
-    write_doc(proj, "adr", 1, "Per-seat billing",
-              _adr(1, "Per-seat billing", "superseded",
-                   references=["PRD-001"], superseded_by="ADR-0002"))
-    write_doc(proj, "adr", 2, "Metered billing",
-              _adr(2, "Metered billing", "accepted",
-                   references=["PRD-001"], supersedes="ADR-0001"))
-    write_doc(proj, "spec", 1, "Billing Core",
-              _spec(1, "Billing Core", "approved",
-                    references=["ADR-0001"]))
-    write_doc(proj, "spec", 2, "Billing Extensions",
-              _spec(2, "Billing Extensions", "approved",
-                    references=["SPEC-001"]))
-    write_doc(proj, "spec", 3, "Billing Webhooks",
-              _spec(3, "Billing Webhooks", "draft",
-                    references=["SPEC-002"]))
+    write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Per-seat billing",
+        _adr(
+            1,
+            "Per-seat billing",
+            "superseded",
+            references=["PRD-001"],
+            superseded_by="ADR-0002",
+        ),
+    )
+    write_doc(
+        proj,
+        "adr",
+        2,
+        "Metered billing",
+        _adr(
+            2,
+            "Metered billing",
+            "accepted",
+            references=["PRD-001"],
+            supersedes="ADR-0001",
+        ),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing Core",
+        _spec(1, "Billing Core", "approved", references=["ADR-0001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        2,
+        "Billing Extensions",
+        _spec(2, "Billing Extensions", "approved", references=["SPEC-001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        3,
+        "Billing Webhooks",
+        _spec(3, "Billing Webhooks", "draft", references=["SPEC-002"]),
+    )
     return proj
 
 
 # ══════════════════════════════════════════════════════════════
 # FAILING scenarios — lint should report errors
 # ══════════════════════════════════════════════════════════════
+
 
 def scenario_stale_spec(tmp_path):
     """
@@ -577,19 +726,47 @@ def scenario_stale_spec(tmp_path):
     Expected: FAIL — 1 error: SPEC-001 references ADR-0002 (superseded)
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Team Billing",
-              _prd(1, "Team Billing", "approved"))
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted", references=["PRD-001"]))
-    write_doc(proj, "adr", 2, "Per-seat billing",
-              _adr(2, "Per-seat billing", "superseded",
-                   references=["PRD-001"], superseded_by="ADR-0003"))
-    write_doc(proj, "adr", 3, "Metered billing",
-              _adr(3, "Metered billing", "accepted",
-                   references=["PRD-001"], supersedes="ADR-0002"))
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "approved",
-                    references=["PRD-001", "ADR-0001", "ADR-0002"]))
+    write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Stripe",
+        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "adr",
+        2,
+        "Per-seat billing",
+        _adr(
+            2,
+            "Per-seat billing",
+            "superseded",
+            references=["PRD-001"],
+            superseded_by="ADR-0003",
+        ),
+    )
+    write_doc(
+        proj,
+        "adr",
+        3,
+        "Metered billing",
+        _adr(
+            3,
+            "Metered billing",
+            "accepted",
+            references=["PRD-001"],
+            supersedes="ADR-0002",
+        ),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0001", "ADR-0002"]),
+    )
     return proj
 
 
@@ -605,12 +782,21 @@ def scenario_rejected_adr_orphaned_spec(tmp_path):
     Expected: FAIL — SPEC-001 references ADR-0001 (rejected)
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "User Auth",
-              _prd(1, "User Auth", "approved"))
-    write_doc(proj, "adr", 1, "Auth via JWT",
-              _adr(1, "Auth via JWT", "rejected", references=["PRD-001"]))
-    write_doc(proj, "spec", 1, "JWT Token API",
-              _spec(1, "JWT Token API", "draft", references=["ADR-0001"]))
+    write_doc(proj, "prd", 1, "User Auth", _prd(1, "User Auth", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Auth via JWT",
+        _adr(1, "Auth via JWT", "rejected", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "JWT Token API",
+        _spec(1, "JWT Token API", "draft", references=["ADR-0001"]),
+    )
     return proj
 
 
@@ -626,15 +812,28 @@ def scenario_archived_prd_cascade(tmp_path):
     Expected: FAIL — 3 errors (ADR-0001, ADR-0002, SPEC-001 all reference archived PRD)
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Team Billing",
-              _prd(1, "Team Billing", "archived"))
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted", references=["PRD-001"]))
-    write_doc(proj, "adr", 2, "Metered billing",
-              _adr(2, "Metered billing", "accepted", references=["PRD-001"]))
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "approved",
-                    references=["PRD-001", "ADR-0001"]))
+    write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "archived"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Stripe",
+        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "adr",
+        2,
+        "Metered billing",
+        _adr(2, "Metered billing", "accepted", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0001"]),
+    )
     return proj
 
 
@@ -648,13 +847,21 @@ def scenario_dangling_reference(tmp_path):
     Expected: FAIL — ADR-0099 does not exist
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Team Billing",
-              _prd(1, "Team Billing", "approved"))
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted", references=["PRD-001"]))
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "draft",
-                    references=["ADR-0001", "ADR-0099"]))
+    write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Stripe",
+        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "draft", references=["ADR-0001", "ADR-0099"]),
+    )
     return proj
 
 
@@ -668,8 +875,13 @@ def scenario_adr_dangling_to_prd(tmp_path):
     Expected: FAIL — PRD-099 does not exist
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted", references=["PRD-099"]))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Stripe",
+        _adr(1, "Use Stripe", "accepted", references=["PRD-099"]),
+    )
     return proj
 
 
@@ -683,9 +895,13 @@ def scenario_self_reference(tmp_path):
     Expected: FAIL — self-reference detected
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "draft",
-                    references=["SPEC-001"]))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "draft", references=["SPEC-001"]),
+    )
     return proj
 
 
@@ -700,11 +916,14 @@ def scenario_broken_supersede_symmetry(tmp_path):
     Expected: FAIL — asymmetric supersede chain
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Per-seat billing",
-              _adr(1, "Per-seat billing", "superseded",
-                   superseded_by="ADR-0002"))
-    write_doc(proj, "adr", 2, "Metered billing",
-              _adr(2, "Metered billing", "accepted"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Per-seat billing",
+        _adr(1, "Per-seat billing", "superseded", superseded_by="ADR-0002"),
+    )
+    write_doc(proj, "adr", 2, "Metered billing", _adr(2, "Metered billing", "accepted"))
     # Note: ADR-0002 does NOT have supersedes: ADR-0001
     return proj
 
@@ -719,8 +938,7 @@ def scenario_duplicate_ids(tmp_path):
     Expected: FAIL — duplicate ID detected
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Use Redis",
-              _adr(1, "Use Redis", "accepted"))
+    write_doc(proj, "adr", 1, "Use Redis", _adr(1, "Use Redis", "accepted"))
     # Write a second file that also maps to ADR-0001
     slug2 = "use-memcached"
     path2 = proj / "docs" / "adr" / f"0001-{slug2}.md"
@@ -738,9 +956,13 @@ def scenario_dangling_supersede_target(tmp_path):
     Expected: FAIL — dangling supersede reference
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Per-seat billing",
-              _adr(1, "Per-seat billing", "superseded",
-                   superseded_by="ADR-0099"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Per-seat billing",
+        _adr(1, "Per-seat billing", "superseded", superseded_by="ADR-0099"),
+    )
     return proj
 
 
@@ -757,11 +979,14 @@ def scenario_deprecated_adr_no_replacement(tmp_path):
     Expected: FAIL — ADR-0001 is deprecated (different from superseded)
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Use Legacy API",
-              _adr(1, "Use Legacy API", "deprecated"))
-    write_doc(proj, "spec", 1, "Legacy Integration",
-              _spec(1, "Legacy Integration", "approved",
-                    references=["ADR-0001"]))
+    write_doc(proj, "adr", 1, "Use Legacy API", _adr(1, "Use Legacy API", "deprecated"))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Legacy Integration",
+        _spec(1, "Legacy Integration", "approved", references=["ADR-0001"]),
+    )
     return proj
 
 
@@ -775,9 +1000,13 @@ def scenario_unknown_prefix_reference(tmp_path):
     Expected: FAIL — RFC-001 does not match any known type, treated as dangling.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "draft",
-                    references=["RFC-001"]))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "draft", references=["RFC-001"]),
+    )
     return proj
 
 
@@ -792,11 +1021,14 @@ def scenario_malformed_reference_id(tmp_path):
     Expected: FAIL — malformed IDs should be flagged (dangling or format error).
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted"))
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "draft",
-                    references=["ADR-1", "adr-0001"]))
+    write_doc(proj, "adr", 1, "Use Stripe", _adr(1, "Use Stripe", "accepted"))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "draft", references=["ADR-1", "adr-0001"]),
+    )
     return proj
 
 
@@ -815,14 +1047,28 @@ def scenario_prd_split(tmp_path):
     Expected: FAIL — 3 errors (PRD-002, PRD-003, ADR-0001 all ref archived PRD-001)
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Billing",
-              _prd(1, "Billing", "archived"))
-    write_doc(proj, "prd", 2, "Team Billing",
-              _prd(2, "Team Billing", "approved", references=["PRD-001"]))
-    write_doc(proj, "prd", 3, "Enterprise Billing",
-              _prd(3, "Enterprise Billing", "approved", references=["PRD-001"]))
-    write_doc(proj, "adr", 1, "Use Stripe",
-              _adr(1, "Use Stripe", "accepted", references=["PRD-001"]))
+    write_doc(proj, "prd", 1, "Billing", _prd(1, "Billing", "archived"))
+    write_doc(
+        proj,
+        "prd",
+        2,
+        "Team Billing",
+        _prd(2, "Team Billing", "approved", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "prd",
+        3,
+        "Enterprise Billing",
+        _prd(3, "Enterprise Billing", "approved", references=["PRD-001"]),
+    )
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Use Stripe",
+        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+    )
     return proj
 
 
@@ -836,9 +1082,13 @@ def scenario_dangling_supersedes_field(tmp_path):
     Expected: FAIL — referenced ADR does not exist
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 2, "Metered billing",
-              _adr(2, "Metered billing", "accepted",
-                   supersedes="ADR-0099"))
+    write_doc(
+        proj,
+        "adr",
+        2,
+        "Metered billing",
+        _adr(2, "Metered billing", "accepted", supersedes="ADR-0099"),
+    )
     return proj
 
 
@@ -871,8 +1121,7 @@ def scenario_superseded_by_without_status(tmp_path):
         "\n## Decision Outcome\n\nChosen option: A.\n"
     )
     write_doc(proj, "adr", 1, "Per-seat billing", content)
-    write_doc(proj, "adr", 2, "Metered billing",
-              _adr(2, "Metered billing", "accepted"))
+    write_doc(proj, "adr", 2, "Metered billing", _adr(2, "Metered billing", "accepted"))
     return proj
 
 
@@ -889,11 +1138,14 @@ def scenario_mixed_errors_in_one_document(tmp_path):
     Expected: FAIL — 2 errors (one dangling, one stale)
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Auth via JWT",
-              _adr(1, "Auth via JWT", "rejected"))
-    write_doc(proj, "spec", 1, "JWT Token API",
-              _spec(1, "JWT Token API", "draft",
-                    references=["ADR-0099", "ADR-0001"]))
+    write_doc(proj, "adr", 1, "Auth via JWT", _adr(1, "Auth via JWT", "rejected"))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "JWT Token API",
+        _spec(1, "JWT Token API", "draft", references=["ADR-0099", "ADR-0001"]),
+    )
     return proj
 
 
@@ -914,18 +1166,32 @@ def scenario_dead_to_dead_reference(tmp_path):
     should already be visible, not hidden.
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "adr", 1, "Auth via JWT",
-              _adr(1, "Auth via JWT", "rejected"))
-    write_doc(proj, "adr", 2, "Auth via OAuth2",
-              _adr(2, "Auth via OAuth2", "superseded",
-                   references=["ADR-0001"], superseded_by="ADR-0003"))
-    write_doc(proj, "adr", 3, "Auth via Passkeys",
-              _adr(3, "Auth via Passkeys", "accepted",
-                   supersedes="ADR-0002"))
+    write_doc(proj, "adr", 1, "Auth via JWT", _adr(1, "Auth via JWT", "rejected"))
+    write_doc(
+        proj,
+        "adr",
+        2,
+        "Auth via OAuth2",
+        _adr(
+            2,
+            "Auth via OAuth2",
+            "superseded",
+            references=["ADR-0001"],
+            superseded_by="ADR-0003",
+        ),
+    )
+    write_doc(
+        proj,
+        "adr",
+        3,
+        "Auth via Passkeys",
+        _adr(3, "Auth via Passkeys", "accepted", supersedes="ADR-0002"),
+    )
     return proj
 
 
 # ── Two-phase scenarios ──────────────────────────────────────
+
 
 def scenario_supersede_then_cascade(tmp_path):
     """
@@ -938,24 +1204,51 @@ def scenario_supersede_then_cascade(tmp_path):
     Expected: FAIL
     """
     proj = scaffold_project(tmp_path)
-    write_doc(proj, "prd", 1, "Team Billing",
-              _prd(1, "Team Billing", "approved"))
-    write_doc(proj, "adr", 1, "Per-seat billing",
-              _adr(1, "Per-seat billing", "superseded",
-                   references=["PRD-001"], superseded_by="ADR-0002"))
-    write_doc(proj, "adr", 2, "Metered billing",
-              _adr(2, "Metered billing", "accepted",
-                   references=["PRD-001"], supersedes="ADR-0001"))
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "approved",
-                    references=["PRD-001", "ADR-0001"]))
+    write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
+    write_doc(
+        proj,
+        "adr",
+        1,
+        "Per-seat billing",
+        _adr(
+            1,
+            "Per-seat billing",
+            "superseded",
+            references=["PRD-001"],
+            superseded_by="ADR-0002",
+        ),
+    )
+    write_doc(
+        proj,
+        "adr",
+        2,
+        "Metered billing",
+        _adr(
+            2,
+            "Metered billing",
+            "accepted",
+            references=["PRD-001"],
+            supersedes="ADR-0001",
+        ),
+    )
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0001"]),
+    )
     return proj
 
 
 def scenario_supersede_cascade_fixed(tmp_path):
     """Phase 2: SPEC-001 updated to reference ADR-0002. Expected: PASS."""
     proj = scenario_supersede_then_cascade(tmp_path)
-    write_doc(proj, "spec", 1, "Billing API",
-              _spec(1, "Billing API", "approved",
-                    references=["PRD-001", "ADR-0002"]))
+    write_doc(
+        proj,
+        "spec",
+        1,
+        "Billing API",
+        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0002"]),
+    )
     return proj

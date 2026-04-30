@@ -1,6 +1,9 @@
 """Tests for decree.commands.lint."""
+
 import argparse
+
 import pytest
+
 from decree.commands.lint import run
 
 VALID_BODY = (
@@ -13,14 +16,17 @@ VALID_BODY = (
     "## Validation Needed\n\nRun tests.\n"
 )
 
+
 @pytest.fixture
 def adr_env(project_dir, monkeypatch):
     monkeypatch.chdir(project_dir)
     return project_dir / "docs" / "adr"
 
+
 def test_valid_passes(adr_env):
     (adr_env / "0001-test.md").write_text(f"---\nstatus: proposed\ndate: 2026-04-02\n---\n\n{VALID_BODY}")
     assert run(argparse.Namespace()) == 0
+
 
 def test_missing_section_fails(adr_env, capsys):
     (adr_env / "0001-test.md").write_text(
@@ -29,10 +35,12 @@ def test_missing_section_fails(adr_env, capsys):
     assert run(argparse.Namespace()) == 1
     assert "missing section" in capsys.readouterr().out
 
+
 def test_invalid_status_fails(adr_env, capsys):
     (adr_env / "0001-test.md").write_text(f"---\nstatus: draft\ndate: 2026-04-02\n---\n\n{VALID_BODY}")
     assert run(argparse.Namespace()) == 1
     assert "Invalid status" in capsys.readouterr().out
+
 
 def test_supersede_symmetry(adr_env, capsys):
     (adr_env / "0001-old.md").write_text(
@@ -44,6 +52,7 @@ def test_supersede_symmetry(adr_env, capsys):
     assert run(argparse.Namespace()) == 1
     assert "CROSS-FILE" in capsys.readouterr().out
 
+
 def test_collects_all_errors(adr_env, capsys):
     (adr_env / "0001-bad.md").write_text("---\nstatus: draft\ndate: 2026-04-02\n---\n\n# T\n")
     (adr_env / "0002-bad.md").write_text("---\nstatus: nope\ndate: 2026-04-02\n---\n\n# T\n")
@@ -51,6 +60,7 @@ def test_collects_all_errors(adr_env, capsys):
     out = capsys.readouterr().out
     assert "0001-bad" in out
     assert "0002-bad" in out
+
 
 def test_empty_dir_passes(adr_env):
     assert run(argparse.Namespace()) == 0

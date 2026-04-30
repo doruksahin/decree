@@ -1,17 +1,21 @@
 """Validate all documents: frontmatter, sections, cross-file integrity, cross-type references."""
+
 import argparse
 
 from pydantic import ValidationError
 
-from decree.log import info, success, fail
-from decree.validators import validate_sections, validate_cross_file_integrity, validate_cross_type_references
+from decree.log import fail, success
+from decree.validators import (
+    validate_cross_file_integrity,
+    validate_cross_type_references,
+    validate_sections,
+)
 
 
 def run(args: argparse.Namespace | None = None) -> int:
-    from decree.config import load_doc_types, get_project_root
+    from decree.config import get_project_root, load_doc_types
     from decree.parser import load
 
-    prefix = "lint"
     doc_types = load_doc_types()
     all_docs = []
     errors: list[str] = []
@@ -53,12 +57,14 @@ def run(args: argparse.Namespace | None = None) -> int:
     # Attachment file existence (opt-in)
     if getattr(args, "check_attachments", False):
         from decree.validators import validate_attachments_exist
+
         errors.extend(validate_attachments_exist(all_docs, get_project_root()))
 
     # C4 validation (per type, only if c4 is configured)
     for dt in doc_types:
         if dt.c4 and dt.c4.enabled:
             from decree.c4 import validate_c4
+
             type_docs = [d for d in all_docs if d.doc_type == dt]
             c4_errors = validate_c4(type_docs, dt.c4)
             errors.extend(c4_errors)

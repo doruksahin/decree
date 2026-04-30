@@ -1,6 +1,7 @@
 """Tests for decree.template — pure template rendering."""
-from decree.template import render_template
+
 from decree.doctypes import ADR_DEFAULT, DocType
+from decree.template import render_template
 
 
 def test_replaces_placeholders():
@@ -20,15 +21,20 @@ def test_appends_missing_required_sections():
     )
     # ADR_DEFAULT has required_sections: Context and Problem Statement, Considered Options, Decision Outcome
     # Those are already in the template, so nothing should be appended.
-    result = render_template(raw, number=1, title="Test", slug="test", today="2026-04-02",
-                             doc_type=ADR_DEFAULT)
+    result = render_template(
+        raw,
+        number=1,
+        title="Test",
+        slug="test",
+        today="2026-04-02",
+        doc_type=ADR_DEFAULT,
+    )
     # Only the 3 sections already present — no extras
     assert result.count("## ") == 3
 
 
 def test_appends_extra_required_sections():
     """Sections not in the template are appended when doc_type has them."""
-    from dataclasses import replace
     custom_type = DocType(
         name="adr",
         prefix="ADR",
@@ -56,8 +62,14 @@ def test_appends_extra_required_sections():
         "## Considered Options\n\n- A\n\n"
         "## Decision Outcome\n\nChosen.\n"
     )
-    result = render_template(raw, number=1, title="Test", slug="test", today="2026-04-02",
-                             doc_type=custom_type)
+    result = render_template(
+        raw,
+        number=1,
+        title="Test",
+        slug="test",
+        today="2026-04-02",
+        doc_type=custom_type,
+    )
     assert "## Consequences" in result
     assert "## Affected Files" in result
 

@@ -52,6 +52,7 @@ SLUG_MAX_LENGTH = 60
 
 # ── Multi-type DocType loading ────────────────────────────
 
+
 @functools.lru_cache(maxsize=1)
 def load_doc_types():
     """Load document types from [types.*] in decree.toml."""
@@ -61,10 +62,7 @@ def load_doc_types():
 
     types_config = data.get("types", {})
     if not types_config:
-        raise ValueError(
-            "decree.toml has no [types.*] sections. "
-            "Define at least one document type."
-        )
+        raise ValueError("decree.toml has no [types.*] sections. Define at least one document type.")
 
     return tuple(_build_doc_type(name, cfg) for name, cfg in types_config.items())
 
@@ -80,6 +78,7 @@ def find_doc_type(doc_id: str):
 def _build_doc_type(name: str, cfg: dict):
     """Build a DocType from a [types.*] config section."""
     from .doctypes import DocType
+
     statuses = tuple(cfg["statuses"])
     transitions = {k: tuple(v) for k, v in cfg.get("transitions", {}).items()}
 
@@ -89,9 +88,7 @@ def _build_doc_type(name: str, cfg: dict):
             raise ValueError(f"Type '{name}': transition source '{src}' not in statuses")
         for t in targets:
             if t not in statuses:
-                raise ValueError(
-                    f"Type '{name}': transition target '{t}' not in statuses {statuses}"
-                )
+                raise ValueError(f"Type '{name}': transition target '{t}' not in statuses {statuses}")
 
     # Fill missing terminal statuses
     for s in statuses:
@@ -122,6 +119,7 @@ def _parse_c4_config(cfg: dict):
     if not c4_raw or not c4_raw.get("enabled"):
         return None
     from .c4 import C4Config
+
     return C4Config(
         enabled=True,
         id_field=c4_raw.get("id_field", "id"),

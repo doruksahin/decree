@@ -1,8 +1,9 @@
 """Decree CLI — software decision lifecycle toolkit."""
+
 import argparse
 import sys
-from decree.commands import new, status, lint, index, graph, progress
 
+from decree.commands import graph, index, lint, new, progress, status
 
 EPILOG = """\
 document chain:
@@ -36,8 +37,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog="decree",
         description="Decree — software decision lifecycle toolkit. "
-                    "Manage PRDs, ADRs, and SPECs with cross-type references, "
-                    "status enforcement, and validation.",
+        "Manage PRDs, ADRs, and SPECs with cross-type references, "
+        "status enforcement, and validation.",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -48,8 +49,8 @@ def main() -> int:
         "new",
         help="Create a new document (PRD, ADR, or SPEC)",
         description="Create a new document from the type's template. "
-                    "Auto-numbers, slugifies the title, stamps today's date, "
-                    "and regenerates the type's index.",
+        "Auto-numbers, slugifies the title, stamps today's date, "
+        "and regenerates the type's index.",
     )
     p_new.add_argument(
         "doc_type",
@@ -65,8 +66,8 @@ def main() -> int:
         "status",
         help="Transition a document's status",
         description="Enforce status lifecycle transitions. "
-                    "Only valid transitions are allowed (e.g. proposed → accepted). "
-                    "For supersede: pass the replacement ID as the third argument.",
+        "Only valid transitions are allowed (e.g. proposed → accepted). "
+        "For supersede: pass the replacement ID as the third argument.",
     )
     p_status.add_argument(
         "doc_id",
@@ -75,7 +76,7 @@ def main() -> int:
     p_status.add_argument(
         "action",
         help="Action to perform. Available actions depend on the document type "
-             "(e.g. accept, reject, approve, implement, archive, supersede).",
+        "(e.g. accept, reject, approve, implement, archive, supersede).",
     )
     p_status.add_argument(
         "target_id",
@@ -89,10 +90,10 @@ def main() -> int:
         "lint",
         help="Validate all documents and cross-type references",
         description="Validate all configured document types. Checks: "
-                    "frontmatter validity, required sections, supersede symmetry, "
-                    "duplicate IDs, dangling references, stale references "
-                    "(to rejected/deprecated/superseded/archived docs), "
-                    "and self-references.",
+        "frontmatter validity, required sections, supersede symmetry, "
+        "duplicate IDs, dangling references, stale references "
+        "(to rejected/deprecated/superseded/archived docs), "
+        "and self-references.",
     )
     p_lint.add_argument(
         "--check-attachments",
@@ -104,8 +105,7 @@ def main() -> int:
     subparsers.add_parser(
         "index",
         help="Regenerate index.md for each document type",
-        description="Generate a markdown table listing all documents per type, "
-                    "sorted by status priority then number.",
+        description="Generate a markdown table listing all documents per type, sorted by status priority then number.",
     )
 
     # ── graph ────────────────────────────────────────────────
@@ -113,7 +113,7 @@ def main() -> int:
         "graph",
         help="Generate Mermaid diagrams (timeline, supersede chain, status distribution)",
         description="Append Mermaid diagram blocks to each type's index.md. "
-                    "Preserves hand-authored content above the GENERATED marker.",
+        "Preserves hand-authored content above the GENERATED marker.",
     )
 
     # ── progress ─────────────────────────────────────────────
@@ -121,7 +121,7 @@ def main() -> int:
         "progress",
         help="Show checkbox completion across all documents",
         description="Scan all documents for markdown checkboxes (- [ ] / - [x]) "
-                    "and report per-document and overall completion with progress bars.",
+        "and report per-document and overall completion with progress bars.",
     )
 
     args = parser.parse_args()

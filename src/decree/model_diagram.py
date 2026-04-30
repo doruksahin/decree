@@ -191,7 +191,8 @@ digraph decree_model {
         step2 [label="2. Decide the approach" shape=plaintext fillcolor="#f9fafb" fontcolor="#f59e0b"]
         step3 [label="3. Design the solution" shape=plaintext fillcolor="#f9fafb" fontcolor="#10b981"]
         step4 [label="4. Build it" shape=plaintext fillcolor="#f9fafb" fontcolor="#8b5cf6"]
-        step5 [label="5. Track progress\\n   (checkboxes in specs)" shape=plaintext fillcolor="#f9fafb" fontcolor="#6b7280"]
+        step5 [label="5. Track progress\\n   (checkboxes in specs)" shape=plaintext
+               fillcolor="#f9fafb" fontcolor="#6b7280"]
 
         step1 -> step2 -> step3 -> step4 -> step5 [
             color="#d1d5db"

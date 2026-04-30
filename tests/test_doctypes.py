@@ -1,8 +1,14 @@
-from decree.doctypes import DocType, ADR_DEFAULT
+from decree.doctypes import ADR_DEFAULT, DocType
 
 
 def test_adr_default_has_expected_statuses():
-    assert ADR_DEFAULT.statuses == ("proposed", "accepted", "rejected", "deprecated", "superseded")
+    assert ADR_DEFAULT.statuses == (
+        "proposed",
+        "accepted",
+        "rejected",
+        "deprecated",
+        "superseded",
+    )
 
 
 def test_adr_default_prefix():
@@ -16,7 +22,6 @@ def test_adr_default_transitions():
 
 
 def test_adr_default_ref_re():
-    import re
     assert ADR_DEFAULT.ref_re.match("ADR-0001")
     assert not ADR_DEFAULT.ref_re.match("PRD-001")
 
@@ -79,7 +84,12 @@ def test_prd_doctype():
             "implemented": ("archived",),
             "archived": (),
         },
-        actions={"submit": "review", "approve": "approved", "implement": "implemented", "archive": "archived"},
+        actions={
+            "submit": "review",
+            "approve": "approved",
+            "implement": "implemented",
+            "archive": "archived",
+        },
         required_sections=("Problem Statement", "Requirements", "Success Criteria"),
     )
     assert prd.ref_re.match("PRD-001")

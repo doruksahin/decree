@@ -82,12 +82,10 @@ ADR_DEFAULT = DocType(
     section_descriptions={
         "Context and Problem Statement": "What is the issue or force motivating this decision?",
         "Considered Options": (
-            "Bullet list of candidate options. Detailed pros/cons go in "
-            "'Pros and Cons of the Options'."
+            "Bullet list of candidate options. Detailed pros/cons go in 'Pros and Cons of the Options'."
         ),
         "Decision Outcome": (
-            "State the chosen option and why. Use: "
-            "'Chosen option: \"[option]\", because [justification]'."
+            "State the chosen option and why. Use: 'Chosen option: \"[option]\", because [justification]'."
         ),
         "Decision Drivers": "Bullet list of forces or concerns influencing the decision.",
         "Pros and Cons of the Options": "Detailed per-option pros/cons as H3 subsections.",

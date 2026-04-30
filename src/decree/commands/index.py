@@ -1,11 +1,12 @@
 """Generate index.md files from document frontmatter — one per doc type."""
+
 import argparse
 
 from decree.log import info, success
 
 
 def run(args: argparse.Namespace | None = None) -> int:
-    from decree.config import load_doc_types, get_project_root
+    from decree.config import get_project_root, load_doc_types
     from decree.parser import load_all
 
     prefix = "index"
@@ -23,25 +24,30 @@ def run(args: argparse.Namespace | None = None) -> int:
         # that have outgoing transitions (active) before terminal ones, with
         # accepted/approved/implemented active statuses prioritized.
         # Fall back to the statuses tuple order if not derivable.
-        _preferred = ["accepted", "approved", "implemented",
-                      "proposed", "draft", "review",
-                      "deprecated", "superseded", "rejected", "archived"]
-        STATUS_ORDER = sorted(
-            dt.statuses,
-            key=lambda s: _preferred.index(s) if s in _preferred else 99
+        _preferred = [
+            "accepted",
+            "approved",
+            "implemented",
+            "proposed",
+            "draft",
+            "review",
+            "deprecated",
+            "superseded",
+            "rejected",
+            "archived",
+        ]
+        STATUS_ORDER = sorted(dt.statuses, key=lambda s: _preferred.index(s) if s in _preferred else 99)
+        docs.sort(
+            key=lambda d: (
+                STATUS_ORDER.index(d.meta.status) if d.meta.status in STATUS_ORDER else 99,
+                d.number,
+            )
         )
-        docs.sort(key=lambda d: (
-            STATUS_ORDER.index(d.meta.status) if d.meta.status in STATUS_ORDER else 99,
-            d.number
-        ))
 
         type_upper = dt.name.upper()
 
         # Include Supersedes column only when the type uses supersede semantics
-        has_supersedes = any(
-            target == "superseded"
-            for target in dt.actions.values()
-        )
+        has_supersedes = any(target == "superseded" for target in dt.actions.values())
 
         if has_supersedes:
             lines = [
@@ -54,9 +60,7 @@ def run(args: argparse.Namespace | None = None) -> int:
             ]
             for doc in docs:
                 supersedes = doc.meta.supersedes or ""
-                lines.append(
-                    f"| {doc.doc_id} | {doc.title} | {doc.meta.status} | {doc.meta.date} | {supersedes} |"
-                )
+                lines.append(f"| {doc.doc_id} | {doc.title} | {doc.meta.status} | {doc.meta.date} | {supersedes} |")
         else:
             lines = [
                 f"# {type_upper}s",
@@ -67,9 +71,7 @@ def run(args: argparse.Namespace | None = None) -> int:
                 f"|{'-----|' * 4}",
             ]
             for doc in docs:
-                lines.append(
-                    f"| {doc.doc_id} | {doc.title} | {doc.meta.status} | {doc.meta.date} |"
-                )
+                lines.append(f"| {doc.doc_id} | {doc.title} | {doc.meta.status} | {doc.meta.date} |")
 
         lines.append("")
 

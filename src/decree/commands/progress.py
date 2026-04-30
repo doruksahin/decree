@@ -1,8 +1,8 @@
 """Report progress across all documents by counting checkbox items."""
+
 import argparse
 import re
 
-from decree.config import load_doc_types, get_project_root
 from decree.log import info, success
 from decree.parser import load_all_types
 
@@ -72,23 +72,17 @@ def run(args: argparse.Namespace | None = None) -> int:
     for doc_id, title, status, done, total in rows:
         short_title = title.replace(f"{doc_id} ", "")
         if len(short_title) > title_width:
-            short_title = short_title[:title_width - 3] + "..."
+            short_title = short_title[: title_width - 3] + "..."
         bar = _bar(done, total)
         pct = _pct(done, total)
         count = f"({done}/{total})" if total > 0 else ""
-        print(
-            f"  {doc_id:<{id_width}}  {short_title:<{title_width}}  "
-            f"{status:<{status_width}}  {bar} {pct} {count}"
-        )
+        print(f"  {doc_id:<{id_width}}  {short_title:<{title_width}}  {status:<{status_width}}  {bar} {pct} {count}")
 
     # Summary
     print()
     if total_items > 0:
         overall_pct = total_done / total_items * 100
-        success(
-            f"{total_done}/{total_items} items complete ({overall_pct:.0f}%) "
-            f"across {len(docs)} documents"
-        )
+        success(f"{total_done}/{total_items} items complete ({overall_pct:.0f}%) across {len(docs)} documents")
     else:
         success(f"{len(docs)} documents, no checkbox items found")
 

@@ -24,11 +24,7 @@ def render_template(
 
     # Append required sections that the template doesn't already contain.
     if doc_type is not None:
-        existing_sections = {
-            line.lstrip("# ").strip()
-            for line in content.splitlines()
-            if line.startswith("## ")
-        }
+        existing_sections = {line.lstrip("# ").strip() for line in content.splitlines() if line.startswith("## ")}
         descs = doc_type.section_descriptions
         for section in doc_type.required_sections:
             if section not in existing_sections:

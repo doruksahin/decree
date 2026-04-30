@@ -5,9 +5,10 @@ SPEC-001 references PRD-001.
 ADR-0003 gets superseded by ADR-0004.
 Lint catches the stale reference chain.
 """
-import argparse
-from decree.commands import new, status, lint
 
+import argparse
+
+from decree.commands import lint, new, status
 
 MULTI_TYPE_CONFIG = """\
 [types.adr]
@@ -76,6 +77,7 @@ implement = "implemented"
 def _add_references(path, refs):
     """Inject references into a document's frontmatter."""
     import frontmatter
+
     post = frontmatter.load(str(path))
     post["references"] = refs
     path.write_text(frontmatter.dumps(post).rstrip() + "\n")

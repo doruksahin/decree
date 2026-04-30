@@ -47,11 +47,7 @@ def validate_c4(docs: list[DocDocument], c4_config: C4Config) -> list[str]:
     errors: list[str] = []
 
     # Filter out dead docs
-    alive = [
-        d for d in docs
-        if d.doc_type is None
-        or d.meta.status not in d.doc_type.warn_on_reference
-    ]
+    alive = [d for d in docs if d.doc_type is None or d.meta.status not in d.doc_type.warn_on_reference]
 
     # Extract C4 metadata from raw frontmatter
     c4_docs: list[tuple[DocDocument, dict]] = []
@@ -69,9 +65,7 @@ def validate_c4(docs: list[DocDocument], c4_config: C4Config) -> list[str]:
             missing.append("c4_name")
 
         if missing:
-            errors.append(
-                f"C4: {doc.doc_id}: missing required field(s): {', '.join(missing)}"
-            )
+            errors.append(f"C4: {doc.doc_id}: missing required field(s): {', '.join(missing)}")
             continue
 
         # Check c4_type validity
@@ -89,9 +83,7 @@ def validate_c4(docs: list[DocDocument], c4_config: C4Config) -> list[str]:
     for doc, raw in c4_docs:
         c4_id = raw[c4_config.id_field]
         if c4_id in ids_seen:
-            errors.append(
-                f"C4: duplicate id '{c4_id}' in {doc.doc_id} and {ids_seen[c4_id]}"
-            )
+            errors.append(f"C4: duplicate id '{c4_id}' in {doc.doc_id} and {ids_seen[c4_id]}")
         else:
             ids_seen[c4_id] = doc.doc_id
 
@@ -101,18 +93,14 @@ def validate_c4(docs: list[DocDocument], c4_config: C4Config) -> list[str]:
 
         parent = raw.get("parent")
         if parent and parent not in ids_seen:
-            errors.append(
-                f"C4: {doc.doc_id} ({c4_id}): parent '{parent}' not found"
-            )
+            errors.append(f"C4: {doc.doc_id} ({c4_id}): parent '{parent}' not found")
 
         depends_on = raw.get("depends-on", [])
         if isinstance(depends_on, str):
             depends_on = [depends_on]
         for dep in depends_on:
             if dep not in ids_seen:
-                errors.append(
-                    f"C4: {doc.doc_id} ({c4_id}): depends-on '{dep}' not found"
-                )
+                errors.append(f"C4: {doc.doc_id} ({c4_id}): depends-on '{dep}' not found")
 
     return errors
 
@@ -130,11 +118,7 @@ def generate_c4_container(docs: list[DocDocument], c4_config: C4Config) -> str |
         return None
 
     # Filter out dead docs and extract metadata
-    alive = [
-        d for d in docs
-        if d.doc_type is None
-        or d.meta.status not in d.doc_type.warn_on_reference
-    ]
+    alive = [d for d in docs if d.doc_type is None or d.meta.status not in d.doc_type.warn_on_reference]
 
     c4_nodes: list[tuple[DocDocument, dict]] = []
     for doc in alive:
@@ -180,15 +164,13 @@ def generate_c4_container(docs: list[DocDocument], c4_config: C4Config) -> str |
     lines.append("")
 
     # Render depends-on edges
-    for doc, raw in c4_nodes:
+    for _doc, raw in c4_nodes:
         c4_id = raw[c4_config.id_field]
         depends_on = raw.get("depends-on", [])
         if isinstance(depends_on, str):
             depends_on = [depends_on]
         for dep in depends_on:
-            lines.append(
-                f"    Rel({_mermaid_id(dep)}, {_mermaid_id(c4_id)}, \"depends on\")"
-            )
+            lines.append(f'    Rel({_mermaid_id(dep)}, {_mermaid_id(c4_id)}, "depends on")')
 
     return "\n".join(lines)
 
@@ -206,9 +188,7 @@ def _get_raw_metadata(doc: DocDocument) -> dict:
     return doc.raw_metadata
 
 
-def _render_container(
-    lines: list[str], raw: dict, c4_config: C4Config, indent: int
-) -> None:
+def _render_container(lines: list[str], raw: dict, c4_config: C4Config, indent: int) -> None:
     """Render a single C4 container node."""
     c4_id = raw[c4_config.id_field]
     name = raw.get("c4_name", c4_id)

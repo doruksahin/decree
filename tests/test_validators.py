@@ -1,16 +1,25 @@
 """Tests for decree.validators — pure validation functions."""
-import pytest
+
 from datetime import date
 from pathlib import Path
 
-from decree.parser import DocFrontmatter, DocDocument
-from decree.validators import validate_sections, validate_cross_file_integrity, validate_attachments_exist
 from decree.doctypes import ADR_DEFAULT
+from decree.parser import DocDocument, DocFrontmatter
+from decree.validators import (
+    validate_attachments_exist,
+    validate_cross_file_integrity,
+    validate_sections,
+)
 
 
 def _make_doc(adr_id_num="0001", status="proposed", body="# T\n", **fm_kwargs):
     meta = DocFrontmatter(status=status, date=date(2026, 4, 2), **fm_kwargs)
-    return DocDocument(path=Path(f"/fake/{adr_id_num}-test.md"), meta=meta, body=body, doc_type=ADR_DEFAULT)
+    return DocDocument(
+        path=Path(f"/fake/{adr_id_num}-test.md"),
+        meta=meta,
+        body=body,
+        doc_type=ADR_DEFAULT,
+    )
 
 
 class TestValidateSections:

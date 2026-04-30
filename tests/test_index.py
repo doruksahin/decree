@@ -1,7 +1,11 @@
 """Tests for decree.commands.index."""
+
 import argparse
+
 import pytest
+
 from decree.commands.index import run
+
 
 @pytest.fixture
 def populated_adr_dir(project_dir, monkeypatch):
@@ -12,6 +16,7 @@ def populated_adr_dir(project_dir, monkeypatch):
     (d / "TEMPLATE.md").write_text("# Template\n")
     return d
 
+
 def test_generates_index(populated_adr_dir):
     assert run(argparse.Namespace()) == 0
     index = (populated_adr_dir / "index.md").read_text()
@@ -19,10 +24,12 @@ def test_generates_index(populated_adr_dir):
     assert "First Decision" in index
     assert "TEMPLATE" not in index
 
+
 def test_accepted_before_proposed(populated_adr_dir):
     run(argparse.Namespace())
     index = (populated_adr_dir / "index.md").read_text()
     assert index.index("ADR-0001") < index.index("ADR-0002")
+
 
 def test_empty_dir(project_dir, monkeypatch):
     monkeypatch.chdir(project_dir)

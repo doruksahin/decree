@@ -13,50 +13,52 @@ Design decisions encoded here:
     - Self-references: FLAGGED as errors
     - Duplicate IDs: FLAGGED as errors
 """
-import pytest
+
 from scenarios import (
-    scenario_happy_path,
-    scenario_stale_spec,
-    scenario_rejected_adr_orphaned_spec,
+    scenario_adr_dangling_to_prd,
     scenario_archived_prd_cascade,
-    scenario_shared_adr,
-    scenario_infra_no_prd,
-    scenario_dangling_reference,
-    scenario_lateral_spec_references,
-    scenario_supersede_then_cascade,
-    scenario_supersede_cascade_fixed,
-    scenario_reference_implemented_spec,
+    scenario_broken_supersede_symmetry,
     scenario_circular_spec_references,
-    scenario_spec_before_adr_accepted,
-    scenario_reverse_reference,
     scenario_competing_adrs,
-    scenario_prd_references_prd,
+    scenario_dangling_reference,
+    scenario_dangling_supersede_target,
+    scenario_dangling_supersedes_field,
+    scenario_dead_to_dead_reference,
+    scenario_deep_chain_no_transitive_staleness,
+    scenario_deprecated_adr_no_replacement,
+    scenario_duplicate_ids,
     scenario_empty_project,
     scenario_explicit_empty_references,
-    scenario_deep_chain_no_transitive_staleness,
-    scenario_adr_dangling_to_prd,
-    scenario_self_reference,
-    scenario_broken_supersede_symmetry,
-    scenario_duplicate_ids,
-    scenario_dangling_supersede_target,
-    scenario_deprecated_adr_no_replacement,
-    scenario_prd_split,
-    scenario_unknown_prefix_reference,
+    scenario_happy_path,
+    scenario_infra_no_prd,
+    scenario_lateral_spec_references,
     scenario_malformed_reference_id,
-    scenario_dead_to_dead_reference,
-    scenario_dangling_supersedes_field,
-    scenario_superseded_by_without_status,
     scenario_mixed_errors_in_one_document,
+    scenario_prd_references_prd,
+    scenario_prd_split,
+    scenario_reference_implemented_spec,
+    scenario_rejected_adr_orphaned_spec,
+    scenario_reverse_reference,
+    scenario_self_reference,
+    scenario_shared_adr,
+    scenario_spec_before_adr_accepted,
+    scenario_stale_spec,
+    scenario_supersede_cascade_fixed,
+    scenario_supersede_then_cascade,
+    scenario_superseded_by_without_status,
+    scenario_unknown_prefix_reference,
 )
 
-
 # ── Helpers ──────────────────────────────────────────────────
+
 
 def lint_project(proj_path, monkeypatch):
     """Run lint on a scenario project. Returns (exit_code, error_lines)."""
     monkeypatch.chdir(proj_path)
+    import io
+    import sys
+
     from decree.commands.lint import run
-    import io, sys
 
     captured = io.StringIO()
     old_stdout = sys.stdout
@@ -74,12 +76,14 @@ def collect_all_docs(proj_path, monkeypatch):
     """Load all documents across all types. Returns list of DocDocuments."""
     monkeypatch.chdir(proj_path)
     from decree.parser import load_all_types
+
     return load_all_types()
 
 
 # ══════════════════════════════════════════════════════════════
 # PASSING scenarios
 # ══════════════════════════════════════════════════════════════
+
 
 class TestHappyPath:
     """All references valid, all statuses healthy. 6 docs, 3 types."""
@@ -93,8 +97,14 @@ class TestHappyPath:
         proj = scenario_happy_path(tmp_path)
         docs = collect_all_docs(proj, monkeypatch)
         ids = {d.doc_id for d in docs}
-        assert ids == {"PRD-001", "ADR-0001", "ADR-0002", "ADR-0003",
-                       "SPEC-001", "SPEC-002"}
+        assert ids == {
+            "PRD-001",
+            "ADR-0001",
+            "ADR-0002",
+            "ADR-0003",
+            "SPEC-001",
+            "SPEC-002",
+        }
 
     def test_supersede_chain_is_symmetric(self, tmp_path, monkeypatch):
         proj = scenario_happy_path(tmp_path)
@@ -112,9 +122,10 @@ class TestHappyPath:
         for ref_id in spec.meta.references:
             target = by_id[ref_id]
             dead_statuses = target.doc_type.warn_on_reference
-            assert target.meta.status not in dead_statuses, \
-                f"SPEC-001 references {ref_id} which is {target.meta.status} " \
+            assert target.meta.status not in dead_statuses, (
+                f"SPEC-001 references {ref_id} which is {target.meta.status} "
                 f"(in warn_on_reference for {target.doc_type.name})"
+            )
 
 
 class TestSharedAdr:
@@ -165,8 +176,7 @@ class TestReferenceImplementedSpec:
         """Referencing an implemented SPEC must NOT be flagged."""
         proj = scenario_reference_implemented_spec(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
-        assert exit_code == 0, \
-            f"Implemented SPEC is healthy to reference, got errors: {errors}"
+        assert exit_code == 0, f"Implemented SPEC is healthy to reference, got errors: {errors}"
 
 
 class TestCircularReferences:
@@ -175,8 +185,7 @@ class TestCircularReferences:
     def test_lint_passes(self, tmp_path, monkeypatch):
         proj = scenario_circular_spec_references(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
-        assert exit_code == 0, \
-            f"Circular references should be allowed, got: {errors}"
+        assert exit_code == 0, f"Circular references should be allowed, got: {errors}"
 
 
 class TestSpecBeforeAdrAccepted:
@@ -185,8 +194,7 @@ class TestSpecBeforeAdrAccepted:
     def test_lint_passes(self, tmp_path, monkeypatch):
         proj = scenario_spec_before_adr_accepted(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
-        assert exit_code == 0, \
-            f"Referencing proposed ADR should be valid, got: {errors}"
+        assert exit_code == 0, f"Referencing proposed ADR should be valid, got: {errors}"
 
 
 class TestReverseReference:
@@ -195,8 +203,7 @@ class TestReverseReference:
     def test_lint_passes(self, tmp_path, monkeypatch):
         proj = scenario_reverse_reference(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
-        assert exit_code == 0, \
-            f"Reverse direction refs should be valid, got: {errors}"
+        assert exit_code == 0, f"Reverse direction refs should be valid, got: {errors}"
 
 
 class TestCompetingAdrs:
@@ -205,8 +212,7 @@ class TestCompetingAdrs:
     def test_lint_passes(self, tmp_path, monkeypatch):
         proj = scenario_competing_adrs(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
-        assert exit_code == 0, \
-            f"Multiple proposed ADRs should be valid, got: {errors}"
+        assert exit_code == 0, f"Multiple proposed ADRs should be valid, got: {errors}"
 
 
 class TestPrdReferencesPrd:
@@ -215,8 +221,7 @@ class TestPrdReferencesPrd:
     def test_lint_passes(self, tmp_path, monkeypatch):
         proj = scenario_prd_references_prd(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
-        assert exit_code == 0, \
-            f"PRD-to-PRD references should be valid, got: {errors}"
+        assert exit_code == 0, f"PRD-to-PRD references should be valid, got: {errors}"
 
 
 class TestExplicitEmptyReferences:
@@ -225,8 +230,7 @@ class TestExplicitEmptyReferences:
     def test_lint_passes(self, tmp_path, monkeypatch):
         proj = scenario_explicit_empty_references(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
-        assert exit_code == 0, \
-            f"Explicit empty references should be valid, got: {errors}"
+        assert exit_code == 0, f"Explicit empty references should be valid, got: {errors}"
 
 
 class TestEmptyProject:
@@ -235,13 +239,13 @@ class TestEmptyProject:
     def test_lint_passes(self, tmp_path, monkeypatch):
         proj = scenario_empty_project(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
-        assert exit_code == 0, \
-            f"Empty project should lint clean, got: {errors}"
+        assert exit_code == 0, f"Empty project should lint clean, got: {errors}"
 
 
 # ══════════════════════════════════════════════════════════════
 # FAILING scenarios
 # ══════════════════════════════════════════════════════════════
+
 
 class TestStaleSpec:
     """SPEC references superseded ADR."""
@@ -250,14 +254,14 @@ class TestStaleSpec:
         proj = scenario_stale_spec(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
-        assert any("ADR-0002" in e and "superseded" in e for e in errors), \
+        assert any("ADR-0002" in e and "superseded" in e for e in errors), (
             f"Expected stale ref error for ADR-0002, got: {errors}"
+        )
 
     def test_error_identifies_referencing_doc(self, tmp_path, monkeypatch):
         proj = scenario_stale_spec(tmp_path)
         _, errors = lint_project(proj, monkeypatch)
-        assert any("SPEC-001" in e for e in errors), \
-            f"Expected SPEC-001 in error, got: {errors}"
+        assert any("SPEC-001" in e for e in errors), f"Expected SPEC-001 in error, got: {errors}"
 
 
 class TestRejectedAdrOrphanedSpec:
@@ -280,8 +284,7 @@ class TestArchivedPrdCascade:
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
         prd_errors = [e for e in errors if "PRD-001" in e and "archived" in e]
-        assert len(prd_errors) >= 3, \
-            f"Expected 3+ errors for archived PRD, got: {prd_errors}"
+        assert len(prd_errors) >= 3, f"Expected 3+ errors for archived PRD, got: {prd_errors}"
 
     def test_identifies_each_affected_document(self, tmp_path, monkeypatch):
         proj = scenario_archived_prd_cascade(tmp_path)
@@ -335,8 +338,9 @@ class TestBrokenSupersedeSymmetry:
         proj = scenario_broken_supersede_symmetry(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
-        assert any("ADR-0001" in e and "ADR-0002" in e for e in errors), \
+        assert any("ADR-0001" in e and "ADR-0002" in e for e in errors), (
             f"Expected supersede asymmetry error, got: {errors}"
+        )
 
 
 class TestDanglingSupersedeTarget:
@@ -346,8 +350,9 @@ class TestDanglingSupersedeTarget:
         proj = scenario_dangling_supersede_target(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
-        assert any("ADR-0099" in e and "does not exist" in e for e in errors), \
+        assert any("ADR-0099" in e and "does not exist" in e for e in errors), (
             f"Expected dangling supersede-by error, got: {errors}"
+        )
 
 
 class TestDuplicateIds:
@@ -357,8 +362,9 @@ class TestDuplicateIds:
         proj = scenario_duplicate_ids(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
-        assert any("ADR-0001" in e and "duplicate" in e.lower() for e in errors), \
+        assert any("ADR-0001" in e and "duplicate" in e.lower() for e in errors), (
             f"Expected duplicate ID error, got: {errors}"
+        )
 
 
 class TestDeprecatedAdrNoReplacement:
@@ -381,8 +387,7 @@ class TestPrdSplit:
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
         prd_errors = [e for e in errors if "PRD-001" in e and "archived" in e]
-        assert len(prd_errors) >= 3, \
-            f"Expected 3+ errors for archived split PRD, got: {prd_errors}"
+        assert len(prd_errors) >= 3, f"Expected 3+ errors for archived split PRD, got: {prd_errors}"
 
 
 class TestUnknownPrefixReference:
@@ -404,8 +409,9 @@ class TestMalformedReferenceId:
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
         # Both ADR-1 and adr-0001 should be flagged (neither matches a real doc)
-        assert len([e for e in errors if "does not exist" in e]) >= 2, \
+        assert len([e for e in errors if "does not exist" in e]) >= 2, (
             f"Expected 2+ dangling errors for malformed IDs, got: {errors}"
+        )
 
 
 class TestDanglingSupersedes:
@@ -415,8 +421,9 @@ class TestDanglingSupersedes:
         proj = scenario_dangling_supersedes_field(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
-        assert any("ADR-0099" in e and "does not exist" in e for e in errors), \
+        assert any("ADR-0099" in e and "does not exist" in e for e in errors), (
             f"Expected dangling supersedes error, got: {errors}"
+        )
 
 
 class TestSupersededByWithoutStatus:
@@ -426,8 +433,7 @@ class TestSupersededByWithoutStatus:
         proj = scenario_superseded_by_without_status(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
-        assert any("ADR-0001" in e for e in errors), \
-            f"Expected field/status mismatch error for ADR-0001, got: {errors}"
+        assert any("ADR-0001" in e for e in errors), f"Expected field/status mismatch error for ADR-0001, got: {errors}"
 
 
 class TestMixedErrorsInOneDocument:
@@ -451,8 +457,7 @@ class TestDeadToDeadReference:
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
         rejected_errors = [e for e in errors if "ADR-0001" in e and "rejected" in e]
-        assert len(rejected_errors) == 1, \
-            f"Expected dead-to-dead ref flagged, got: {errors}"
+        assert len(rejected_errors) == 1, f"Expected dead-to-dead ref flagged, got: {errors}"
 
 
 class TestDeepChainNoTransitiveStaleness:
@@ -466,10 +471,8 @@ class TestDeepChainNoTransitiveStaleness:
         proj = scenario_deep_chain_no_transitive_staleness(tmp_path)
         exit_code, errors = lint_project(proj, monkeypatch)
         assert exit_code == 1
-        stale_errors = [e for e in errors
-                        if "superseded" in e or "does not exist" in e]
-        assert len(stale_errors) == 1, \
-            f"Expected exactly 1 stale error (direct only), got: {stale_errors}"
+        stale_errors = [e for e in errors if "superseded" in e or "does not exist" in e]
+        assert len(stale_errors) == 1, f"Expected exactly 1 stale error (direct only), got: {stale_errors}"
 
     def test_only_spec001_is_flagged(self, tmp_path, monkeypatch):
         proj = scenario_deep_chain_no_transitive_staleness(tmp_path)
@@ -483,6 +486,7 @@ class TestDeepChainNoTransitiveStaleness:
 # ═════════════════════════════════════════════════════════════��
 # Two-phase scenarios
 # ══════════════════════════════════════════════════════════════
+
 
 class TestSupersedeCascade:
     """Phase 1: stale. Phase 2: fixed."""

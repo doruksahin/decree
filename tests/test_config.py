@@ -1,9 +1,8 @@
 """Tests for decree.config — core defaults and project override loading."""
 
 import pytest
-from pathlib import Path
 
-from decree.config import load_doc_types, find_doc_type, get_project_root
+from decree.config import find_doc_type, get_project_root, load_doc_types
 from decree.doctypes import ADR_DEFAULT
 
 
@@ -48,7 +47,7 @@ class TestProjectConfig:
 
     def test_get_project_root_not_found(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        with pytest.raises(FileNotFoundError, match="decree.toml not found"):
+        with pytest.raises(FileNotFoundError, match=r"decree\.toml not found"):
             get_project_root()
 
     def test_load_doc_types_adr(self, project_dir, monkeypatch):
@@ -120,7 +119,7 @@ approve = "approved"
     def test_no_decree_toml_raises(self, tmp_path, monkeypatch):
         """If no decree.toml, raises FileNotFoundError."""
         monkeypatch.chdir(tmp_path)
-        with pytest.raises(FileNotFoundError, match="decree.toml not found"):
+        with pytest.raises(FileNotFoundError, match=r"decree\.toml not found"):
             load_doc_types()
 
     def test_validates_transitions_match_statuses(self, tmp_path, monkeypatch):

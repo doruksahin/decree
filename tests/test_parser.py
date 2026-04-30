@@ -1,11 +1,19 @@
 """Tests for decree.parser — document frontmatter parsing and file I/O."""
 
-import pytest
 from datetime import date
 from pathlib import Path
 
-from decree.parser import DocFrontmatter, DocDocument, load, save, find_by_id, next_number
+import pytest
+
 from decree.doctypes import ADR_DEFAULT
+from decree.parser import (
+    DocDocument,
+    DocFrontmatter,
+    find_by_id,
+    load,
+    next_number,
+    save,
+)
 
 
 class TestDocFrontmatter:
@@ -24,7 +32,8 @@ class TestDocFrontmatter:
 
     def test_superseded_with_link_ok(self):
         fm = DocFrontmatter(
-            status="superseded", date=date(2026, 4, 2),
+            status="superseded",
+            date=date(2026, 4, 2),
             **{"superseded-by": "ADR-0005"},
         )
         assert fm.superseded_by == "ADR-0005"
@@ -32,7 +41,8 @@ class TestDocFrontmatter:
     def test_invalid_adr_ref(self):
         with pytest.raises(ValueError, match="must match format"):
             DocFrontmatter(
-                status="superseded", date=date(2026, 4, 2),
+                status="superseded",
+                date=date(2026, 4, 2),
                 **{"superseded-by": "0005"},
             )
 
@@ -47,8 +57,11 @@ class TestDocFrontmatter:
         assert "supersedes" not in dumped
 
     def test_attachments_roundtrip(self):
-        fm = DocFrontmatter(status="proposed", date=date(2026, 4, 2),
-                            attachments=[".stitch/overview.png"])
+        fm = DocFrontmatter(
+            status="proposed",
+            date=date(2026, 4, 2),
+            attachments=[".stitch/overview.png"],
+        )
         dumped = fm.model_dump(by_alias=True, exclude_none=True)
         assert dumped["attachments"] == [".stitch/overview.png"]
 
@@ -71,7 +84,11 @@ class TestDocFrontmatter:
 
 
 class TestDocDocument:
-    def _make_doc(self, filename="0001-test.md", body="# ADR-0001 Test Title\n\n## Context and Problem Statement\n\nText.\n"):
+    def _make_doc(
+        self,
+        filename="0001-test.md",
+        body="# ADR-0001 Test Title\n\n## Context and Problem Statement\n\nText.\n",
+    ):
         meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
         return DocDocument(path=Path(f"/fake/{filename}"), meta=meta, body=body, doc_type=ADR_DEFAULT)
 
@@ -90,11 +107,15 @@ class TestDocDocument:
 
     def test_sections(self):
         body = "# T\n\n## Context and Problem Statement\n\n## Considered Options\n"
-        assert self._make_doc(body=body).sections == ["Context and Problem Statement", "Considered Options"]
+        assert self._make_doc(body=body).sections == [
+            "Context and Problem Statement",
+            "Considered Options",
+        ]
 
     def test_missing_sections(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)
         from decree.config import load_doc_types
+
         adr_type = load_doc_types()[0]
         meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
         body = "# T\n\n## Context and Problem Statement\n\nText.\n"

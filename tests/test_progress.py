@@ -1,9 +1,9 @@
 """Tests for decree progress command."""
-import argparse
+
 import io
 import sys
 
-from decree.commands.progress import run, _count_checkboxes, _bar, _pct
+from decree.commands.progress import _bar, _count_checkboxes, _pct, run
 
 
 class TestCountCheckboxes:

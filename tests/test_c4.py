@@ -1,29 +1,50 @@
 """Tests for C4 architecture validation and diagram generation."""
-import frontmatter
-from pathlib import Path
 
-from decree.c4 import C4Config, validate_c4, generate_c4_container
-from decree.parser import DocFrontmatter, DocDocument
+import frontmatter
+
+from decree.c4 import C4Config, generate_c4_container, validate_c4
 from decree.doctypes import DocType
+from decree.parser import DocDocument, DocFrontmatter
 
 
 def _spec_type(c4_enabled=True):
     return DocType(
-        name="spec", prefix="SPEC", digits=3, dir="decree/spec",
+        name="spec",
+        prefix="SPEC",
+        digits=3,
+        dir="decree/spec",
         initial_status="draft",
         statuses=("draft", "approved", "implemented", "superseded"),
-        transitions={"draft": ("approved",), "approved": ("implemented",),
-                      "implemented": (), "superseded": ()},
+        transitions={
+            "draft": ("approved",),
+            "approved": ("implemented",),
+            "implemented": (),
+            "superseded": (),
+        },
         actions={"approve": "approved"},
         warn_on_reference=("superseded",),
-        c4=C4Config(enabled=c4_enabled, id_field="id",
-                     levels=("system", "container", "component")) if c4_enabled else None,
+        c4=C4Config(
+            enabled=c4_enabled,
+            id_field="id",
+            levels=("system", "container", "component"),
+        )
+        if c4_enabled
+        else None,
     )
 
 
-def _make_spec(tmp_path, number, title, status="approved",
-               c4_id=None, c4_type="container", c4_name=None,
-               parent="", depends_on=None, doc_type=None):
+def _make_spec(
+    tmp_path,
+    number,
+    title,
+    status="approved",
+    c4_id=None,
+    c4_type="container",
+    c4_name=None,
+    parent="",
+    depends_on=None,
+    doc_type=None,
+):
     """Create a spec file with C4 metadata and return a DocDocument."""
     dt = doc_type or _spec_type()
     slug = title.lower().replace(" ", "-")
@@ -43,7 +64,10 @@ def _make_spec(tmp_path, number, title, status="approved",
     if depends_on:
         fm["depends-on"] = depends_on
 
-    body = f"# SPEC-{number:03d} {title}\n\n## Overview\n\nOverview.\n\n## Technical Design\n\nDesign.\n\n## Testing Strategy\n\nTests.\n"
+    body = (
+        f"# SPEC-{number:03d} {title}\n\n## Overview\n\nOverview.\n\n"
+        "## Technical Design\n\nDesign.\n\n## Testing Strategy\n\nTests.\n"
+    )
     post = frontmatter.Post(body, **fm)
     path.write_text(frontmatter.dumps(post).rstrip() + "\n")
 
@@ -56,15 +80,29 @@ def _make_spec(tmp_path, number, title, status="approved",
 
 # ── validate_c4 tests ───────────────────────────────────────
 
-class TestValidateC4:
 
+class TestValidateC4:
     def test_valid_docs_no_errors(self, tmp_path):
         c4 = C4Config(enabled=True, id_field="id", levels=("system", "container"))
         docs = [
             _make_spec(tmp_path, 1, "System", c4_id="poc", c4_type="system"),
-            _make_spec(tmp_path, 2, "Data Prep", c4_id="data_prep", c4_type="container", parent="poc"),
-            _make_spec(tmp_path, 3, "Demand", c4_id="demand", c4_type="container",
-                       parent="poc", depends_on=["data_prep"]),
+            _make_spec(
+                tmp_path,
+                2,
+                "Data Prep",
+                c4_id="data_prep",
+                c4_type="container",
+                parent="poc",
+            ),
+            _make_spec(
+                tmp_path,
+                3,
+                "Demand",
+                c4_id="demand",
+                c4_type="container",
+                parent="poc",
+                depends_on=["data_prep"],
+            ),
         ]
         assert validate_c4(docs, c4) == []
 
@@ -85,14 +123,22 @@ class TestValidateC4:
 
     def test_missing_c4_name(self, tmp_path):
         c4 = C4Config(enabled=True, id_field="id", levels=("container",))
-        docs = [_make_spec(tmp_path, 1, "No Name", c4_id="foo", c4_type="container", c4_name=None)]
+        [_make_spec(tmp_path, 1, "No Name", c4_id="foo", c4_type="container", c4_name=None)]
         # c4_name defaults to title in _make_spec when c4_id is set, so force it None
         # by writing the file manually
         path = tmp_path / "002-manual.md"
-        path.write_text("---\nstatus: approved\ndate: 2026-04-05\nid: bar\nc4_type: container\n---\n# SPEC-002\n\n## Overview\n\n## Technical Design\n\n## Testing Strategy\n")
+        path.write_text(
+            "---\nstatus: approved\ndate: 2026-04-05\nid: bar\nc4_type: container\n---\n"
+            "# SPEC-002\n\n## Overview\n\n## Technical Design\n\n## Testing Strategy\n"
+        )
         dt = _spec_type()
         meta = DocFrontmatter.model_validate({"status": "approved", "date": "2026-04-05"}, context={"doc_type": dt})
-        raw = {"status": "approved", "date": "2026-04-05", "id": "bar", "c4_type": "container"}
+        raw = {
+            "status": "approved",
+            "date": "2026-04-05",
+            "id": "bar",
+            "c4_type": "container",
+        }
         doc = DocDocument(path=path, meta=meta, body="", doc_type=dt, raw_metadata=raw)
         errors = validate_c4([doc], c4)
         assert len(errors) == 1
@@ -156,21 +202,35 @@ class TestValidateC4:
 
     def test_disabled_c4_is_noop(self, tmp_path):
         c4 = C4Config(enabled=False)
-        docs = [_make_spec(tmp_path, 1, "Whatever", c4_id=None, doc_type=_spec_type(c4_enabled=False))]
+        docs = [
+            _make_spec(
+                tmp_path,
+                1,
+                "Whatever",
+                c4_id=None,
+                doc_type=_spec_type(c4_enabled=False),
+            )
+        ]
         assert validate_c4(docs, c4) == []
 
 
 # ── generate_c4_container tests ──────────────────────────────
 
-class TestGenerateC4Container:
 
+class TestGenerateC4Container:
     def test_generates_diagram(self, tmp_path):
         c4 = C4Config(enabled=True, id_field="id", levels=("system", "container"))
         docs = [
             _make_spec(tmp_path, 1, "PoC", c4_id="poc", c4_type="system"),
             _make_spec(tmp_path, 2, "Data Prep", c4_id="data_prep", parent="poc"),
-            _make_spec(tmp_path, 3, "Demand", c4_id="demand", parent="poc",
-                       depends_on=["data_prep"]),
+            _make_spec(
+                tmp_path,
+                3,
+                "Demand",
+                c4_id="demand",
+                parent="poc",
+                depends_on=["data_prep"],
+            ),
         ]
         result = generate_c4_container(docs, c4)
         assert result is not None
@@ -208,8 +268,8 @@ class TestGenerateC4Container:
 
 # ── Integration: config loading ──────────────────────────────
 
-class TestC4Config:
 
+class TestC4Config:
     def test_c4_config_loaded_from_decree_toml(self, tmp_path, monkeypatch):
         decree_toml = tmp_path / "decree.toml"
         decree_toml.write_text("""\
@@ -235,6 +295,7 @@ levels = ["system", "container", "component"]
 """)
         monkeypatch.chdir(tmp_path)
         from decree.config import load_doc_types
+
         types = load_doc_types()
         spec_type = next(t for t in types if t.name == "spec")
         assert spec_type.c4 is not None
@@ -262,6 +323,7 @@ accept = "accepted"
 """)
         monkeypatch.chdir(tmp_path)
         from decree.config import load_doc_types
+
         types = load_doc_types()
         adr_type = next(t for t in types if t.name == "adr")
         assert adr_type.c4 is None
