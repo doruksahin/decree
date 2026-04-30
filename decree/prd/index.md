@@ -5,6 +5,6 @@
 | PRD | Title | Status | Date |
 |-----|-----|-----|-----|
 | PRD-001 | PRD-001 C4 Architecture Support | approved | 2026-04-05 |
-| PRD-002 | PRD-002 DDD CLI Command and Proofshot Integration | draft | 2026-04-30 |
+| PRD-002 | PRD-002 DDD CLI Command and Proofshot Integration | approved | 2026-04-30 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

@@ -1,6 +1,6 @@
 ---
-status: draft
-date: 2026-04-30
+date: '2026-04-30'
+status: approved
 ---
 
 # PRD-002 DDD CLI Command and Proofshot Integration
