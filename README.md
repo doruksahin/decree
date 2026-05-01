@@ -278,6 +278,10 @@ The PRD is approved with 17 acceptance criteria. Next step: create ADRs for arch
 
 This is what Decree Driven Development looks like — every feature has a traceable chain from business need to implementation, with checkboxes tracking progress at every level.
 
+## Roadmap
+
+See [docs/roadmap.md](docs/roadmap.md) for planned features and ideas — including lightweight decision logs, release notes skill, and custom templates.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, developer guidelines, and code style.
