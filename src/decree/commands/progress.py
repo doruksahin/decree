@@ -12,10 +12,27 @@ _CHECKBOX_RE = re.compile(r"^[\s]*[-*]\s+\[([ xX])\]", re.MULTILINE)
 
 
 def _count_checkboxes(body: str) -> tuple[int, int]:
-    """Count (done, total) checkboxes in a markdown body."""
-    matches = _CHECKBOX_RE.findall(body)
-    total = len(matches)
-    done = sum(1 for m in matches if m in ("x", "X"))
+    """Count (done, total) checkboxes in a markdown body.
+
+    Checkboxes inside fenced code blocks (``` … ```) are skipped — they are
+    illustrative examples in documentation, not real progress items. This
+    mirrors SPEC-008's gate-2 code-fence rule (see
+    `decree.commands.report._parse_checkboxes_by_section`).
+    """
+    done = 0
+    total = 0
+    in_code_fence = False
+    for line in body.splitlines():
+        if line.lstrip().startswith("```"):
+            in_code_fence = not in_code_fence
+            continue
+        if in_code_fence:
+            continue
+        m = _CHECKBOX_RE.match(line)
+        if m:
+            total += 1
+            if m.group(1) in ("x", "X"):
+                done += 1
     return done, total
 
 

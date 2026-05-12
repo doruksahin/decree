@@ -93,6 +93,111 @@ def validate_governs_paths(docs: list, project_root: Path) -> list[str]:
     return errors
 
 
+
+def validate_terminal_status_progress(docs: list, doc_types_by_name: dict) -> list[str]:
+    """SPEC-008 Gate 1: terminal-status docs must have 100% primary AC progress.
+
+    For each doc whose type has `coherence.terminal_status_progress = true` and whose
+    status is a terminal-success state, parse primary vs. deferred ACs (via SPEC-002's
+    `_parse_checkboxes_by_section`) and emit an error if primary is not all done.
+
+    Returns one error string per offending doc.
+    """
+    from decree.commands.report import (
+        DEFAULT_DEFERRED_SECTION_PATTERNS,
+        _parse_checkboxes_by_section,
+        is_terminal_success,
+    )
+
+    errors: list[str] = []
+    for doc in docs:
+        dt = doc_types_by_name.get(doc.doc_type.name) if doc.doc_type else None
+        if dt is None:
+            continue
+        coh = getattr(dt, "coherence", None)
+        if coh is None or not getattr(coh, "terminal_status_progress", False):
+            continue
+        if not is_terminal_success(dt, doc.meta.status):
+            continue
+        patterns = tuple(coh.deferred_sections) or DEFAULT_DEFERRED_SECTION_PATTERNS
+        parsed = _parse_checkboxes_by_section(doc.body, patterns)
+        total = parsed.primary_total
+        done = parsed.primary_done
+        if total == 0 or done == total:
+            continue
+        pct = int(round(done / total * 100)) if total else 0
+        try:
+            rel = doc.path.relative_to(doc.path.parents[len(doc.path.parents) - 1])
+        except ValueError:
+            rel = doc.path
+        # Use a short relative-to-cwd-style path; the lint loop already builds those
+        # in its outer scope, but validators don't have project_root here. Print the
+        # filename + parents — same shape as existing validators.
+        try:
+            display = "/".join(doc.path.parts[-3:])
+        except Exception:
+            display = doc.path.name
+        errors.append(
+            f"{display}: status '{doc.meta.status}' but primary AC progress is "
+            f"{done}/{total} ({pct}%). Check remaining items or move them to a deferred section."
+        )
+    return errors
+
+
+def validate_unreferenced_active(docs: list, doc_types_by_name: dict) -> list[str]:
+    """SPEC-008 Gate 3: active-status docs with no inbound references after N days.
+
+    For each doc whose type has `coherence.unreferenced_active = true`:
+      - if status is in `active_statuses` (default: the type's `approved`/`accepted`
+        statuses), AND
+      - no other doc references this doc's id, AND
+      - frontmatter date is more than `unreferenced_after_days` ago,
+    emit an error.
+    """
+    from datetime import date as _date
+
+    errors: list[str] = []
+    today = _date.today()
+
+    # Pre-compute inbound reference count per doc_id
+    inbound: dict[str, int] = {}
+    for d in docs:
+        refs = d.meta.references or []
+        for r in refs:
+            inbound[r] = inbound.get(r, 0) + 1
+
+    for doc in docs:
+        dt = doc_types_by_name.get(doc.doc_type.name) if doc.doc_type else None
+        if dt is None:
+            continue
+        coh = getattr(dt, "coherence", None)
+        if coh is None or not getattr(coh, "unreferenced_active", False):
+            continue
+        # Decide which statuses are "active" — explicit list wins; else heuristic
+        # of any non-terminal status whose name suggests acceptance.
+        active = set(coh.active_statuses) if coh.active_statuses else {"approved", "accepted"}
+        if doc.meta.status not in active:
+            continue
+        if inbound.get(doc.doc_id, 0) > 0:
+            continue
+        # Date arithmetic: frontmatter date is a datetime.date already.
+        d_date = doc.meta.date
+        if not isinstance(d_date, _date):
+            continue
+        age_days = (today - d_date).days
+        if age_days <= coh.unreferenced_after_days:
+            continue
+        try:
+            display = "/".join(doc.path.parts[-3:])
+        except Exception:
+            display = doc.path.name
+        errors.append(
+            f"{display}: status '{doc.meta.status}' for {age_days} days with no referencing "
+            f"document. Stalled? (threshold: {coh.unreferenced_after_days} days)"
+        )
+    return errors
+
+
 def validate_attachments_exist(docs: list, project_root: Path) -> list[str]:
     """Check that attachment file paths exist on disk. Opt-in via --check-attachments."""
     errors: list[str] = []

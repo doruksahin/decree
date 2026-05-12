@@ -20,6 +20,7 @@ def run(args: argparse.Namespace | None = None) -> int:
     doc_types = load_doc_types()
     all_docs = []
     errors: list[str] = []
+    info_lines: list[str] = []  # SPEC-008 gate 2: informational, non-error output
     total_files = 0
 
     for dt in doc_types:
@@ -59,6 +60,47 @@ def run(args: argparse.Namespace | None = None) -> int:
     governs_errors = validate_governs_paths(all_docs, get_project_root())
     errors.extend(governs_errors)
 
+    # SPEC-008 coherence gates — opt-in per-type
+    doc_types_by_name = {dt.name: dt for dt in doc_types}
+    any_coherence_enabled = any(
+        getattr(dt, "coherence", None) is not None for dt in doc_types
+    )
+    if any_coherence_enabled:
+        from decree.validators import (
+            validate_terminal_status_progress,
+            validate_unreferenced_active,
+        )
+
+        errors.extend(validate_terminal_status_progress(all_docs, doc_types_by_name))
+        errors.extend(validate_unreferenced_active(all_docs, doc_types_by_name))
+
+        # SPEC-008 Gate 2: when both primary and deferred ACs exist, surface the
+        # split as an informational line (not an error). Only for types that have
+        # `deferred_sections_separated = true`.
+        from decree.commands.report import (
+            DEFAULT_DEFERRED_SECTION_PATTERNS,
+            _parse_checkboxes_by_section,
+        )
+
+        for doc in all_docs:
+            dt = doc_types_by_name.get(doc.doc_type.name) if doc.doc_type else None
+            if dt is None:
+                continue
+            coh = getattr(dt, "coherence", None)
+            if coh is None or not getattr(coh, "deferred_sections_separated", False):
+                continue
+            patterns = tuple(coh.deferred_sections) or DEFAULT_DEFERRED_SECTION_PATTERNS
+            parsed = _parse_checkboxes_by_section(doc.body, patterns)
+            if parsed.primary_total > 0 and parsed.deferred_total > 0:
+                try:
+                    rel_doc = doc.path.relative_to(get_project_root())
+                except ValueError:
+                    rel_doc = doc.path
+                info_lines.append(
+                    f"{rel_doc}: {parsed.deferred_total} deferred-section ACs separated "
+                    f"from primary (counted independently)."
+                )
+
     # Attachment file existence (opt-in)
     if getattr(args, "check_attachments", False):
         from decree.validators import validate_attachments_exist
@@ -89,6 +131,12 @@ def run(args: argparse.Namespace | None = None) -> int:
                     rel_doc = doc.path.relative_to(get_project_root())
                     rel_expected = expected.relative_to(get_project_root()) if expected.is_relative_to(get_project_root()) else expected
                     errors.append(f"{rel_doc}: status '{doc.meta.status}' requires completion report at {rel_expected}")
+
+    # Emit informational (non-error) output before the errors block.
+    if info_lines:
+        print()
+        for line in info_lines:
+            print(line)
 
     if errors:
         print()

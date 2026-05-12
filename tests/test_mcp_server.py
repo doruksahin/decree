@@ -238,12 +238,12 @@ class TestRefsTool:
 
 
 class TestToolRegistry:
-    def test_exactly_two_tools_registered(self) -> None:
+    def test_exactly_four_tools_registered(self) -> None:
+        # SPEC-008 added `stale` and `health` to the v1 SPEC-007 pair.
         tools = mcp._tool_manager.list_tools()
         names = sorted(t.name for t in tools)
-        assert names == ["refs", "why"], (
-            f"Expected exactly the v1 tool set; got {names}. "
-            "SPEC-007 ships only `why` and `refs`."
+        assert names == ["health", "refs", "stale", "why"], (
+            f"Expected SPEC-007 + SPEC-008 tools; got {names}."
         )
 
     def test_why_has_full_docstring(self) -> None:
@@ -286,7 +286,8 @@ class TestProtocol:
 
         tools = asyncio.run(go())
         names = sorted(t.name for t in tools)
-        assert names == ["refs", "why"]
+        # SPEC-008 added `stale` + `health` to SPEC-007's `why` + `refs`.
+        assert names == ["health", "refs", "stale", "why"]
 
         why_tool = next(t for t in tools if t.name == "why")
         # MCP protocol exposes inputSchema (a JSON Schema dict)
@@ -328,3 +329,94 @@ class TestProtocol:
         payload = json.loads(text_blocks[0].text)
         assert payload["decision_id"] == "SPEC-001"
         assert payload["metadata"]["type"] == "spec"
+
+
+
+# ── SPEC-008: stale + health tools ──────────────────────────
+
+
+def _git_init_and_commit(repo: Path) -> None:
+    """Bootstrap a tiny git repo with a single initial commit."""
+    import subprocess
+
+    subprocess.run(["git", "-C", str(repo), "init"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@example.com"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "T"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "commit.gpgsign", "false"], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-m", "init"],
+        check=True,
+        capture_output=True,
+    )
+
+
+class TestStaleTool:
+    def test_no_git_returns_error_response(self, project_with_index: Path) -> None:
+        result = mcp_server.stale()
+        assert result == {
+            "error": "not a git repository",
+            "hint": "decree stale needs git history; initialize the project as a git repo first.",
+        }
+
+    def test_returns_empty_list_for_clean_repo(
+        self, project_with_index: Path, monkeypatch
+    ) -> None:
+        _git_init_and_commit(project_with_index)
+        result = mcp_server.stale(threshold_commits=10)
+        assert "stale_decisions" in result
+        assert result["stale_decisions"] == []
+        assert result["threshold_commits"] == 10
+
+    def test_index_missing_returns_error_response(
+        self, project_without_index: Path
+    ) -> None:
+        result = mcp_server.stale()
+        assert result["error"] == "index not found"
+
+
+class TestHealthTool:
+    def test_no_git_returns_error_response(self, project_with_index: Path) -> None:
+        result = mcp_server.health()
+        assert result == {
+            "error": "not a git repository",
+            "hint": "decree health needs git history; initialize the project as a git repo first.",
+        }
+
+    def test_returns_combined_report(
+        self, project_with_index: Path, monkeypatch
+    ) -> None:
+        _git_init_and_commit(project_with_index)
+        result = mcp_server.health(threshold_commits=10, threshold_days=30)
+        assert set(result.keys()) >= {
+            "stale_decisions",
+            "ungoverned_hotspots",
+            "threshold_commits",
+            "threshold_days",
+        }
+        assert result["threshold_commits"] == 10
+        assert result["threshold_days"] == 30
+
+    def test_index_missing_returns_error_response(
+        self, project_without_index: Path
+    ) -> None:
+        result = mcp_server.health()
+        assert result["error"] == "index not found"
+
+
+class TestSpec008Docstrings:
+    def test_stale_has_full_docstring(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        desc = tools["stale"].description or ""
+        assert "Args:" in desc
+        assert "Returns:" in desc
+        assert "When to call:" in desc
+        assert "When not to call:" in desc
+
+    def test_health_has_full_docstring(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        desc = tools["health"].description or ""
+        assert "Args:" in desc
+        assert "Returns:" in desc
+        assert "When to call:" in desc
+        assert "When not to call:" in desc

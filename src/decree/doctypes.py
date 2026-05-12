@@ -22,6 +22,7 @@ class DocType:
     section_descriptions: dict[str, str] = field(default_factory=dict)
     template: str | None = None  # relative path to custom template, or None for built-in
     c4: object | None = None  # C4Config instance when C4 is enabled, None otherwise
+    coherence: object | None = None  # CoherenceConfig instance when configured, None otherwise
 
     @property
     def ref_re(self) -> re.Pattern:

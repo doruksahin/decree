@@ -95,12 +95,27 @@ def _section_is_deferred(section_title: str, patterns: tuple[str, ...]) -> bool:
 
 
 def _parse_checkboxes_by_section(body: str, deferred_patterns: tuple[str, ...]) -> ParsedAcs:
-    """Walk the body, group checkboxes by their containing section, classify primary vs. deferred."""
+    """Walk the body, group checkboxes by their containing section, classify primary vs. deferred.
+
+    Checkboxes inside fenced code blocks (``` … ```) are *ignored* — they are
+    illustrative examples in documentation, not real acceptance criteria. This
+    is SPEC-008's gate-2 code-fence rule.
+    """
     current_section: str = "(preamble)"
     current_level: int = 0
     items_by_section: list[tuple[str, int, list[CheckboxItem]]] = [(current_section, current_level, [])]
+    in_code_fence: bool = False
 
     for line in body.splitlines():
+        stripped = line.lstrip()
+        # Toggle fence state on lines that begin with ``` (any info-string allowed).
+        # SPEC-008 gate 2: checkboxes inside fenced code blocks are illustrations,
+        # not acceptance criteria, and must not be counted.
+        if stripped.startswith("```"):
+            in_code_fence = not in_code_fence
+            continue
+        if in_code_fence:
+            continue
         h_match = _HEADING_RE.match(line)
         if h_match:
             hashes, title = h_match.group(1), h_match.group(2).strip()

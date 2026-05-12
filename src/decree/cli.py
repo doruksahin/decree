@@ -280,9 +280,52 @@ def main() -> int:
         help="Operate on the project at this path (default: cwd-walk)",
     )
 
+    # ── health / stale (SPEC-008) ───────────────────────────
+    def _add_health_args(p):
+        p.add_argument(
+            "--json",
+            action="store_true",
+            help="Emit JSON for programmatic consumers",
+        )
+        p.add_argument(
+            "--project",
+            default=None,
+            help="Operate on the project at this path (default: cwd)",
+        )
+        p.add_argument(
+            "--threshold-commits",
+            type=int,
+            default=None,
+            help="Stale/hotspot commit threshold (default: 10 or [health] block)",
+        )
+        p.add_argument(
+            "--threshold-days",
+            type=int,
+            default=None,
+            help="Ungoverned-hotspot lookback window in days (default: 30)",
+        )
+
+    p_health = subparsers.add_parser(
+        "health",
+        help="Show stale decisions and ungoverned hotspots (SPEC-008)",
+        description="Surface coherence and churn health: decisions whose governed "
+        "files have churned without the decision being touched (stale), and high-churn "
+        "files that no decision governs (ungoverned hotspots). Exit 0 if clean, 1 if "
+        "findings.",
+    )
+    _add_health_args(p_health)
+
+    p_stale = subparsers.add_parser(
+        "stale",
+        help="Alias for `decree health` (SPEC-008)",
+        description="Same as `decree health`.",
+    )
+    _add_health_args(p_stale)
+
     args = parser.parse_args()
     from decree.commands import commit as commit_cmd
     from decree.commands import ddd as ddd_cmd
+    from decree.commands import health as health_cmd
     from decree.commands import hook as hook_cmd
     from decree.commands import index_db_cli
     from decree.commands import mcp_server as mcp_cmd
@@ -322,6 +365,8 @@ def main() -> int:
         "refs": queries_cmd.refs_run,
         "commit": commit_cmd.commit_run,
         "mcp": _mcp_dispatch,
+        "health": health_cmd.health_run,
+        "stale": health_cmd.stale_run,
     }
     return commands[args.command](args)
 

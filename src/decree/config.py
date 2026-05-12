@@ -10,6 +10,7 @@ Config schema:
 decree.toml is the only supported config format. No pyproject.toml fallback.
 """
 
+import dataclasses
 import functools
 import re
 from pathlib import Path
@@ -110,6 +111,7 @@ def _build_doc_type(name: str, cfg: dict):
         section_descriptions=cfg.get("section_descriptions", {}),
         template=cfg.get("template"),
         c4=_parse_c4_config(cfg),
+        coherence=_parse_coherence_config(name, cfg),
     )
 
 
@@ -131,3 +133,106 @@ def _parse_field_requirements(cfg: dict) -> dict[str, tuple[str, ...]]:
     """Parse status_field_requirements from config, defaulting to empty."""
     raw = cfg.get("status_field_requirements", {})
     return {k: tuple(v) for k, v in raw.items()}
+
+
+# ── SPEC-008 coherence config ─────────────────────────────
+
+
+@dataclasses.dataclass(frozen=True)
+class CoherenceConfig:
+    """Per-type opt-in coherence gates (SPEC-008).
+
+    All gates default to False. Set in decree.toml under
+    `[types.<name>.coherence]`. Unknown keys are rejected at load time.
+    """
+
+    terminal_status_progress: bool = False
+    deferred_sections_separated: bool = False
+    unreferenced_active: bool = False
+    unreferenced_after_days: int = 30
+    deferred_sections: tuple[str, ...] = ()
+    expected_referrer_types: tuple[str, ...] = ()
+    active_statuses: tuple[str, ...] = ()
+
+
+_COHERENCE_KEYS = frozenset(
+    {
+        "terminal_status_progress",
+        "deferred_sections_separated",
+        "unreferenced_active",
+        "unreferenced_after_days",
+        "deferred_sections",
+        "expected_referrer_types",
+        "active_statuses",
+    }
+)
+
+
+def _parse_coherence_config(type_name: str, cfg: dict) -> CoherenceConfig | None:
+    """Parse `[types.<name>.coherence]` into a CoherenceConfig, or None if absent.
+
+    Unknown keys raise ValueError so typos surface at load time.
+    """
+    raw = cfg.get("coherence")
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"Type '{type_name}': [types.{type_name}.coherence] must be a table, got {type(raw).__name__}"
+        )
+    unknown = set(raw.keys()) - _COHERENCE_KEYS
+    if unknown:
+        raise ValueError(
+            f"Type '{type_name}': unknown keys in [types.{type_name}.coherence]: "
+            f"{sorted(unknown)}. Allowed: {sorted(_COHERENCE_KEYS)}"
+        )
+    return CoherenceConfig(
+        terminal_status_progress=bool(raw.get("terminal_status_progress", False)),
+        deferred_sections_separated=bool(raw.get("deferred_sections_separated", False)),
+        unreferenced_active=bool(raw.get("unreferenced_active", False)),
+        unreferenced_after_days=int(raw.get("unreferenced_after_days", 30)),
+        deferred_sections=tuple(raw.get("deferred_sections", ())),
+        expected_referrer_types=tuple(raw.get("expected_referrer_types", ())),
+        active_statuses=tuple(raw.get("active_statuses", ())),
+    )
+
+
+# ── SPEC-008 health config (global [health] block) ────────
+
+
+@dataclasses.dataclass(frozen=True)
+class HealthConfig:
+    """Global `decree health` defaults from `[health]` in decree.toml.
+
+    CLI flags `--threshold-commits` and `--threshold-days` override these.
+    """
+
+    threshold_commits: int = 10
+    threshold_days: int = 30
+
+
+_HEALTH_KEYS = frozenset({"threshold_commits", "threshold_days"})
+
+
+def load_health_config() -> HealthConfig:
+    """Load the optional `[health]` block from decree.toml.
+
+    Returns defaults (10 / 30) when the block is absent. Unknown keys raise
+    ValueError so typos are caught at load time.
+    """
+    decree_toml = get_project_root() / "decree.toml"
+    with open(decree_toml, "rb") as f:
+        data = tomllib.load(f)
+    raw = data.get("health", {})
+    if not isinstance(raw, dict):
+        raise ValueError(f"[health] must be a table, got {type(raw).__name__}")
+    unknown = set(raw.keys()) - _HEALTH_KEYS
+    if unknown:
+        raise ValueError(
+            f"Unknown keys in [health]: {sorted(unknown)}. "
+            f"Allowed: {sorted(_HEALTH_KEYS)}"
+        )
+    return HealthConfig(
+        threshold_commits=int(raw.get("threshold_commits", 10)),
+        threshold_days=int(raw.get("threshold_days", 30)),
+    )

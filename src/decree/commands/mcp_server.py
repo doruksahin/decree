@@ -283,6 +283,192 @@ def refs(decision_id: str) -> dict:
 # ── CLI handler ──────────────────────────────────────────────
 
 
+@mcp.tool()
+def stale(threshold_commits: int = 10) -> dict:
+    """Return decisions whose governed files have churned without the decision being touched.
+
+    A *stale decision* is one whose `governs:` paths have accumulated more
+    than `threshold_commits` commits since the decision document itself
+    was last modified. The classic failure mode this catches: an ADR or
+    SPEC describing API/design constraints whose implementation files
+    have moved on without the decision being revisited or superseded.
+
+    Args:
+        threshold_commits: Minimum total post-decision commit count
+            across all governed paths to flag a decision as stale.
+            Defaults to 10. Lower it to surface more candidates (useful
+            for triage); raise it to focus only on the worst offenders.
+
+    Returns:
+        A dict with the same shape as `decree health --json` restricted
+        to the stale-decisions section:
+
+            {
+              "stale_decisions": [
+                {
+                  "decision_id": str,            # e.g. "SPEC-091"
+                  "type": str,                   # "prd" | "adr" | "spec"
+                  "last_touched_ts": int,        # unix seconds, -1 if unknown
+                  "churn_count": int,            # total commits across governed paths
+                  "governed_paths": [
+                    {"path": str, "count": int}, ...
+                  ],
+                },
+                ...
+              ],
+              "threshold_commits": int,
+            }
+
+        Empty `stale_decisions` is a valid answer — the corpus is
+        currently in sync with its governed files. On a non-git project
+        or missing index the response is
+        `{"error": "<reason>", "hint": "..."}`.
+
+    When to call:
+        - During triage / sprint planning: "which decisions are most
+          out-of-sync with what the code is doing now?"
+        - Before re-implementing or replacing a subsystem: see whether
+          its governing decision is already drifting.
+        - Periodically (e.g., weekly) to surface ADRs/SPECs that need
+          remediation or supersession.
+
+    When not to call:
+        - To check a single file's governance — use `why` instead.
+        - On every commit — this walks `git log` for every governed path
+          and is O(decisions x governs). Cache the result if needed.
+        - On a non-git project — staleness needs commit history.
+    """
+    from decree.commands.health import _is_git_repo, stale_decisions as _stale_lib
+
+    db, root = _get_db()
+    status = db.status()
+    if not status.exists:
+        return _index_missing_response()
+    if not _is_git_repo(root):
+        return {
+            "error": "not a git repository",
+            "hint": "decree stale needs git history; initialize the project as a git repo first.",
+        }
+
+    findings = _stale_lib(db, root, threshold_commits)
+    return {
+        "stale_decisions": [
+            {
+                "decision_id": sd.decision_id,
+                "type": sd.type,
+                "last_touched_ts": sd.last_touched_ts,
+                "churn_count": sd.churn_count,
+                "governed_paths": [
+                    {"path": p, "count": c} for (p, c) in sd.governed_paths
+                ],
+            }
+            for sd in findings
+        ],
+        "threshold_commits": threshold_commits,
+    }
+
+
+@mcp.tool()
+def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
+    """Return the full coherence health report: stale decisions + ungoverned hotspots.
+
+    Combines two PRD-003 R7 signals into one response:
+
+      1. **Stale decisions** — same as `stale`: decisions whose
+         `governs:` paths have churned by >`threshold_commits` commits
+         since the decision document was last touched.
+      2. **Ungoverned hotspots** — files modified more than
+         `threshold_commits` times in the last `threshold_days` days
+         with **no** governing decision in the index. The Repowise
+         inversion: instead of waiting for an ADR author to volunteer,
+         the tool surfaces *where* a decision is missing.
+
+    Args:
+        threshold_commits: Minimum commit count to flag either a stale
+            decision (total post-decision churn) or an ungoverned hotspot
+            (commits in the lookback window). Defaults to 10.
+        threshold_days: Lookback window (in days) for the ungoverned
+            hotspot scan. Defaults to 30. Does not affect stale
+            detection (which uses each decision's own last-touched
+            timestamp).
+
+    Returns:
+        A dict with the same shape as `decree health --json`:
+
+            {
+              "stale_decisions": [
+                {"decision_id": str, "type": str,
+                 "last_touched_ts": int, "churn_count": int,
+                 "governed_paths": [{"path": str, "count": int}, ...]},
+                ...
+              ],
+              "ungoverned_hotspots": [
+                {"path": str, "commit_count": int, "since_days": int},
+                ...
+              ],
+              "threshold_commits": int,
+              "threshold_days": int,
+            }
+
+        Both arrays empty means the corpus is in coherence with the
+        codebase at the given thresholds. On a non-git project or
+        missing index the response is `{"error": "<reason>", "hint": "..."}`.
+
+    When to call:
+        - As a periodic health check: "where is decree governance
+          drifting?" Surfaces both decisions in need of update and code
+          paths that need an ADR/SPEC written for them.
+        - Before a roadmap planning meeting: ungoverned hotspots are
+          the natural ADR backlog.
+        - When investigating a recurring bug area: the file may be an
+          ungoverned hotspot — write the ADR before patching again.
+
+    When not to call:
+        - Per-file lookups — use `why` instead.
+        - On every keystroke — this walks `git log` twice (decisions and
+          hotspots). Run on demand, not on every save.
+        - As a substitute for `lint` — health surfaces *coherence*
+          signals, not malformed documents.
+    """
+    from decree.commands.health import _is_git_repo, health as _health_lib
+
+    db, root = _get_db()
+    status = db.status()
+    if not status.exists:
+        return _index_missing_response()
+    if not _is_git_repo(root):
+        return {
+            "error": "not a git repository",
+            "hint": "decree health needs git history; initialize the project as a git repo first.",
+        }
+
+    report = _health_lib(db, root, threshold_commits, threshold_days)
+    return {
+        "stale_decisions": [
+            {
+                "decision_id": sd.decision_id,
+                "type": sd.type,
+                "last_touched_ts": sd.last_touched_ts,
+                "churn_count": sd.churn_count,
+                "governed_paths": [
+                    {"path": p, "count": c} for (p, c) in sd.governed_paths
+                ],
+            }
+            for sd in report.stale_decisions
+        ],
+        "ungoverned_hotspots": [
+            {
+                "path": h.path,
+                "commit_count": h.commit_count,
+                "since_days": h.since_days,
+            }
+            for h in report.ungoverned_hotspots
+        ],
+        "threshold_commits": report.threshold_commits,
+        "threshold_days": report.threshold_days,
+    }
+
+
 def mcp_serve_run(args: argparse.Namespace) -> int:
     """`decree mcp serve` — enter the FastMCP stdio loop bound to a project."""
     try:
