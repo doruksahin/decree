@@ -238,12 +238,20 @@ class TestRefsTool:
 
 
 class TestToolRegistry:
-    def test_exactly_five_tools_registered(self) -> None:
-        # SPEC-009 added `intent_review` to the SPEC-007 + SPEC-008 set.
+    def test_exactly_six_tools_registered(self) -> None:
+        # SPEC-014 added `intent_check` to the SPEC-007 + SPEC-008 + SPEC-009 set.
         tools = mcp._tool_manager.list_tools()
         names = sorted(t.name for t in tools)
-        assert names == ["health", "intent_review", "refs", "stale", "why"], (
-            f"Expected SPEC-007 + SPEC-008 + SPEC-009 tools; got {names}."
+        assert names == [
+            "health",
+            "intent_check",
+            "intent_review",
+            "refs",
+            "stale",
+            "why",
+        ], (
+            "Expected SPEC-007 + SPEC-008 + SPEC-009 + SPEC-014 tools; "
+            f"got {names}."
         )
 
     def test_why_has_full_docstring(self) -> None:
@@ -286,8 +294,15 @@ class TestProtocol:
 
         tools = asyncio.run(go())
         names = sorted(t.name for t in tools)
-        # SPEC-009 added `intent_review` to the SPEC-007 + SPEC-008 set.
-        assert names == ["health", "intent_review", "refs", "stale", "why"]
+        # SPEC-014 added `intent_check` to the SPEC-007 + SPEC-008 + SPEC-009 set.
+        assert names == [
+            "health",
+            "intent_check",
+            "intent_review",
+            "refs",
+            "stale",
+            "why",
+        ]
 
         why_tool = next(t for t in tools if t.name == "why")
         # MCP protocol exposes inputSchema (a JSON Schema dict)
@@ -515,3 +530,74 @@ class TestWithAbstentionMcp:
         props = tools["refs"].parameters["properties"]
         assert "with_abstention" in props
         assert props["with_abstention"]["type"] == "boolean"
+
+
+# ── SPEC-014 — intent_check MCP tool ────────────────────────
+
+
+class TestIntentCheckTool:
+    def test_minimal_call_returns_report_shape(
+        self, project_with_index: Path
+    ) -> None:
+        result = mcp_server.intent_check(
+            plan="Plan to touch src/foo.py",
+            planned_files=["src/foo.py"],
+        )
+        assert "error" not in result
+        # Schema-stable keys present (SPEC-014 IntentCheckReport).
+        for key in (
+            "plan",
+            "planned_files",
+            "governing_decisions",
+            "stale_governance",
+            "unchecked_acceptance_criteria",
+            "conflicts",
+            "abstention",
+            "recommended_actions",
+        ):
+            assert key in result, f"missing key {key!r} in MCP intent_check payload"
+        assert result["planned_files"] == ["src/foo.py"]
+        assert len(result["governing_decisions"]) == 1
+        assert result["governing_decisions"][0]["decision_id"] == "SPEC-001"
+
+    def test_with_abstention_routes_through_calibrated(
+        self, project_with_index: Path
+    ) -> None:
+        # An ungoverned path should produce empty governance and (when the
+        # calibration JSON is absent on disk) leave abstention None — but the
+        # key must still exist in the payload.
+        result = mcp_server.intent_check(
+            plan="Touch an ungoverned file",
+            planned_files=["src/never_governed.py"],
+            with_abstention=True,
+        )
+        assert "error" not in result
+        assert result["governing_decisions"] == []
+        # `abstention` key is always present in the dict; it may be None when
+        # there's no calibration on disk in the test sandbox.
+        assert "abstention" in result
+
+    def test_judge_conflicts_without_api_key_returns_judge_error(
+        self, project_with_index: Path, monkeypatch
+    ) -> None:
+        # Strip every API-key env var so resolve_model raises SystemExit(2).
+        for var in ("DECREE_LLM_MODEL", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
+            monkeypatch.delenv(var, raising=False)
+
+        result = mcp_server.intent_check(
+            plan="Plan to touch src/foo.py",
+            planned_files=["src/foo.py"],
+            judge_conflicts=True,
+        )
+        # Tool stays callable; surfaces the resolution failure inline.
+        assert "error" not in result
+        assert "judge_error" in result
+        assert "no LLM model resolvable" in result["judge_error"]
+
+    def test_intent_check_has_full_docstring(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        desc = tools["intent_check"].description or ""
+        assert "Args:" in desc
+        assert "Returns:" in desc
+        assert "When to call:" in desc
+        assert "When not to call:" in desc

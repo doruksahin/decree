@@ -614,6 +614,155 @@ def intent_review(
     return payload
 
 
+
+@mcp.tool()
+def intent_check(
+    plan: str,
+    planned_files: list[str],
+    with_abstention: bool = False,
+    judge_conflicts: bool = False,
+) -> dict:
+    """Pre-code governance check — what decisions apply to your plan?
+
+    Call this BEFORE writing code on a non-trivial task. You describe what
+    you intend to build and which files the plan will touch; the tool
+    returns the governance map *now*, so you can resolve conflicts and
+    update stale decisions before any line of implementation lands.
+
+    This is the planning-phase counterpart of `intent_review` (SPEC-009).
+    `intent_review` runs against a diff; `intent_check` runs against a
+    plan + planned file list.
+
+    Args:
+        plan: One-sentence to one-paragraph description of what you intend
+            to build. Used as semantic context for the LLM-judged conflict
+            detection (when `judge_conflicts=True`) and for the
+            architectural-keyword heuristic that triggers `draft_adr_first`.
+        planned_files: List of repo-relative paths the plan will create or
+            modify. Required, must be non-empty in practice (an empty list
+            collapses to a `proceed` recommendation).
+        with_abstention: If True (default False), route the governance
+            lookups through SPEC-013's calibrated retrieval method. When
+            all paths return empty governance the response includes an
+            `abstention` block with signals and threshold so the caller
+            can see *why* the calibrator deflected.
+        judge_conflicts: If True (default False), for each structural
+            conflict run an LLM judge to decide whether the conflict is
+            *real* (decisions disagree about behavior) or *complementary*
+            (decisions cover different aspects of the same file). Adds
+            ~3–5s latency per conflict and requires an LLM API key
+            (resolution chain: `DECREE_LLM_MODEL` env, then
+            `ANTHROPIC_API_KEY` → claude-3-5-sonnet-latest, then
+            `OPENAI_API_KEY` → gpt-4o-mini). When no key is resolvable the
+            response includes a `judge_error` field and conflicts are
+            returned structural-only.
+
+    Returns:
+        A dict with the same shape as `decree intent-check --json`:
+
+            {
+              "plan": str,
+              "planned_files": [str, ...],
+              "governing_decisions": [
+                {"decision_id": str, "type": str, "status": str,
+                 "title": str, "match_kind": "exact"|"prefix",
+                 "matched_path": str, "symbol": str | None},
+                ...
+              ],
+              "stale_governance": [
+                {"decision_id": str, "type": str,
+                 "last_touched_ts": int, "churn_count": int,
+                 "governed_paths": [{"path": str, "count": int}, ...]},
+                ...
+              ],
+              "unchecked_acceptance_criteria": [
+                {"decision_id": str, "section_title": str,
+                 "text": str, "order_index": int},
+                ...
+              ],
+              "conflicts": [
+                {"path": str, "decision_ids": [str, ...],
+                 "semantic_verdict": {"is_real_conflict": bool,
+                                       "reasoning": str} | None},
+                ...
+              ],
+              "abstention": {"abstained": bool, "composite_score": float,
+                             "threshold": float, "signals": {...},
+                             ...} | None,
+              "recommended_actions": [
+                {"action": str, "target_id": str | None, "detail": str},
+                ...
+              ],
+            }
+
+        Recommendation `action` strings (planning-phase verbs):
+        `proceed`, `add_governance`, `draft_adr_first`, `update_spec_first`,
+        `check_ac`, `update_decision`, `resolve_conflict_first`.
+
+        Empty arrays are valid responses (abstention; do not confabulate).
+        On a missing index the response is
+        `{"error": "index not found", "hint": "Run `decree index rebuild`"}`.
+        On a stale index a `"warning"` key is added to the success payload.
+
+    When to call:
+        - At the *start* of an implementation task, before writing any
+          code. The response tells you what existing decisions constrain
+          your plan and whether a fresh ADR is needed first.
+        - When a user gives you a task and you're forming a plan — call
+          this to see what the corpus already says about the affected
+          files.
+        - Before opening a feature branch — quick sanity check.
+
+    When not to call:
+        - For trivial refactors or documentation-only changes (the
+          ceremony exceeds the value).
+        - *After* code is written — that's `intent_review` (SPEC-009),
+          not this. The two tools complement each other.
+        - For exploratory code not intended to be merged.
+    """
+    from decree.commands.intent_check import (
+        intent_check as _intent_check_lib,
+        report_to_dict,
+    )
+
+    db, root = _get_db()
+    status = db.status()
+    if not status.exists:
+        return _index_missing_response()
+
+    warning = _stale_warning(db, root)
+
+    # Resolve a model for judging conflicts; if unavailable we fall back to
+    # structural-only and surface a hint so the caller can fix it.
+    model: str | None = None
+    judge_error: str | None = None
+    if judge_conflicts:
+        try:
+            from decree.commands.migrate import resolve_model
+
+            model = resolve_model(argparse.Namespace(model=None))
+        except SystemExit as e:
+            judge_error = (
+                f"--judge-conflicts requested but no LLM model resolvable: {e}"
+            )
+
+    report = _intent_check_lib(
+        db,
+        root,
+        plan,
+        list(planned_files or []),
+        with_abstention=with_abstention,
+        judge_conflicts=judge_conflicts and model is not None,
+        model=model,
+    )
+    payload = report_to_dict(report)
+    if warning is not None:
+        payload["warning"] = warning
+    if judge_error is not None:
+        payload["judge_error"] = judge_error
+    return payload
+
+
 def mcp_serve_run(args: argparse.Namespace) -> int:
     """`decree mcp serve` — enter the FastMCP stdio loop bound to a project."""
     try:

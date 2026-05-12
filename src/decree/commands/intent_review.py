@@ -62,10 +62,16 @@ class UncheckedAC:
 
 @dataclass(frozen=True)
 class Conflict:
-    """Two or more decisions structurally claim the same governed path."""
+    """Two or more decisions structurally claim the same governed path.
+
+    SPEC-014 added the optional ``semantic_verdict`` field, populated only when
+    ``intent_check`` is invoked with ``--judge-conflicts`` and an LLM has been
+    consulted. ``intent_review`` (SPEC-009) leaves it as ``None``.
+    """
 
     path: str
     decision_ids: tuple[str, ...]
+    semantic_verdict: dict | None = None
 
 
 @dataclass(frozen=True)

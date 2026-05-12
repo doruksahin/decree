@@ -69,3 +69,66 @@ def build_governs_prompt(body: str) -> str:
     return GOVERNS_PROMPT_TEMPLATE.format(
         body=head + "\n\n[... document truncated for length ...]"
     )
+
+
+# ── SPEC-014 — conflict-judge prompt ─────────────────────────
+
+# 2000 chars per body excerpt — keeps the full prompt well under the typical
+# 8k window even when both decisions have long bodies. Plenty of context for
+# the judge to decide "real conflict" vs "complementary".
+CONFLICT_JUDGE_BODY_BUDGET: int = 2000
+
+CONFLICT_JUDGE_PROMPT_TEMPLATE: str = """\
+Two decisions in this repo's governance corpus both claim to govern the
+same file path. Determine whether they are a *real* conflict (they
+disagree about how the file should behave) or *complementary* (they
+address different aspects of the same file — different layers,
+different concerns, different lifecycles).
+
+Context:
+  Plan being checked: {plan}
+  Shared path: {path}
+
+Decision A: {id_a}
+Title: {title_a}
+Body excerpt:
+{body_a}
+
+Decision B: {id_b}
+Title: {title_b}
+Body excerpt:
+{body_b}
+
+Return strictly valid JSON of the form:
+  {{"is_real_conflict": true | false, "reasoning": "one-sentence explanation"}}
+"""
+
+
+def build_conflict_judge_prompt(
+    plan: str, path: str, doc_a: dict, doc_b: dict
+) -> str:
+    """Render ``CONFLICT_JUDGE_PROMPT_TEMPLATE`` for one structural conflict.
+
+    Each input dict is expected to carry ``decision_id``, ``title``, and
+    ``body`` keys (any missing key is rendered as an empty string). Each
+    body is truncated to ``CONFLICT_JUDGE_BODY_BUDGET`` characters with a
+    trailing marker so the model knows context was cut.
+    """
+
+    def _truncate(text: str) -> str:
+        if not text:
+            return ""
+        if len(text) <= CONFLICT_JUDGE_BODY_BUDGET:
+            return text
+        return text[:CONFLICT_JUDGE_BODY_BUDGET] + "\n\n[... body truncated ...]"
+
+    return CONFLICT_JUDGE_PROMPT_TEMPLATE.format(
+        plan=plan or "",
+        path=path or "",
+        id_a=str(doc_a.get("decision_id", "")),
+        title_a=str(doc_a.get("title", "")),
+        body_a=_truncate(str(doc_a.get("body", ""))),
+        id_b=str(doc_b.get("decision_id", "")),
+        title_b=str(doc_b.get("title", "")),
+        body_b=_truncate(str(doc_b.get("body", ""))),
+    )

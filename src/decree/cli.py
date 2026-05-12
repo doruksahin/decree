@@ -382,6 +382,68 @@ def main() -> int:
         help="Operate on the project at this path (default: cwd).",
     )
 
+    # ── intent-check (SPEC-014) ─────────────────────────────
+    p_ic = subparsers.add_parser(
+        "intent-check",
+        help="Pre-PR planning-phase governance report (SPEC-014)",
+        description="Given a plan summary and the files the plan will touch, "
+        "report which decisions govern those files, which are stale, which "
+        "acceptance criteria are unchecked, and structural conflicts — "
+        "*before* any code is written. Exit 0 if clean, 1 if conflicts or "
+        "stale governance findings, 2 on config error.",
+    )
+    p_ic.add_argument(
+        "--plan",
+        required=True,
+        metavar="TEXT",
+        help="One-sentence to one-paragraph description of the planned change.",
+    )
+    p_ic.add_argument(
+        "--files",
+        nargs="+",
+        required=True,
+        metavar="PATH",
+        help="One or more repo-relative paths the plan will touch.",
+    )
+    p_ic.add_argument(
+        "--with-abstention",
+        action="store_true",
+        dest="with_abstention",
+        help="SPEC-013: route governance lookups through the calibrated method.",
+    )
+    p_ic.add_argument(
+        "--target-precision",
+        type=float,
+        default=None,
+        dest="target_precision",
+        metavar="P",
+        help="SPEC-013: desired precision floor for non-abstain responses.",
+    )
+    p_ic.add_argument(
+        "--judge-conflicts",
+        action="store_true",
+        dest="judge_conflicts",
+        help="Run an LLM judge on each structural conflict. Requires an "
+        "LLM API key (same resolution chain as `decree migrate governs`).",
+    )
+    p_ic.add_argument(
+        "--model",
+        default=None,
+        metavar="MODEL",
+        help="litellm model string for --judge-conflicts. Falls back to "
+        "DECREE_LLM_MODEL env var, then to a provider-key-based default.",
+    )
+    p_ic.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON for programmatic consumers.",
+    )
+    p_ic.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
     # ── migrate (sub-namespace: audit-coherence, governs) ───
     p_migrate = subparsers.add_parser(
         "migrate",
@@ -575,6 +637,7 @@ def main() -> int:
     from decree.commands import health as health_cmd
     from decree.commands import hook as hook_cmd
     from decree.commands import index_db_cli
+    from decree.commands import intent_check as intent_check_cmd
     from decree.commands import intent_review as intent_review_cmd
     from decree.commands import mcp_server as mcp_cmd
     from decree.commands import migrate as migrate_cmd
@@ -627,6 +690,7 @@ def main() -> int:
         "health": health_cmd.health_run,
         "stale": health_cmd.stale_run,
         "intent-review": intent_review_cmd.intent_review_run,
+        "intent-check": intent_check_cmd.intent_check_run,
         "migrate": _migrate_dispatch,
         "retrieval-eval": eval_cmd.eval_run,
     }
