@@ -155,6 +155,30 @@ def main() -> int:
     p_ddd.add_argument("--quiet", action="store_true", help="Suppress document-chain details; print only phase + next action")
     p_ddd.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
 
+    # ── why ─────────────────────────────────────────────────
+    p_why = subparsers.add_parser(
+        "why",
+        help="Show which decisions govern a file or directory",
+        description="Query the SQLite provenance index for decisions whose `governs:` "
+        "frontmatter covers the given repo-relative path. Exact matches outrank "
+        "prefix (directory) matches; results are sorted by status priority then date desc.",
+    )
+    p_why.add_argument("path", help="Repo-relative path (optionally `path#symbol`)")
+    p_why.add_argument("--json", action="store_true", help="Emit JSON for programmatic consumers")
+    p_why.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
+
+    # ── refs ────────────────────────────────────────────────
+    p_refs = subparsers.add_parser(
+        "refs",
+        help="Show the reverse graph for a decision (who references it, what it governs, …)",
+        description="Query the SQLite provenance index for everything connected to "
+        "the given decision id: forward refs, reverse refs, supersedes chain (via networkx), "
+        "governed paths, and (post-SPEC-006) implementing commits.",
+    )
+    p_refs.add_argument("decision_id", help="Decision ID (e.g. SPEC-001, PRD-003, ADR-0002)")
+    p_refs.add_argument("--json", action="store_true", help="Emit JSON for programmatic consumers")
+    p_refs.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
+
     # ── find-root ───────────────────────────────────────────
     subparsers.add_parser(
         "find-root",
@@ -186,6 +210,7 @@ def main() -> int:
     from decree.commands import ddd as ddd_cmd
     from decree.commands import hook as hook_cmd
     from decree.commands import index_db_cli
+    from decree.commands import queries as queries_cmd
 
     # The `index` command has sub-actions: rebuild, status, verify, regenerate.
     def _index_dispatch(a):
@@ -210,6 +235,8 @@ def main() -> int:
         "ddd": ddd_cmd.run,
         "find-root": ddd_cmd.find_root_run,
         "hook": hook_cmd.run,
+        "why": queries_cmd.why_run,
+        "refs": queries_cmd.refs_run,
     }
     return commands[args.command](args)
 
