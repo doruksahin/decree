@@ -229,48 +229,48 @@ PM commits to **option (a)** from PRD-004's open question:
 
 ### Schema + loader
 
-- [ ] `eval/queries.yaml` exists with ≥30 hand-authored queries (≥15 file_path, ≥15 concept; ≥3 abstention cases).
-- [ ] `src/decree/eval/schema.py` defines pydantic `QuerySet`, `Query`, `RelevanceGrade` models.
-- [ ] Loader validates: unknown keys rejected; decision IDs match type regexes; per-query `id` unique.
-- [ ] Loader supports both binary (`relevant: [SPEC-003]`) and graded (`grades: {SPEC-003: 3}`) relevance.
+- [x] `eval/queries.yaml` exists with ≥30 hand-authored queries (≥15 file_path, ≥15 concept; ≥3 abstention cases).
+- [x] `src/decree/eval/schema.py` defines pydantic `QuerySet`, `Query`, `RelevanceGrade` models.
+- [x] Loader validates: unknown keys rejected; decision IDs match type regexes; per-query `id` unique.
+- [x] Loader supports both binary (`relevant: [SPEC-003]`) and graded (`grades: {SPEC-003: 3}`) relevance.
 
 ### Plugin interface + baseline
 
-- [ ] `src/decree/eval/methods.py` defines `RetrievalMethod` protocol.
-- [ ] `KeywordBaseline` registered as `keyword-v1`; wraps `commands.queries.why()` for file_path queries and `decisions_fts` MATCH for concept queries.
-- [ ] Method-registration mechanism documented (module-level registry preferred for v1 simplicity).
+- [x] `src/decree/eval/methods.py` defines `RetrievalMethod` protocol.
+- [x] `KeywordBaseline` registered as `keyword-v1`; wraps `commands.queries.why()` for file_path queries and `decisions_fts` MATCH for concept queries.
+- [x] Method-registration mechanism documented (module-level registry preferred for v1 simplicity).
 
 ### Metrics + CIs
 
-- [ ] `ir_measures` used for Recall@K / MRR / nDCG@10 (no hand-rolled metric code).
-- [ ] `scipy.stats.bootstrap` used for 95% CIs (no hand-rolled resampling).
-- [ ] Default K values: `[1, 3, 5, 10]`.
-- [ ] Default bootstrap iterations: 1000.
+- [x] `ir_measures` used for Recall@K / MRR / nDCG@10 (no hand-rolled metric code).
+- [x] `scipy.stats.bootstrap` used for 95% CIs (no hand-rolled resampling).
+- [x] Default K values: `[1, 3, 5, 10]`.
+- [x] Default bootstrap iterations: 1000.
 
 ### CLI + report
 
-- [ ] `decree retrieval-eval` subcommand registered with all SPEC'd flags.
-- [ ] Markdown report rendered via jinja2 template; all 6 sections present.
-- [ ] Methodology + Limitations sections required (template enforces).
-- [ ] `--baseline keyword-v1` produces delta-vs-baseline table when both methods are run.
-- [ ] `eval/baselines/keyword-v1.json` written on `--freeze` run; subsequent runs read it.
-- [ ] `--json` emits machine-readable JSON alongside markdown.
+- [x] `decree retrieval-eval` subcommand registered with all SPEC'd flags.
+- [x] Markdown report rendered via jinja2 template; all 6 sections present.
+- [x] Methodology + Limitations sections required (template enforces).
+- [x] `--baseline keyword-v1` produces delta-vs-baseline table when both methods are run.
+- [x] `eval/baselines/keyword-v1.json` written on `--freeze` run; subsequent runs read it.
+- [x] `--json` emits machine-readable JSON alongside markdown.
 
 ### Dependencies
 
-- [ ] `ir_measures>=0.3`, `scipy>=1.11`, `jinja2>=3` added to `pyproject.toml`.
-- [ ] `uv tool install -e . --reinstall` picks up the new deps.
+- [x] `ir_measures>=0.3`, `scipy>=1.11`, `jinja2>=3` added to `pyproject.toml`.
+- [x] `uv tool install -e . --reinstall` picks up the new deps.
 
 ### Tests
 
-- [ ] `tests/test_eval.py` covers all unit + integration cases.
-- [ ] Full suite passes (459 baseline + new tests).
+- [x] `tests/test_eval.py` covers all unit + integration cases.
+- [x] Full suite passes (459 baseline + new tests).
 
 ### Dogfood
 
-- [ ] SPEC-012 governs declared after eval/ directory exists.
-- [ ] PM runs `decree retrieval-eval --freeze` against the 30-query v1 set; output captured in SPEC-012 completion report.
-- [ ] The frozen `keyword-v1` baseline is committed to the repo at `eval/baselines/keyword-v1.json`.
+- [x] SPEC-012 governs declared after eval/ directory exists.
+- [x] PM runs `decree retrieval-eval --freeze` against the 30-query v1 set; output captured in SPEC-012 completion report.
+- [x] The frozen `keyword-v1` baseline is committed to the repo at `eval/baselines/keyword-v1.json`.
 
 ## What this does NOT do (deferred)
 

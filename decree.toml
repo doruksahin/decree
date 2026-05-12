@@ -66,3 +66,10 @@ implemented = []
 submit = "review"
 approve = "approved"
 implement = "implemented"
+
+[types.spec.coherence]
+terminal_status_progress = true     # SPEC `implemented` with <100% primary ACs → lint error
+deferred_sections_separated = true  # split primary vs deferred in progress reporting
+
+[types.prd.coherence]
+terminal_status_progress = true     # PRD `implemented` with <100% checkboxes → lint error

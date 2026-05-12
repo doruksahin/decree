@@ -236,42 +236,42 @@ Tool registry grows from 5 to 6 (`why`, `refs`, `stale`, `health`, `intent_revie
 
 ### Library + CLI
 
-- [ ] `src/decree/commands/intent_check.py` exists with `intent_check()`, `intent_check_run()`, `IntentCheckReport`.
-- [ ] Library composes existing helpers (`queries.why`, `queries.refs`, `health.stale_decisions`, optionally calibrated routing).
-- [ ] `decree intent-check` subcommand registered with all flags.
-- [ ] Exit codes match SPEC.
-- [ ] `--with-abstention` routes governance lookups through SPEC-013.
-- [ ] `--judge-conflicts` calls litellm for each structural conflict.
+- [x] `src/decree/commands/intent_check.py` exists with `intent_check()`, `intent_check_run()`, `IntentCheckReport`.
+- [x] Library composes existing helpers (`queries.why`, `queries.refs`, `health.stale_decisions`, optionally calibrated routing).
+- [x] `decree intent-check` subcommand registered with all flags.
+- [x] Exit codes match SPEC.
+- [x] `--with-abstention` routes governance lookups through SPEC-013.
+- [x] `--judge-conflicts` calls litellm for each structural conflict.
 
 ### LLM judge
 
-- [ ] `build_conflict_judge_prompt(plan, path, doc_a, doc_b)` added to `migrate_prompts.py`.
-- [ ] Uses `litellm.completion()` with the SPEC-011 model-resolution chain.
-- [ ] LLM failure falls back to structural-only conflict listing (no crash).
-- [ ] Response parsing tolerates fenced JSON (reuse `_parse_llm_json` from SPEC-011 or copy pattern).
+- [x] `build_conflict_judge_prompt(plan, path, doc_a, doc_b)` added to `migrate_prompts.py`.
+- [x] Uses `litellm.completion()` with the SPEC-011 model-resolution chain.
+- [x] LLM failure falls back to structural-only conflict listing (no crash).
+- [x] Response parsing tolerates fenced JSON (reuse `_parse_llm_json` from SPEC-011 or copy pattern).
 
 ### Recommendations
 
-- [ ] 5 new verbs emitted appropriately: `draft_adr_first`, `update_spec_first`, `resolve_conflict_first`, `proceed`, plus reuse of SPEC-009 verbs.
-- [ ] Recommendations deterministic given the same inputs.
+- [x] 5 new verbs emitted appropriately: `draft_adr_first`, `update_spec_first`, `resolve_conflict_first`, `proceed`, plus reuse of SPEC-009 verbs.
+- [x] Recommendations deterministic given the same inputs.
 
 ### MCP tool
 
-- [ ] `intent_check` registered with 5-section docstring.
-- [ ] Accepts `plan: str`, `planned_files: list[str]`, `with_abstention: bool = False`, `judge_conflicts: bool = False`.
-- [ ] Tool registry grows to 6 tools.
+- [x] `intent_check` registered with 5-section docstring.
+- [x] Accepts `plan: str`, `planned_files: list[str]`, `with_abstention: bool = False`, `judge_conflicts: bool = False`.
+- [x] Tool registry grows to 6 tools.
 
 ### Tests
 
-- [ ] `tests/test_intent_check.py` covers all unit + integration cases.
-- [ ] `tests/test_mcp_server.py` extended to assert 6 tools registered.
-- [ ] No live LLM calls — all `--judge-conflicts` paths mocked.
-- [ ] Full suite passes (535 baseline + new tests).
+- [x] `tests/test_intent_check.py` covers all unit + integration cases.
+- [x] `tests/test_mcp_server.py` extended to assert 6 tools registered.
+- [x] No live LLM calls — all `--judge-conflicts` paths mocked.
+- [x] Full suite passes (535 baseline + new tests).
 
 ### Dogfood
 
-- [ ] SPEC-014's frontmatter declares `governs: ["src/decree/commands/intent_check.py"]` after file exists.
-- [ ] PM-recorded MCP smoke test.
+- [x] SPEC-014's frontmatter declares `governs: ["src/decree/commands/intent_check.py"]` after file exists.
+- [x] PM-recorded MCP smoke test.
 
 ## What this does NOT do (deferred)
 

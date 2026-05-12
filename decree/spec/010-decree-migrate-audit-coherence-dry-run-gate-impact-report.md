@@ -138,37 +138,37 @@ Parsed by `config.py` alongside the existing coherence block. Each gate-name key
 
 ### Library + CLI
 
-- [ ] `src/decree/commands/migrate.py` exists with `audit_coherence()`, `audit_coherence_run()`, `AuditFinding`, `AuditReport`.
-- [ ] Reuses SPEC-008 validators in preview mode (no duplication of validation logic).
-- [ ] `decree migrate audit-coherence` subcommand registered.
-- [ ] `--gate GATE` filter (repeatable) limits scope.
-- [ ] `--json` produces schema-stable structured response.
-- [ ] Exit 0 clean, 1 if findings.
+- [x] `src/decree/commands/migrate.py` exists with `audit_coherence()`, `audit_coherence_run()`, `AuditFinding`, `AuditReport`.
+- [x] Reuses SPEC-008 validators in preview mode (no duplication of validation logic).
+- [x] `decree migrate audit-coherence` subcommand registered.
+- [x] `--gate GATE` filter (repeatable) limits scope.
+- [x] `--json` produces schema-stable structured response.
+- [x] Exit 0 clean, 1 if findings.
 
 ### Interactive `--fix`
 
-- [ ] `--fix` runs an interactive prompt per finding.
-- [ ] Four options: fix (opens $EDITOR), skip, defer, quit.
-- [ ] `--fix` refuses non-TTY input with a clear error.
-- [ ] Deferrals are written to `[types.<type>.coherence_exceptions]` in decree.toml.
-- [ ] After `--fix` completes, exit code reflects remaining unresolved findings.
+- [x] `--fix` runs an interactive prompt per finding.
+- [x] Four options: fix (opens $EDITOR), skip, defer, quit.
+- [x] `--fix` refuses non-TTY input with a clear error.
+- [x] Deferrals are written to `[types.<type>.coherence_exceptions]` in decree.toml.
+- [x] After `--fix` completes, exit code reflects remaining unresolved findings.
 
 ### Coherence exceptions
 
-- [ ] `[types.<name>.coherence_exceptions]` parsed in `config.py`.
-- [ ] Each gate's exception list (e.g., `terminal_status_progress = ["SPEC-006"]`) skips listed docs when the gate runs.
-- [ ] Audit still reports exception-listed docs but tags them `deferred via exception` (informational, not error).
+- [x] `[types.<name>.coherence_exceptions]` parsed in `config.py`.
+- [x] Each gate's exception list (e.g., `terminal_status_progress = ["SPEC-006"]`) skips listed docs when the gate runs.
+- [x] Audit still reports exception-listed docs but tags them `deferred via exception` (informational, not error).
 
 ### Tests
 
-- [ ] `tests/test_migrate_audit.py` covers all unit + integration cases.
-- [ ] Full test suite passes (417 baseline + new tests).
+- [x] `tests/test_migrate_audit.py` covers all unit + integration cases.
+- [x] Full test suite passes (417 baseline + new tests).
 
 ### Dogfood
 
-- [ ] SPEC-010's frontmatter declares `governs: ["src/decree/commands/migrate.py"]` after the file exists.
-- [ ] PM runs audit against decree corpus; records output in SPEC-010 completion report.
-- [ ] PM either backfills SPEC-006/007 ACs (preferred) or records exceptions for them (acceptable interim).
+- [x] SPEC-010's frontmatter declares `governs: ["src/decree/commands/migrate.py"]` after the file exists.
+- [x] PM runs audit against decree corpus; records output in SPEC-010 completion report.
+- [x] PM either backfills SPEC-006/007 ACs (preferred) or records exceptions for them (acceptable interim).
 
 ## What this does NOT do (deferred)
 

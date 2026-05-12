@@ -165,21 +165,10 @@ def _judge_conflict(
 
 
 def _parse_llm_json(content: str) -> dict:
-    """Parse an LLM response body as JSON.
+    """Thin wrapper for back-compat. Real impl in :mod:`decree.llm_io`."""
+    from decree.llm_io import parse_llm_json
 
-    Same fence-stripping pattern as ``commands.migrate._parse_llm_json``.
-    Duplicated locally to avoid a cross-command import cycle; the function
-    is six lines and the duplication is preferable to coupling.
-    """
-    text = (content or "").strip()
-    if text.startswith("```"):
-        first_nl = text.find("\n")
-        if first_nl != -1:
-            text = text[first_nl + 1 :]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-    return json.loads(text)
+    return parse_llm_json(content or "")
 
 
 # ── Library: intent_check() ─────────────────────────────────

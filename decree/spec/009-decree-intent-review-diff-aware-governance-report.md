@@ -208,41 +208,41 @@ No `unidiff` library dependency (was listed as optional in PRD-003 deps; this mi
 
 ### Library + CLI
 
-- [ ] `src/decree/commands/intent_review.py` exists with `intent_review()` + `intent_review_run()` + dataclasses.
-- [ ] Library composes existing helpers (`queries.why`, `health.stale_decisions`, `IndexDB`) — no new query logic.
-- [ ] Returns `IntentReport` with all 6 component fields populated correctly.
-- [ ] Structural conflict detection: two decisions sharing a `governs:` path → conflict entry.
-- [ ] Recommendation generator emits the 5 verb kinds when their triggers apply.
+- [x] `src/decree/commands/intent_review.py` exists with `intent_review()` + `intent_review_run()` + dataclasses.
+- [x] Library composes existing helpers (`queries.why`, `health.stale_decisions`, `IndexDB`) — no new query logic.
+- [x] Returns `IntentReport` with all 6 component fields populated correctly.
+- [x] Structural conflict detection: two decisions sharing a `governs:` path → conflict entry.
+- [x] Recommendation generator emits the 5 verb kinds when their triggers apply.
 
 ### Diff parsing
 
-- [ ] Minimal in-house parser handles unified-diff format (no `unidiff` dep).
-- [ ] Captures post-rename paths for rename markers.
-- [ ] Excludes deleted files.
-- [ ] Three diff sources work: `--diff PATH`, `--diff -` (stdin), default (`git diff --cached --name-only` → fallback to working-tree diff).
+- [x] Minimal in-house parser handles unified-diff format (no `unidiff` dep).
+- [x] Captures post-rename paths for rename markers.
+- [x] Excludes deleted files.
+- [x] Three diff sources work: `--diff PATH`, `--diff -` (stdin), default (`git diff --cached --name-only` → fallback to working-tree diff).
 
 ### MCP tool
 
-- [ ] `intent_review` registered in `mcp_server.py` with 5-section docstring.
-- [ ] Accepts either `diff` string OR `changed_paths` list (precedence per docstring).
-- [ ] Tool registry has 5 tools total.
+- [x] `intent_review` registered in `mcp_server.py` with 5-section docstring.
+- [x] Accepts either `diff` string OR `changed_paths` list (precedence per docstring).
+- [x] Tool registry has 5 tools total.
 
 ### CLI
 
-- [ ] `decree intent-review` subcommand registered with `--diff`, `--diff-base`, `--json`, `--project` flags.
-- [ ] Exit 0 clean, exit 1 if conflicts or stale governance findings exist.
-- [ ] Subcommand documented in `decree --help`.
+- [x] `decree intent-review` subcommand registered with `--diff`, `--diff-base`, `--json`, `--project` flags.
+- [x] Exit 0 clean, exit 1 if conflicts or stale governance findings exist.
+- [x] Subcommand documented in `decree --help`.
 
 ### Tests
 
-- [ ] `tests/test_intent_review.py` covers all unit + integration cases.
-- [ ] `tests/test_mcp_server.py` extended; tool registry assertion updated to 5.
-- [ ] Full suite passes (389 baseline + new tests).
+- [x] `tests/test_intent_review.py` covers all unit + integration cases.
+- [x] `tests/test_mcp_server.py` extended; tool registry assertion updated to 5.
+- [x] Full suite passes (389 baseline + new tests).
 
 ### Dogfood
 
-- [ ] SPEC-009's frontmatter declares `governs: ["src/decree/commands/intent_review.py"]` after the file exists.
-- [ ] PM-recorded smoke test: `decree intent-review` on a fresh commit returns a sensible report.
+- [x] SPEC-009's frontmatter declares `governs: ["src/decree/commands/intent_review.py"]` after the file exists.
+- [x] PM-recorded smoke test: `decree intent-review` on a fresh commit returns a sensible report.
 
 ## What this does NOT do (deferred)
 

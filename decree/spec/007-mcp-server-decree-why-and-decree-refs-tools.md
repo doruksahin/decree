@@ -137,34 +137,34 @@ Implementation: `src/decree/commands/mcp_server.py` calls `mcp.run(transport="st
 
 ### MCP server
 
-- [ ] `src/decree/commands/mcp_server.py` exists with a `FastMCP("decree")` instance, `why` and `refs` tool functions, `mcp_serve_run` CLI handler.
-- [ ] Both tools wrap the existing `commands.queries.why()` / `commands.queries.refs()` library functions — no new query logic.
-- [ ] Both tool docstrings follow the 5-section structure: summary / args / returns / when to call / when not to call.
-- [ ] Tool responses preserve the CLI `--json` schemas exactly (so consumers can rely on one shape).
-- [ ] Server resolves project root at startup; missing index logs a warning but doesn't refuse to start.
-- [ ] Each tool call re-checks index status; missing index returns a structured error response (not an exception).
+- [x] `src/decree/commands/mcp_server.py` exists with a `FastMCP("decree")` instance, `why` and `refs` tool functions, `mcp_serve_run` CLI handler.
+- [x] Both tools wrap the existing `commands.queries.why()` / `commands.queries.refs()` library functions — no new query logic.
+- [x] Both tool docstrings follow the 5-section structure: summary / args / returns / when to call / when not to call.
+- [x] Tool responses preserve the CLI `--json` schemas exactly (so consumers can rely on one shape).
+- [x] Server resolves project root at startup; missing index logs a warning but doesn't refuse to start.
+- [x] Each tool call re-checks index status; missing index returns a structured error response (not an exception).
 
 ### CLI
 
-- [ ] `decree mcp serve` subcommand registered, accepts `--project PATH`.
-- [ ] Subcommand documented in `decree --help`.
-- [ ] Invoking `decree mcp serve` enters the FastMCP stdio loop (verifiable via a short-timeout test).
+- [x] `decree mcp serve` subcommand registered, accepts `--project PATH`.
+- [x] Subcommand documented in `decree --help`.
+- [x] Invoking `decree mcp serve` enters the FastMCP stdio loop (verifiable via a short-timeout test).
 
 ### Dependencies
 
-- [ ] `mcp[cli]>=1.0` added to `pyproject.toml`.
-- [ ] `uv tool install -e . --reinstall` confirmed to pick up the new dep.
+- [x] `mcp[cli]>=1.0` added to `pyproject.toml`.
+- [x] `uv tool install -e . --reinstall` confirmed to pick up the new dep.
 
 ### Tests
 
-- [ ] `tests/test_mcp_server.py` covers all unit cases.
-- [ ] At least one integration test exercises the MCP protocol end-to-end (tools/list + tools/call).
-- [ ] Existing 336 tests continue to pass.
+- [x] `tests/test_mcp_server.py` covers all unit cases.
+- [x] At least one integration test exercises the MCP protocol end-to-end (tools/list + tools/call).
+- [x] Existing 336 tests continue to pass.
 
 ### Dogfood
 
-- [ ] PM smoke-tested the server with Claude Code (or equivalent MCP client); note result in the SPEC-007 completion report.
-- [ ] SPEC-007's frontmatter declares `governs: ["src/decree/commands/mcp_server.py"]` after the file exists.
+- [x] PM smoke-tested the server with Claude Code (or equivalent MCP client); note result in the SPEC-007 completion report.
+- [x] SPEC-007's frontmatter declares `governs: ["src/decree/commands/mcp_server.py"]` after the file exists.
 
 ## What this does NOT do (deferred)
 

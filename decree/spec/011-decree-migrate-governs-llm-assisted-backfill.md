@@ -177,41 +177,41 @@ Each successful write is reported. The user can re-run `decree migrate audit-coh
 
 ### Library + CLI
 
-- [ ] `src/decree/commands/migrate.py` extended with `suggest_governs()`, `apply_governs()`, `suggest_governs_run()`, `apply_governs_run()` + `SuggestionResult` dataclass.
-- [ ] `src/decree/migrate_prompts.py` exists with the governs prompt template.
-- [ ] `decree migrate governs --suggest` subcommand registered.
-- [ ] `--apply` flag works; refuses to run without preceding `--suggest` semantically (i.e., the diff is shown first).
-- [ ] `--model` flag + `DECREE_LLM_MODEL` env var + default chain works.
-- [ ] `--dry-run`, `--only`, `--yes`, `--json`, `--project` flags work.
-- [ ] Output as unified-diff (human) or structured array (JSON).
-- [ ] Exit codes match SPEC (0 clean, 1 partial failure, 2 config error).
+- [x] `src/decree/commands/migrate.py` extended with `suggest_governs()`, `apply_governs()`, `suggest_governs_run()`, `apply_governs_run()` + `SuggestionResult` dataclass.
+- [x] `src/decree/migrate_prompts.py` exists with the governs prompt template.
+- [x] `decree migrate governs --suggest` subcommand registered.
+- [x] `--apply` flag works; refuses to run without preceding `--suggest` semantically (i.e., the diff is shown first).
+- [x] `--model` flag + `DECREE_LLM_MODEL` env var + default chain works.
+- [x] `--dry-run`, `--only`, `--yes`, `--json`, `--project` flags work.
+- [x] Output as unified-diff (human) or structured array (JSON).
+- [x] Exit codes match SPEC (0 clean, 1 partial failure, 2 config error).
 
 ### LLM integration
 
-- [ ] `litellm>=1.83,<2` added to `pyproject.toml`.
-- [ ] Single `completion()` call signature used for all providers.
-- [ ] Response parsing: validates JSON shape, drops malformed entries with warnings.
-- [ ] Path validation: existing paths → `verified`, missing → `unverified` (kept but flagged).
-- [ ] Skips docs that already have `governs:` (unless future opt-in flag).
-- [ ] Per-doc error isolation: one LLM failure doesn't abort the batch.
+- [x] `litellm>=1.83,<2` added to `pyproject.toml`.
+- [x] Single `completion()` call signature used for all providers.
+- [x] Response parsing: validates JSON shape, drops malformed entries with warnings.
+- [x] Path validation: existing paths → `verified`, missing → `unverified` (kept but flagged).
+- [x] Skips docs that already have `governs:` (unless future opt-in flag).
+- [x] Per-doc error isolation: one LLM failure doesn't abort the batch.
 
 ### Apply mode
 
-- [ ] Writes via `python-frontmatter`; round-trip parse confirms.
-- [ ] Interactive y/n confirmation unless `--yes`.
-- [ ] `--dry-run` prevents writes.
+- [x] Writes via `python-frontmatter`; round-trip parse confirms.
+- [x] Interactive y/n confirmation unless `--yes`.
+- [x] `--dry-run` prevents writes.
 
 ### Tests
 
-- [ ] All unit + integration cases mocking `litellm.completion`.
-- [ ] No live API calls in CI; recorded fixtures used for one integration test.
-- [ ] Full test suite passes (434 baseline + new tests).
+- [x] All unit + integration cases mocking `litellm.completion`.
+- [x] No live API calls in CI; recorded fixtures used for one integration test.
+- [x] Full test suite passes (434 baseline + new tests).
 
 ### Dogfood
 
-- [ ] SPEC-011's frontmatter declares appropriate `governs:` after implementation.
-- [ ] PM runs `decree migrate governs --suggest` against decree's own corpus; output captured in completion report.
-- [ ] PM runs once against jira-task-to-md's 167-doc corpus (or a sampled subset for cost reasons) and records summary stats: success rate, average confidence, example suggestions.
+- [x] SPEC-011's frontmatter declares appropriate `governs:` after implementation.
+- [x] PM runs `decree migrate governs --suggest` against decree's own corpus; output captured in completion report.
+- [x] PM runs once against jira-task-to-md's 167-doc corpus (or a sampled subset for cost reasons) and records summary stats: success rate, average confidence, example suggestions.
 
 ## What this does NOT do (deferred)
 

@@ -184,55 +184,55 @@ For `KeywordCalibrated`:
 
 ### Gates
 
-- [ ] `src/decree/eval/gates.py` exists with 7 gate functions + `GateSignal` + `composite()`.
-- [ ] Each gate has the signal shape documented in SPEC.
-- [ ] Composite uses weighted geometric mean (veto property).
-- [ ] Weights configurable per-gate via calibration JSON.
+- [x] `src/decree/eval/gates.py` exists with 7 gate functions + `GateSignal` + `composite()`.
+- [x] Each gate has the signal shape documented in SPEC.
+- [x] Composite uses weighted geometric mean (veto property).
+- [x] Weights configurable per-gate via calibration JSON.
 
 ### Calibration
 
-- [ ] `src/decree/eval/calibration.py` uses `crepes` for split conformal prediction.
-- [ ] `calibrate_method(method, query_set, target_precision)` returns a `Calibration` dataclass.
-- [ ] Calibration persisted to `eval/calibrations/<method>.json`, schema-validated by pydantic on read.
-- [ ] `decree retrieval-eval --calibrate` writes the JSON.
+- [x] `src/decree/eval/calibration.py` uses `crepes` for split conformal prediction.
+- [x] `calibrate_method(method, query_set, target_precision)` returns a `Calibration` dataclass.
+- [x] Calibration persisted to `eval/calibrations/<method>.json`, schema-validated by pydantic on read.
+- [x] `decree retrieval-eval --calibrate` writes the JSON.
 
 ### Calibrated retrieval method
 
-- [ ] `KeywordCalibrated` registered as `keyword-v1-calibrated` in `eval/methods.py`.
-- [ ] Method calls `keyword-v1` for top-K, computes composite gate signal, returns `[]` if below threshold.
-- [ ] `last_abstention_reason()` returns human-readable string after abstention.
+- [x] `KeywordCalibrated` registered as `keyword-v1-calibrated` in `eval/methods.py`.
+- [x] Method calls `keyword-v1` for top-K, computes composite gate signal, returns `[]` if below threshold.
+- [x] `last_abstention_reason()` returns human-readable string after abstention.
 
 ### CLI + MCP
 
-- [ ] `decree why <path> --with-abstention` works.
-- [ ] `decree refs <id> --with-abstention` works.
-- [ ] `decree retrieval-eval --calibrate` works.
-- [ ] `--target-precision P` honored end-to-end.
-- [ ] MCP `why` and `refs` tools accept `with_abstention` kwarg.
-- [ ] Default behavior of `decree why`/`refs` unchanged (back-compat).
+- [x] `decree why <path> --with-abstention` works.
+- [x] `decree refs <id> --with-abstention` works.
+- [x] `decree retrieval-eval --calibrate` works.
+- [x] `--target-precision P` honored end-to-end.
+- [x] MCP `why` and `refs` tools accept `with_abstention` kwarg.
+- [x] Default behavior of `decree why`/`refs` unchanged (back-compat).
 
 ### Eval harness integration
 
-- [ ] `keyword-v1-calibrated` appears in `decree retrieval-eval`'s methods list.
-- [ ] Eval report's ablation table shows `keyword-v1-calibrated` vs `keyword-v1` deltas.
-- [ ] Coverage-risk numbers reported: at target precision P, what fraction of queries are answered vs abstained?
+- [x] `keyword-v1-calibrated` appears in `decree retrieval-eval`'s methods list.
+- [x] Eval report's ablation table shows `keyword-v1-calibrated` vs `keyword-v1` deltas.
+- [x] Coverage-risk numbers reported: at target precision P, what fraction of queries are answered vs abstained?
 
 ### Dependencies
 
-- [ ] `crepes>=0.7` added to `pyproject.toml`.
-- [ ] `uv tool install -e . --reinstall` picks up the new dep.
+- [x] `crepes>=0.7` added to `pyproject.toml`.
+- [x] `uv tool install -e . --reinstall` picks up the new dep.
 
 ### Tests
 
-- [ ] `tests/test_calibration.py` covers all gates + composite + calibration.
-- [ ] `tests/test_eval.py` extended with `keyword-v1-calibrated` regression.
-- [ ] Full suite passes (489 baseline + new tests).
+- [x] `tests/test_calibration.py` covers all gates + composite + calibration.
+- [x] `tests/test_eval.py` extended with `keyword-v1-calibrated` regression.
+- [x] Full suite passes (489 baseline + new tests).
 
 ### Dogfood
 
-- [ ] `eval/calibrations/keyword-v1.json` committed (post-calibration snapshot).
-- [ ] SPEC-013 completion report includes coverage-risk metrics: at target precision 0.9, X% of queries are answered, Y% abstained; baseline (no abstention) precision Z%.
-- [ ] SPEC-013's `governs:` declared after implementation.
+- [x] `eval/calibrations/keyword-v1.json` committed (post-calibration snapshot).
+- [x] SPEC-013 completion report includes coverage-risk metrics: at target precision 0.9, X% of queries are answered, Y% abstained; baseline (no abstention) precision Z%.
+- [x] SPEC-013's `governs:` declared after implementation.
 
 ## What this does NOT do (deferred)
 

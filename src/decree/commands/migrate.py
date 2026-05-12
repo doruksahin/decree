@@ -793,22 +793,10 @@ def _validate_governs_entry(entry: object) -> str | None:
 
 
 def _parse_llm_json(content: str) -> dict:
-    """Parse an LLM response body as JSON.
+    """Thin wrapper for back-compat. Real impl in :mod:`decree.llm_io`."""
+    from decree.llm_io import parse_llm_json
 
-    litellm with `response_format={"type":"json_object"}` returns the JSON
-    payload as a string in `choices[0].message.content`. Some providers wrap
-    the response in markdown code fences even when asked for json_object —
-    strip a single leading/trailing ```/```json fence pair if present.
-    """
-    text = content.strip()
-    if text.startswith("```"):
-        first_nl = text.find("\n")
-        if first_nl != -1:
-            text = text[first_nl + 1 :]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-    return json.loads(text)
+    return parse_llm_json(content)
 
 
 def suggest_governs(

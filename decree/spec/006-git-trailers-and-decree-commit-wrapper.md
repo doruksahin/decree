@@ -139,45 +139,45 @@ rebuild():
 
 ### `decree commit` wrapper
 
-- [ ] `src/decree/commands/commit.py` exists with `commit_run`, `infer_active_spec`, trailer construction helpers.
-- [ ] `decree commit -m "msg"` runs `git commit -m "msg"` with no trailer added when no SPEC matches and no flags given.
-- [ ] `decree commit -m "msg" --implements SPEC-005` adds `Implements: SPEC-005` trailer to the message.
-- [ ] Multi-value `--implements` (flag repeated) results in correct trailer block.
-- [ ] `--refs`, `--fixes` work analogously with `Refs:` / `Fixes:` trailer kinds.
-- [ ] Active-SPEC inference: staged files matching exactly one in-flight SPEC's `governs:` paths → that SPEC is auto-added as `Implements:`.
-- [ ] Inference filters out SPECs in terminal-success / warn-on-reference status.
-- [ ] When inference is ambiguous (multiple in-flight matches), prints candidates and exits 1 unless `--implements` is provided.
-- [ ] `--no-infer` skips active-SPEC inference entirely.
-- [ ] Empty staged set: refuses with a clear error before invoking git.
-- [ ] `--amend` passes through to `git commit --amend`.
-- [ ] After a successful commit, `IndexDB.sync_commits_from_git()` is called so `decree refs` shows the new commit.
+- [x] `src/decree/commands/commit.py` exists with `commit_run`, `infer_active_spec`, trailer construction helpers.
+- [x] `decree commit -m "msg"` runs `git commit -m "msg"` with no trailer added when no SPEC matches and no flags given.
+- [x] `decree commit -m "msg" --implements SPEC-005` adds `Implements: SPEC-005` trailer to the message.
+- [x] Multi-value `--implements` (flag repeated) results in correct trailer block.
+- [x] `--refs`, `--fixes` work analogously with `Refs:` / `Fixes:` trailer kinds.
+- [x] Active-SPEC inference: staged files matching exactly one in-flight SPEC's `governs:` paths → that SPEC is auto-added as `Implements:`.
+- [x] Inference filters out SPECs in terminal-success / warn-on-reference status.
+- [x] When inference is ambiguous (multiple in-flight matches), prints candidates and exits 1 unless `--implements` is provided.
+- [x] `--no-infer` skips active-SPEC inference entirely.
+- [x] Empty staged set: refuses with a clear error before invoking git.
+- [x] `--amend` passes through to `git commit --amend`.
+- [x] After a successful commit, `IndexDB.sync_commits_from_git()` is called so `decree refs` shows the new commit.
 
 ### Index sync from git
 
-- [ ] `IndexDB.sync_commits_from_git(project_root)` method exists.
-- [ ] Walks `git log` and parses trailers using `git interpret-trailers --parse` (no Python re-implementation of trailer parsing).
-- [ ] Populates `commits(sha, decision_id, trailer_kind, summary, committed_at)`.
-- [ ] Multi-value trailer (`Implements: SPEC-003, SPEC-004`) produces one row per value.
-- [ ] No-op in non-git projects (silent, no crash).
-- [ ] Called from `IndexDB.rebuild()` after the markdown side completes.
-- [ ] `RebuildStats` reports `commits` count and `git_sync_ms` timing.
-- [ ] Performance: full rebuild including git sync on a multi-hundred-commit repo completes in <3s.
+- [x] `IndexDB.sync_commits_from_git(project_root)` method exists.
+- [x] Walks `git log` and parses trailers using `git interpret-trailers --parse` (no Python re-implementation of trailer parsing).
+- [x] Populates `commits(sha, decision_id, trailer_kind, summary, committed_at)`.
+- [x] Multi-value trailer (`Implements: SPEC-003, SPEC-004`) produces one row per value.
+- [x] No-op in non-git projects (silent, no crash).
+- [x] Called from `IndexDB.rebuild()` after the markdown side completes.
+- [x] `RebuildStats` reports `commits` count and `git_sync_ms` timing.
+- [x] Performance: full rebuild including git sync on a multi-hundred-commit repo completes in <3s.
 
 ### CLI
 
-- [ ] `decree commit` subcommand registered with full flag surface.
-- [ ] Subcommand documented in `decree --help`.
+- [x] `decree commit` subcommand registered with full flag surface.
+- [x] Subcommand documented in `decree --help`.
 
 ### Tests
 
-- [ ] `tests/test_commit.py` covers all wrapper / inference cases.
-- [ ] `tests/test_index_db.py` extended with git-sync cases (using a tmp git repo fixture).
-- [ ] Existing 305 tests continue to pass.
-- [ ] At least one integration test creates a tmp git repo, runs `decree commit`, verifies the trailer landed and the index reflects it.
+- [x] `tests/test_commit.py` covers all wrapper / inference cases.
+- [x] `tests/test_index_db.py` extended with git-sync cases (using a tmp git repo fixture).
+- [x] Existing 305 tests continue to pass.
+- [x] At least one integration test creates a tmp git repo, runs `decree commit`, verifies the trailer landed and the index reflects it.
 
 ### Dogfood
 
-- [ ] The SPEC-006 implementation commit itself uses `decree commit` and carries `Implements: SPEC-006` trailer (verifiable via `git log -1 --format=%B`).
+- [x] The SPEC-006 implementation commit itself uses `decree commit` and carries `Implements: SPEC-006` trailer (verifiable via `git log -1 --format=%B`).
 
 ## What this does NOT do (deferred)
 
