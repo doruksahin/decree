@@ -5,5 +5,6 @@
 | ADR | Title | Status | Date | Supersedes |
 |-----|-------|--------|------|------------|
 | ADR-0001 | ADR-0001 Coupled C4 Module vs Plugin Architecture | accepted | 2026-04-05 |  |
+| ADR-0002 | ADR-0002 Index-First Architecture for Decree Queries | accepted | 2026-05-12 |  |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

@@ -69,6 +69,22 @@ def run(args: argparse.Namespace | None = None) -> int:
             c4_errors = validate_c4(type_docs, dt.c4)
             errors.extend(c4_errors)
 
+    # Completion-report existence check (opt-in via [types.*.completion_report.require_for_terminal_status])
+    from decree.commands.report import is_terminal_success, load_report_config, resolve_report_path
+
+    for dt in doc_types:
+        cfg = load_report_config(get_project_root(), dt.name)
+        if not cfg.require_for_terminal_status:
+            continue
+        type_docs = [d for d in all_docs if d.doc_type == dt]
+        for doc in type_docs:
+            if is_terminal_success(dt, doc.meta.status):
+                expected = resolve_report_path(doc, get_project_root(), cfg.location_template)
+                if not expected.exists():
+                    rel_doc = doc.path.relative_to(get_project_root())
+                    rel_expected = expected.relative_to(get_project_root()) if expected.is_relative_to(get_project_root()) else expected
+                    errors.append(f"{rel_doc}: status '{doc.meta.status}' requires completion report at {rel_expected}")
+
     if errors:
         print()
         for e in errors:

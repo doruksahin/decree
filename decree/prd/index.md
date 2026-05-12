@@ -5,6 +5,8 @@
 | PRD | Title | Status | Date |
 |-----|-----|-----|-----|
 | PRD-001 | PRD-001 C4 Architecture Support | approved | 2026-04-05 |
-| PRD-002 | PRD-002 DDD CLI Command and Proofshot Integration | approved | 2026-04-30 |
+| PRD-003 | PRD-003 Queryable Decision Provenance Graph | approved | 2026-05-12 |
+| PRD-002 | PRD-002 DDD CLI Command and Proofshot Integration | implemented | 2026-04-30 |
+| PRD-004 | PRD-004 State-of-the-Art Decision Reasoning | draft | 2026-05-12 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

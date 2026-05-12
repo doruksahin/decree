@@ -90,5 +90,18 @@ def run(args: argparse.Namespace) -> int:
         info(prefix, f"saved {doc.path.name}")
 
     index.run(None)
+
+    # Generate completion report if transitioning to a terminal-success status
+    from decree.commands.report import generate_report, is_terminal_success
+    from decree.config import get_project_root
+
+    if is_terminal_success(doc_type, target_status):
+        try:
+            report_path = generate_report(doc, get_project_root(), target_status)
+            if report_path:
+                info(prefix, f"completion report written to {report_path.name}")
+        except Exception as e:  # noqa: BLE001
+            error(prefix, f"completion report failed (status transition kept): {e}")
+
     success(f"{doc.doc_id} {target_status}")
     return 0

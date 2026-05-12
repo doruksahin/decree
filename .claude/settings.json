@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/Users/doruk/Desktop/SIDE_HUSTLE/decree/scripts/hooks/decree-ddd-stop.sh",
+            "_decree_marker": "decree-ddd-stop"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -32,3 +32,6 @@ Thumbs.db
 # Tool caches
 .serena/
 .codebrain/
+
+# Decree provenance index (derived state)
+.decree/

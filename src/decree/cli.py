@@ -101,10 +101,29 @@ def main() -> int:
         help="Validate that attachment file paths exist on disk",
     )
 
-    # ── index ────────────────────────────────────────────────
-    subparsers.add_parser(
+    # ── index (sub-namespace: rebuild, status, verify, regenerate) ──
+    p_index = subparsers.add_parser(
         "index",
-        help="Regenerate index.md for each document type",
+        help="SQLite provenance index — rebuild, status, verify; or regenerate the per-type index.md tables",
+        description="Manage the SQLite provenance index that backs `decree why`, `decree refs`, "
+        "the MCP server, and other query commands. The legacy per-type markdown index.md "
+        "tables are regenerated via `decree index regenerate`.",
+    )
+    index_subs = p_index.add_subparsers(dest="index_action", required=True)
+
+    p_rebuild = index_subs.add_parser("rebuild", help="Full rebuild of the SQLite provenance index from frontmatter")
+    p_rebuild.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
+
+    p_idx_status = index_subs.add_parser("status", help="Show schema version, last-rebuilt-at, and row counts")
+    p_idx_status.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
+
+    p_verify = index_subs.add_parser("verify", help="Compare on-disk frontmatter against the index; report drift")
+    p_verify.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
+    p_verify.add_argument("--json", action="store_true", help="Emit JSON for programmatic consumers")
+
+    index_subs.add_parser(
+        "regenerate",
+        help="Regenerate the per-type index.md markdown tables (legacy behavior)",
         description="Generate a markdown table listing all documents per type, sorted by status priority then number.",
     )
 
@@ -124,14 +143,73 @@ def main() -> int:
         "and report per-document and overall completion with progress bars.",
     )
 
+    # ── ddd ─────────────────────────────────────────────────
+    p_ddd = subparsers.add_parser(
+        "ddd",
+        help="Decree Driven Development — show current phase and next action",
+        description="Run a phase assessment: read the corpus, identify which lifecycle phase "
+        "the project is in (ideation / architecture / design / planning / implementation / completion / done), "
+        "and print the suggested next action. Offline, no LLM calls.",
+    )
+    p_ddd.add_argument("--json", action="store_true", help="Emit JSON for programmatic consumers")
+    p_ddd.add_argument("--quiet", action="store_true", help="Suppress document-chain details; print only phase + next action")
+    p_ddd.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
+
+    # ── find-root ───────────────────────────────────────────
+    subparsers.add_parser(
+        "find-root",
+        help="Print the path to the enclosing decree project root",
+        description="Walk upward from cwd to find the directory containing decree.toml. "
+        "Prints the path on stdout; exits 1 if not found.",
+    )
+
+    # ── hook ────────────────────────────────────────────────
+    p_hook = subparsers.add_parser(
+        "hook",
+        help="Install or uninstall the Claude Code stop hook",
+        description="Manage the Claude Code stop hook that runs `decree ddd` at session end "
+        "and writes a snapshot for the next session to read.",
+    )
+    p_hook.add_argument(
+        "action",
+        choices=("install", "uninstall", "status"),
+        help="What to do",
+    )
+    p_hook.add_argument(
+        "--type",
+        default="claude-stop",
+        choices=("claude-stop",),
+        help="Which hook type (currently only claude-stop is supported)",
+    )
+
     args = parser.parse_args()
+    from decree.commands import ddd as ddd_cmd
+    from decree.commands import hook as hook_cmd
+    from decree.commands import index_db_cli
+
+    # The `index` command has sub-actions: rebuild, status, verify, regenerate.
+    def _index_dispatch(a):
+        action = a.index_action
+        if action == "rebuild":
+            return index_db_cli.rebuild_run(a)
+        if action == "status":
+            return index_db_cli.status_run(a)
+        if action == "verify":
+            return index_db_cli.verify_run(a)
+        if action == "regenerate":
+            return index.run(a)
+        raise ValueError(f"unknown index action: {action}")
+
     commands = {
         "new": new.run,
         "status": status.run,
         "lint": lint.run,
-        "index": index.run,
+        "index": _index_dispatch,
         "graph": graph.run,
         "progress": progress.run,
+        "ddd": ddd_cmd.run,
+        "find-root": ddd_cmd.find_root_run,
+        "hook": hook_cmd.run,
     }
     return commands[args.command](args)
 
