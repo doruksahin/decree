@@ -1,6 +1,6 @@
 ---
 date: '2026-05-12'
-status: approved
+status: implemented
 ---
 
 # PRD-003 Queryable Decision Provenance Graph

@@ -1,6 +1,6 @@
 ---
-status: draft
-date: 2026-05-12
+date: '2026-05-12'
+status: review
 ---
 
 # PRD-004 State-of-the-Art Decision Reasoning
