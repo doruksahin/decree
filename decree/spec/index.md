@@ -11,6 +11,7 @@
 | SPEC-006 | SPEC-006 Git Trailers and decree commit Wrapper | implemented | 2026-05-12 |
 | SPEC-007 | SPEC-007 MCP Server — decree.why and decree.refs Tools | implemented | 2026-05-12 |
 | SPEC-008 | SPEC-008 Coherence Gates, Staleness, and Ungoverned Hotspots | implemented | 2026-05-12 |
+| SPEC-009 | SPEC-009 decree intent-review — Diff-aware Governance Report | implemented | 2026-05-12 |
 | SPEC-001 | SPEC-001 C4 Validation and Diagram Generation | draft | 2026-04-05 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

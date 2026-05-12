@@ -469,6 +469,106 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
     }
 
 
+@mcp.tool()
+def intent_review(
+    diff: str | None = None, changed_paths: list[str] | None = None
+) -> dict:
+    """Diff-aware governance report — what decisions does this change affect?
+
+    Given a unified diff (or an explicit list of changed paths), return a
+    structured report stitching every prior decree query into one view:
+    which decisions govern the changed paths, which of those are stale,
+    which acceptance criteria look affected, which decisions structurally
+    conflict over the same files, and what to do about it.
+
+    Args:
+        diff: Unified diff content (string). Optional if `changed_paths`
+            is given. When parsed, the post-image path of each file is
+            captured (renames and additions included); deleted files are
+            skipped.
+        changed_paths: List of repo-relative paths the change touches.
+            Optional if `diff` is given; if both are present, `changed_paths`
+            wins (caller is expected to know the diff's contents).
+
+    Returns:
+        A dict with the same shape as `decree intent-review --json`:
+
+            {
+              "changed_paths": [str, ...],
+              "governing_decisions": [
+                {"decision_id": str, "type": str, "status": str,
+                 "title": str, "match_kind": "exact"|"prefix",
+                 "matched_path": str, "symbol": str | None},
+                ...
+              ],
+              "stale_governance": [
+                {"decision_id": str, "type": str,
+                 "last_touched_ts": int, "churn_count": int,
+                 "governed_paths": [{"path": str, "count": int}, ...]},
+                ...
+              ],
+              "unchecked_acceptance_criteria": [
+                {"decision_id": str, "section_title": str,
+                 "text": str, "order_index": int},
+                ...
+              ],
+              "conflicts": [
+                {"path": str, "decision_ids": [str, ...]},
+                ...
+              ],
+              "recommended_actions": [
+                {"action": str, "target_id": str | None, "detail": str},
+                ...
+              ],
+            }
+
+        Empty arrays are valid responses (abstention; do not confabulate).
+        On a missing index the response is
+        `{"error": "index not found", "hint": "Run `decree index rebuild`"}`.
+
+    When to call:
+        - Before authoring a commit on a feature branch — get the
+          governance map so the commit message can reference relevant
+          decisions and link to the right SPEC.
+        - When reviewing a PR — surface conflicts and stale governance
+          before approving.
+        - Pre-merge — verify no governing decision contradicts the
+          change and no in-flight AC is silently un-finished.
+
+    When not to call:
+        - On documentation-only changes (`decree/`, `docs/`) — surfaces
+          nothing useful.
+        - On test-only diffs — `governs:` is source-file scoped.
+        - For pre-PR planning intent ("I plan to do X") — that's a
+          different tool (`intent_check`, PRD-004 R2; not yet implemented).
+    """
+    from decree.commands.intent_review import (
+        intent_review as _intent_review_lib,
+        parse_diff,
+        report_to_dict,
+    )
+
+    db, root = _get_db()
+    status = db.status()
+    if not status.exists:
+        return _index_missing_response()
+
+    warning = _stale_warning(db, root)
+
+    if changed_paths is not None:
+        paths = list(changed_paths)
+    elif diff is not None:
+        paths = parse_diff(diff)
+    else:
+        paths = []
+
+    report = _intent_review_lib(db, root, paths)
+    payload = report_to_dict(report)
+    if warning is not None:
+        payload["warning"] = warning
+    return payload
+
+
 def mcp_serve_run(args: argparse.Namespace) -> int:
     """`decree mcp serve` — enter the FastMCP stdio loop bound to a project."""
     try:

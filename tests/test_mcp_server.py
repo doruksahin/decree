@@ -238,12 +238,12 @@ class TestRefsTool:
 
 
 class TestToolRegistry:
-    def test_exactly_four_tools_registered(self) -> None:
-        # SPEC-008 added `stale` and `health` to the v1 SPEC-007 pair.
+    def test_exactly_five_tools_registered(self) -> None:
+        # SPEC-009 added `intent_review` to the SPEC-007 + SPEC-008 set.
         tools = mcp._tool_manager.list_tools()
         names = sorted(t.name for t in tools)
-        assert names == ["health", "refs", "stale", "why"], (
-            f"Expected SPEC-007 + SPEC-008 tools; got {names}."
+        assert names == ["health", "intent_review", "refs", "stale", "why"], (
+            f"Expected SPEC-007 + SPEC-008 + SPEC-009 tools; got {names}."
         )
 
     def test_why_has_full_docstring(self) -> None:
@@ -286,8 +286,8 @@ class TestProtocol:
 
         tools = asyncio.run(go())
         names = sorted(t.name for t in tools)
-        # SPEC-008 added `stale` + `health` to SPEC-007's `why` + `refs`.
-        assert names == ["health", "refs", "stale", "why"]
+        # SPEC-009 added `intent_review` to the SPEC-007 + SPEC-008 set.
+        assert names == ["health", "intent_review", "refs", "stale", "why"]
 
         why_tool = next(t for t in tools if t.name == "why")
         # MCP protocol exposes inputSchema (a JSON Schema dict)
@@ -416,6 +416,53 @@ class TestSpec008Docstrings:
     def test_health_has_full_docstring(self) -> None:
         tools = {t.name: t for t in mcp._tool_manager.list_tools()}
         desc = tools["health"].description or ""
+        assert "Args:" in desc
+        assert "Returns:" in desc
+        assert "When to call:" in desc
+        assert "When not to call:" in desc
+
+
+class TestIntentReviewTool:
+    def test_by_changed_paths(self, project_with_index: Path) -> None:
+        result = mcp_server.intent_review(changed_paths=["src/foo.py"])
+        assert "error" not in result
+        assert result["changed_paths"] == ["src/foo.py"]
+        assert len(result["governing_decisions"]) == 1
+        assert result["governing_decisions"][0]["decision_id"] == "SPEC-001"
+
+    def test_by_diff_string(self, project_with_index: Path) -> None:
+        diff = (
+            "diff --git a/src/foo.py b/src/foo.py\n"
+            "index 0000000..1111111 100644\n"
+            "--- a/src/foo.py\n"
+            "+++ b/src/foo.py\n"
+            "@@ -0,0 +1 @@\n"
+            "+x = 1\n"
+        )
+        result = mcp_server.intent_review(diff=diff)
+        assert "error" not in result
+        assert result["changed_paths"] == ["src/foo.py"]
+        assert len(result["governing_decisions"]) == 1
+
+    def test_changed_paths_wins_when_both_given(
+        self, project_with_index: Path
+    ) -> None:
+        # Pass an empty diff but explicit changed_paths — paths should win.
+        result = mcp_server.intent_review(
+            diff="diff --git a/unrelated.py b/unrelated.py\n",
+            changed_paths=["src/foo.py"],
+        )
+        assert result["changed_paths"] == ["src/foo.py"]
+
+    def test_index_missing_returns_error_response(
+        self, project_without_index: Path
+    ) -> None:
+        result = mcp_server.intent_review(changed_paths=["src/foo.py"])
+        assert result["error"] == "index not found"
+
+    def test_intent_review_has_full_docstring(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        desc = tools["intent_review"].description or ""
         assert "Args:" in desc
         assert "Returns:" in desc
         assert "When to call:" in desc

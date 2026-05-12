@@ -322,12 +322,45 @@ def main() -> int:
     )
     _add_health_args(p_stale)
 
+    # ── intent-review (SPEC-009) ────────────────────────────
+    p_ir = subparsers.add_parser(
+        "intent-review",
+        help="Diff-aware governance report (SPEC-009)",
+        description="Take a diff (file, stdin, --diff-base, or auto-detect from git "
+        "staged/working-tree) and report which decisions govern the changed paths, "
+        "which are stale, which acceptance criteria are unchecked, and structural "
+        "conflicts. Exit 0 if clean, 1 if conflicts or stale findings exist.",
+    )
+    p_ir.add_argument(
+        "--diff",
+        default=None,
+        metavar="PATH",
+        help="Unified-diff file path, or `-` to read from stdin.",
+    )
+    p_ir.add_argument(
+        "--diff-base",
+        default=None,
+        metavar="REF",
+        help="Run `git diff <REF>...HEAD` to compute the diff.",
+    )
+    p_ir.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON for programmatic consumers.",
+    )
+    p_ir.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
     args = parser.parse_args()
     from decree.commands import commit as commit_cmd
     from decree.commands import ddd as ddd_cmd
     from decree.commands import health as health_cmd
     from decree.commands import hook as hook_cmd
     from decree.commands import index_db_cli
+    from decree.commands import intent_review as intent_review_cmd
     from decree.commands import mcp_server as mcp_cmd
     from decree.commands import queries as queries_cmd
 
@@ -367,6 +400,7 @@ def main() -> int:
         "mcp": _mcp_dispatch,
         "health": health_cmd.health_run,
         "stale": health_cmd.stale_run,
+        "intent-review": intent_review_cmd.intent_review_run,
     }
     return commands[args.command](args)
 
