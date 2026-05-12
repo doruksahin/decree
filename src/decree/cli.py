@@ -255,11 +255,37 @@ def main() -> int:
         help="Which hook type (currently only claude-stop is supported)",
     )
 
+    # ── mcp (sub-namespace: serve) ──────────────────────────
+    p_mcp = subparsers.add_parser(
+        "mcp",
+        help="Model Context Protocol server — expose decree's query API to agents",
+        description="Run the Model Context Protocol server that exposes decree's "
+        "queries (currently `why` and `refs`) as agent-callable tools over stdio. "
+        "v1 ships two tools; future SPECs add `stale`, `health`, and `intent_review` "
+        "as their underlying library functions land.",
+    )
+    mcp_subs = p_mcp.add_subparsers(dest="mcp_action", required=True)
+
+    p_mcp_serve = mcp_subs.add_parser(
+        "serve",
+        help="Run the MCP stdio server bound to a decree project",
+        description="Resolve the project root (explicit --project, else cwd-walk), "
+        "open the SQLite index, and enter the FastMCP stdio loop. The server runs "
+        "until stdin closes or it receives a termination signal. One server, one "
+        "project, one index — cross-project queries require running multiple servers.",
+    )
+    p_mcp_serve.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd-walk)",
+    )
+
     args = parser.parse_args()
     from decree.commands import commit as commit_cmd
     from decree.commands import ddd as ddd_cmd
     from decree.commands import hook as hook_cmd
     from decree.commands import index_db_cli
+    from decree.commands import mcp_server as mcp_cmd
     from decree.commands import queries as queries_cmd
 
     # The `index` command has sub-actions: rebuild, status, verify, regenerate.
@@ -275,6 +301,13 @@ def main() -> int:
             return index.run(a)
         raise ValueError(f"unknown index action: {action}")
 
+    # The `mcp` command has sub-actions: serve (more may land in future SPECs).
+    def _mcp_dispatch(a):
+        action = a.mcp_action
+        if action == "serve":
+            return mcp_cmd.mcp_serve_run(a)
+        raise ValueError(f"unknown mcp action: {action}")
+
     commands = {
         "new": new.run,
         "status": status.run,
@@ -288,6 +321,7 @@ def main() -> int:
         "why": queries_cmd.why_run,
         "refs": queries_cmd.refs_run,
         "commit": commit_cmd.commit_run,
+        "mcp": _mcp_dispatch,
     }
     return commands[args.command](args)
 

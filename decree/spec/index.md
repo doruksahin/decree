@@ -9,6 +9,7 @@
 | SPEC-004 | SPEC-004 governs Field — Frontmatter and Lint Validation | implemented | 2026-05-12 |
 | SPEC-005 | SPEC-005 decree why and decree refs — Governed-File and Reverse Queries | implemented | 2026-05-12 |
 | SPEC-006 | SPEC-006 Git Trailers and decree commit Wrapper | implemented | 2026-05-12 |
+| SPEC-007 | SPEC-007 MCP Server — decree.why and decree.refs Tools | implemented | 2026-05-12 |
 | SPEC-001 | SPEC-001 C4 Validation and Diagram Generation | draft | 2026-04-05 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->
