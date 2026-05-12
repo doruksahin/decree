@@ -556,3 +556,84 @@ queries:
             ]
         )
         assert rc2 == 0
+
+
+# ── SPEC-013 — calibrated method regression ───────────────
+
+
+class TestKeywordCalibratedRegression:
+    """SPEC-013: `keyword-v1-calibrated` is registered and runs alongside the baseline."""
+
+    def test_method_registered(self) -> None:
+        from decree.eval.methods import METHODS
+
+        assert "keyword-v1-calibrated" in METHODS
+
+    def test_runs_against_query_set(self, tmp_path: Path, monkeypatch) -> None:
+        """Calibrated method runs end-to-end; absent calibration ⇒ no abstention."""
+        _write_basic_corpus(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        from decree.eval.methods import KeywordCalibrated
+
+        # No calibration JSON on disk → threshold=0, behaves like baseline.
+        m = KeywordCalibrated(calibration_path=tmp_path / "nope.json")
+        q = Query(id="q", kind="file_path", query="src/foo.py", relevant=["SPEC-001"])
+        ids = m.query(db, q, k=5)
+        assert ids == ["SPEC-001"]
+
+
+class TestCalibrateCLI:
+    """SPEC-013 — `decree retrieval-eval --calibrate` writes calibrations/<method>.json."""
+
+    def test_calibrate_writes_json(self, tmp_path: Path, monkeypatch):
+        _write_basic_corpus(tmp_path)
+        _rebuild_index(tmp_path, monkeypatch)
+        eval_dir = tmp_path / "eval"
+        eval_dir.mkdir()
+        (eval_dir / "queries.yaml").write_text(
+            """
+corpus: basic
+queries:
+  - id: q1
+    kind: file_path
+    query: src/foo.py
+    relevant: [SPEC-001]
+  - id: q2
+    kind: file_path
+    query: src/foo.py
+    relevant: [SPEC-001]
+  - id: q3
+    kind: file_path
+    query: src/missing.py
+    relevant: []
+  - id: q4
+    kind: file_path
+    query: src/also_missing.py
+    relevant: []
+"""
+        )
+
+        rc = _run_cli(
+            [
+                "retrieval-eval",
+                "--queries",
+                str(eval_dir / "queries.yaml"),
+                "--method",
+                "keyword-v1",
+                "--calibrate",
+                "--target-precision",
+                "0.5",
+                "--project",
+                str(tmp_path),
+            ]
+        )
+        assert rc == 0
+        out_path = tmp_path / "eval" / "calibrations" / "keyword-v1.json"
+        assert out_path.exists()
+        from decree.eval.calibration import read_calibration
+
+        cal = read_calibration(out_path)
+        assert cal.method_name == "keyword-v1"
+        assert 0.0 <= cal.threshold <= 1.0
+        # All 7 default gate weights persisted.
+        assert len(cal.gate_weights) == 7

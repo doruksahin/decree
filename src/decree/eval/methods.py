@@ -93,6 +93,132 @@ class KeywordBaseline:
         return [r[0] for r in rows]
 
 
+# ── KeywordCalibrated (SPEC-013) ────────────────────────────
+
+
+class KeywordCalibrated:
+    """SPEC-013 — KeywordBaseline + confidence gates + calibrated threshold.
+
+    Behavior:
+      1. Run ``keyword-v1`` for top-K candidates.
+      2. Enrich them, compute the 7 gate signals, take the composite.
+      3. If ``composite < threshold``: return ``[]`` (abstain). Store a
+         human-readable reason on the instance.
+      4. Otherwise return the baseline's candidates unchanged.
+
+    Calibration is loaded from ``eval/calibrations/<method-name>.json`` at
+    instantiation. If the file is missing, ``threshold=0.0`` (no abstention)
+    and a note is set on the instance — this lets the harness run before
+    ``--calibrate`` has been invoked.
+    """
+
+    name: str = "keyword-v1-calibrated"
+    description: str = (
+        "SPEC-013 calibrated layer atop keyword-v1: 7-gate composite "
+        "confidence with a conformal threshold from eval/calibrations/."
+    )
+
+    def __init__(
+        self,
+        *,
+        calibration_path: object | None = None,
+        baseline: KeywordBaseline | None = None,
+    ) -> None:
+        from pathlib import Path  # local import — keep module import cheap
+
+        self._baseline = baseline or KeywordBaseline()
+        self._abstention_reason: str | None = None
+        self._last_signals: list[object] = []
+        self._last_composite: float = 0.0
+        self._last_would_return: list[str] = []
+        self._calibration = None
+
+        # Resolve the calibration path. Default: <project>/eval/calibrations/<name>.json.
+        if calibration_path is None:
+            try:
+                from decree.config import get_project_root
+
+                root = get_project_root()
+                calibration_path = root / "eval" / "calibrations" / f"{self.name.replace('-calibrated', '')}.json"
+            except Exception:  # noqa: BLE001 — fall back to no-calibration mode
+                calibration_path = None
+
+        if calibration_path is not None:
+            from pathlib import Path as _Path
+
+            cp = _Path(calibration_path) if not isinstance(calibration_path, _Path) else calibration_path
+            if cp.exists():
+                from decree.eval.calibration import read_calibration
+
+                self._calibration = read_calibration(cp)
+
+    # ── Accessors ─────────────────────────────────────────
+
+    @property
+    def threshold(self) -> float:
+        return float(self._calibration.threshold) if self._calibration else 0.0
+
+    @property
+    def gate_weights(self) -> dict[str, float]:
+        return dict(self._calibration.gate_weights) if self._calibration else {}
+
+    def last_abstention_reason(self) -> str | None:
+        return self._abstention_reason
+
+    def last_diagnostics(self) -> dict[str, object]:
+        """Return per-signal scores + composite + threshold from the most recent query."""
+        return {
+            "composite": self._last_composite,
+            "threshold": self.threshold,
+            "signals": [
+                {"name": s.name, "score": s.score, "hint": s.hint}  # type: ignore[attr-defined]
+                for s in self._last_signals
+            ],
+            "would_return": list(self._last_would_return),
+        }
+
+    # ── Plug-in interface ─────────────────────────────────
+
+    def query(self, db: "IndexDB", query: Query, *, k: int = 10) -> list[str]:
+        from decree.eval.gates import compute_signals, composite, enrich_rows
+
+        # Reset per-call state.
+        self._abstention_reason = None
+        self._last_signals = []
+        self._last_composite = 0.0
+        self._last_would_return = []
+
+        candidates = self._baseline.query(db, query, k=k)
+        if not candidates:
+            self._abstention_reason = "baseline returned no candidates"
+            return []
+
+        rows = enrich_rows(db, candidates)
+        signals = compute_signals(query, rows, db)
+        weights = self.gate_weights or None
+        comp = composite(signals, weights=weights)
+
+        # Cache diagnostics regardless of accept/reject.
+        self._last_signals = list(signals)
+        self._last_composite = comp
+        self._last_would_return = list(candidates)
+
+        tau = self.threshold
+        if comp < tau:
+            # Find the weakest gates for the abstention hint.
+            ranked = sorted(signals, key=lambda s: s.score)
+            top_failures = ranked[:3]
+            failure_str = ", ".join(
+                f"{s.name}={s.score:.2f}" for s in top_failures
+            )
+            self._abstention_reason = (
+                f"composite confidence {comp:.2f} below threshold {tau:.2f} "
+                f"(weakest: {failure_str})"
+            )
+            return []
+        return candidates
+
+
 # ── Module-level registry ───────────────────────────────────
 
 METHODS: dict[str, RetrievalMethod] = {}
@@ -106,3 +232,11 @@ def register(method: RetrievalMethod) -> RetrievalMethod:
 
 # Register the v1 baseline at import time.
 register(KeywordBaseline())
+
+
+# Register the SPEC-013 calibrated method. Loads calibration JSON lazily;
+# absence is non-fatal (threshold defaults to 0 → no abstention).
+try:
+    register(KeywordCalibrated())
+except Exception:  # noqa: BLE001 — never block import on calibration issues
+    pass

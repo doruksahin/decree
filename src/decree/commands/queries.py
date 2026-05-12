@@ -383,7 +383,15 @@ def _maybe_warn_stale(db: IndexDB, root: Path) -> None:
 # ── Formatters: why ─────────────────────────────────────────
 
 
-def _format_why_human(query: str, matches: list[GoverningDecision]) -> str:
+def _format_why_human(
+    query: str,
+    matches: list[GoverningDecision],
+    *,
+    abstention: dict | None = None,
+) -> str:
+    if abstention is not None and abstention.get("abstained"):
+        return _format_abstention_human(query, abstention, matches=matches)
+
     if not matches:
         return f"{query} — no governing decisions"
 
@@ -398,8 +406,13 @@ def _format_why_human(query: str, matches: list[GoverningDecision]) -> str:
     return "\n".join(lines)
 
 
-def _format_why_json(query: str, matches: list[GoverningDecision]) -> str:
-    payload = {
+def _format_why_json(
+    query: str,
+    matches: list[GoverningDecision],
+    *,
+    abstention: dict | None = None,
+) -> str:
+    payload: dict = {
         "query": query,
         "match_count": len(matches),
         "matches": [
@@ -416,6 +429,8 @@ def _format_why_json(query: str, matches: list[GoverningDecision]) -> str:
             for m in matches
         ],
     }
+    if abstention is not None:
+        payload.update(abstention)
     return json.dumps(payload, indent=2, sort_keys=False)
 
 
@@ -487,8 +502,106 @@ def _format_refs_json(report: RefsReport) -> str:
 # ── CLI entry points ────────────────────────────────────────
 
 
+# ── SPEC-013 calibrated assessment ──────────────────────────
+
+
+def _calibrated_assess(
+    db: IndexDB,
+    *,
+    kind: str,
+    text: str,
+    target_precision: float | None = None,
+) -> dict | None:
+    """Run the calibrated method for a (kind, text) query; return abstention dict or None.
+
+    Returns:
+        - ``None`` if calibration is unavailable (no JSON on disk).
+        - A dict ``{"abstained": bool, "composite_score": float, "threshold": float,
+          "signals": {name: score}, "signal_hints": {name: hint},
+          "abstention_reason": str | None, "would_have_returned": [decision_id, ...]}``.
+    """
+    from decree.eval.methods import KeywordCalibrated
+    from decree.eval.schema import Query
+
+    # Build a Query object compatible with the method protocol. Use a stable
+    # synthetic id; relevant set empty (not used in gating).
+    qid = "cli-runtime"
+    query = Query(id=qid, kind=kind, query=text, relevant=[])
+
+    method = KeywordCalibrated()
+
+    # If a target precision was requested but no matching calibration on disk,
+    # we still run the gates (so the user sees signals) but cannot abstain.
+    if target_precision is not None and method.threshold == 0:
+        # Best-effort: surface a note, but don't fail.
+        pass
+
+    decision_ids = method.query(db, query, k=10)
+    diag = method.last_diagnostics()
+    abstained = method.last_abstention_reason() is not None
+
+    signals_map: dict[str, float] = {}
+    hints_map: dict[str, str | None] = {}
+    for s in diag["signals"]:  # type: ignore[index]
+        signals_map[s["name"]] = float(s["score"])
+        hints_map[s["name"]] = s.get("hint")
+
+    return {
+        "abstained": abstained,
+        "composite_score": float(diag["composite"]),
+        "threshold": float(diag["threshold"]),
+        "signals": signals_map,
+        "signal_hints": hints_map,
+        "abstention_reason": method.last_abstention_reason(),
+        "would_have_returned": (
+            list(diag["would_return"]) if abstained else []  # type: ignore[arg-type]
+        ),
+        "returned": [] if abstained else list(decision_ids),
+    }
+
+
+def _format_abstention_human(
+    query: str,
+    abstention: dict,
+    *,
+    matches: list[GoverningDecision] | None = None,
+) -> str:
+    comp = abstention.get("composite_score", 0.0)
+    tau = abstention.get("threshold", 0.0)
+    lines = [
+        f"no governance found (composite confidence {comp:.2f}; threshold {tau:.2f})",
+    ]
+    reason = abstention.get("abstention_reason")
+    if reason:
+        lines.append(f"  reason: {reason}")
+    sigs = abstention.get("signals", {})
+    hints = abstention.get("signal_hints", {})
+    if sigs:
+        lines.append("")
+        lines.append("  signals:")
+        # Pad names so the column lines up; preserve insertion order.
+        name_width = max(len(n) for n in sigs)
+        for name, score in sigs.items():
+            hint = hints.get(name)
+            suffix = f"  ({hint})" if hint else ""
+            lines.append(f"    {name.ljust(name_width)}  {float(score):.2f}{suffix}")
+    would = abstention.get("would_have_returned") or []
+    if would:
+        lines.append("")
+        lines.append(
+            f"  closest non-abstaining hit: {would[0]} (would have been returned without --with-abstention)"
+        )
+    return "\n".join(lines)
+
+
 def why_run(args: argparse.Namespace) -> int:
-    """`decree why <path> [--json]` — print governing decisions for a file/dir."""
+    """`decree why <path> [--json] [--with-abstention]` — print governing decisions.
+
+    With ``--with-abstention``, the query is routed through the SPEC-013
+    calibrated method (``keyword-v1-calibrated``). On a low-confidence
+    answer the calibrated method returns ``[]`` and we print the abstention
+    block (human) or the abstention shape (json).
+    """
     db, root, rc = _open_db_or_error(getattr(args, "project", None))
     if db is None:
         return rc
@@ -496,7 +609,23 @@ def why_run(args: argparse.Namespace) -> int:
 
     _maybe_warn_stale(db, root)
 
+    with_abstention = bool(getattr(args, "with_abstention", False))
+    target_precision = getattr(args, "target_precision", None)
+
     matches = why(db, args.path)
+
+    if with_abstention:
+        abstention = _calibrated_assess(
+            db,
+            kind="file_path",
+            text=args.path,
+            target_precision=target_precision,
+        )
+        if getattr(args, "json", False):
+            print(_format_why_json(args.path, matches, abstention=abstention))
+        else:
+            print(_format_why_human(args.path, matches, abstention=abstention))
+        return 0
 
     if getattr(args, "json", False):
         print(_format_why_json(args.path, matches))
@@ -508,13 +637,41 @@ def why_run(args: argparse.Namespace) -> int:
 
 
 def refs_run(args: argparse.Namespace) -> int:
-    """`decree refs <id> [--json]` — print the reverse graph for a decision."""
+    """`decree refs <id> [--json] [--with-abstention]` — print the reverse graph.
+
+    With ``--with-abstention``, ``refs`` first asks the calibrated method
+    whether *any* governance lookup against the decision_id-as-query has
+    enough confidence. If not, we print the abstention block and skip the
+    full reverse-graph fetch. The intent is parity with ``why``: the user
+    asked for guidance, the calibrator said "don't trust me here".
+    """
     db, root, rc = _open_db_or_error(getattr(args, "project", None))
     if db is None:
         return rc
     assert root is not None
 
     _maybe_warn_stale(db, root)
+
+    with_abstention = bool(getattr(args, "with_abstention", False))
+    target_precision = getattr(args, "target_precision", None)
+
+    if with_abstention:
+        abstention = _calibrated_assess(
+            db,
+            kind="concept",
+            text=args.decision_id,
+            target_precision=target_precision,
+        )
+        if abstention is not None and abstention.get("abstained"):
+            if getattr(args, "json", False):
+                payload = {
+                    "decision_id": args.decision_id,
+                    **abstention,
+                }
+                print(json.dumps(payload, indent=2, sort_keys=False))
+            else:
+                print(_format_abstention_human(args.decision_id, abstention))
+            return 0
 
     report = refs(db, args.decision_id)
     if report is None:

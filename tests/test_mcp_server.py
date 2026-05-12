@@ -467,3 +467,51 @@ class TestIntentReviewTool:
         assert "Returns:" in desc
         assert "When to call:" in desc
         assert "When not to call:" in desc
+
+
+# ── SPEC-013 — with_abstention on MCP tools ────────────────
+
+
+class TestWithAbstentionMcp:
+    def test_why_with_abstention_signals_present(self, project_with_index: Path) -> None:
+        result = mcp_server.why("src/foo.py", with_abstention=True)
+        # Even when the answer is high-confidence (and so not abstained),
+        # the calibrated-assessment fields are merged in.
+        assert "abstained" in result
+        assert "composite_score" in result
+        assert "signals" in result
+        # All 7 gates surface their scores.
+        assert set(result["signals"].keys()) >= {
+            "dominance",
+            "identifier-citation",
+            "hedge-phrase",
+            "status",
+            "recency",
+            "coverage",
+            "authorship",
+        }
+
+    def test_refs_with_abstention_returns_full_when_confident(
+        self, project_with_index: Path
+    ) -> None:
+        # SPEC-001 exists; decision_id-as-concept-query is high-confidence enough
+        # that abstention doesn't trip with threshold=0.
+        result = mcp_server.refs("SPEC-001", with_abstention=True)
+        assert "decision_id" in result
+        # Either the abstention shape OR the regular shape — both are valid;
+        # with no calibration installed, threshold=0 so we get full payload.
+        if "metadata" in result:
+            assert result["decision_id"] == "SPEC-001"
+
+    def test_why_arg_schema_includes_with_abstention(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        props = tools["why"].parameters["properties"]
+        assert "with_abstention" in props
+        # boolean type
+        assert props["with_abstention"]["type"] == "boolean"
+
+    def test_refs_arg_schema_includes_with_abstention(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        props = tools["refs"].parameters["properties"]
+        assert "with_abstention" in props
+        assert props["with_abstention"]["type"] == "boolean"

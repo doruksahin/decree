@@ -15,6 +15,7 @@
 | SPEC-010 | SPEC-010 decree migrate audit-coherence — Dry-run Gate Impact Report | implemented | 2026-05-12 |
 | SPEC-011 | SPEC-011 decree migrate governs — LLM-Assisted Backfill | implemented | 2026-05-12 |
 | SPEC-012 | SPEC-012 Evaluation Harness — Labeled Query Set and Retrieval Metrics | implemented | 2026-05-12 |
+| SPEC-013 | SPEC-013 Calibrated Abstention — Conformal Confidence Gates | implemented | 2026-05-12 |
 | SPEC-001 | SPEC-001 C4 Validation and Diagram Generation | draft | 2026-04-05 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

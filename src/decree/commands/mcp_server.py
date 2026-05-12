@@ -108,7 +108,7 @@ def _stale_warning(db: IndexDB, root: Path) -> str | None:
 
 
 @mcp.tool()
-def why(path: str) -> dict:
+def why(path: str, with_abstention: bool = False) -> dict:
     """Return the decisions (PRDs / ADRs / SPECs) that govern a file or directory.
 
     Use this BEFORE modifying any source file you did not author. The response
@@ -122,6 +122,12 @@ def why(path: str) -> dict:
             (e.g. `src/foo.py#MyClass`); the symbol is preserved on each result
             row but does not affect ranking in v1. Absolute paths and paths
             with leading `./` are accepted but normalized.
+        with_abstention: If True (default False), route through the SPEC-013
+            calibrated retrieval method (`keyword-v1-calibrated`). When the
+            composite confidence gate falls below its calibrated threshold,
+            the response includes `abstained: True` plus a `signals` map and
+            the `would_have_returned` list. Use this when you'd rather see
+            "no governance found" than a low-confidence guess.
 
     Returns:
         A dict with the same shape as `decree why <path> --json`:
@@ -142,6 +148,18 @@ def why(path: str) -> dict:
                 },
                 ...
               ],
+            }
+
+        When ``with_abstention=True`` and the calibrator vetoes the answer,
+        additional keys are merged into the same dict:
+
+            {
+              "abstained": True,
+              "composite_score": float,
+              "threshold": float,
+              "signals": {"dominance": 1.0, "coverage": 0.1, ...},
+              "would_have_returned": ["SPEC-099", ...],
+              "abstention_reason": str,
             }
 
         Empty `matches` is a valid, correct answer — it means *no* decision
@@ -193,13 +211,19 @@ def why(path: str) -> dict:
             for m in matches
         ],
     }
+    if with_abstention:
+        from decree.commands.queries import _calibrated_assess
+
+        abstention = _calibrated_assess(db, kind="file_path", text=path)
+        if abstention is not None:
+            payload.update(abstention)
     if warning is not None:
         payload["warning"] = warning
     return payload
 
 
 @mcp.tool()
-def refs(decision_id: str) -> dict:
+def refs(decision_id: str, with_abstention: bool = False) -> dict:
     """Return the full reference graph for a single decision document.
 
     Use this when you have a decision ID in hand (from `why`, a commit
@@ -212,6 +236,11 @@ def refs(decision_id: str) -> dict:
             frontmatter and filenames (e.g. `SPEC-007`, `PRD-003`, `ADR-0002`).
             Case-sensitive; the canonical form is uppercase prefix +
             zero-padded number per the project's `decree.toml`.
+        with_abstention: If True (default False), first run the SPEC-013
+            calibrated retrieval method against the decision id as a concept
+            query. If the composite confidence falls below the calibrated
+            threshold, the response returns an abstention shape instead of
+            the full reverse-graph payload — same intent as ``why``'s flag.
 
     Returns:
         A dict with the same shape as `decree refs <decision_id> --json`:
@@ -236,6 +265,11 @@ def refs(decision_id: str) -> dict:
         `{"error": "index not found", "hint": "Run `decree index rebuild`"}`.
         On a stale index a `"warning"` key is added to the success payload.
 
+        When ``with_abstention=True`` and the calibrator vetoes the answer,
+        the dict has the abstention shape ``{"decision_id": str,
+        "abstained": True, "composite_score": float, "threshold": float,
+        "signals": {...}, "would_have_returned": [...]}``.
+
     When to call:
         - After `why` returned a match and you want to drill into the
           governing decision: pull its references, see what supersedes it,
@@ -259,6 +293,17 @@ def refs(decision_id: str) -> dict:
         return _index_missing_response()
 
     warning = _stale_warning(db, root)
+
+    if with_abstention:
+        from decree.commands.queries import _calibrated_assess
+
+        abstention = _calibrated_assess(db, kind="concept", text=decision_id)
+        if abstention is not None and abstention.get("abstained"):
+            payload: dict = {"decision_id": decision_id, **abstention}
+            if warning is not None:
+                payload["warning"] = warning
+            return payload
+
     report = _refs_lib(db, decision_id)
     if report is None:
         return {
@@ -266,7 +311,7 @@ def refs(decision_id: str) -> dict:
             "decision_id": decision_id,
         }
 
-    payload: dict = {
+    payload = {
         "decision_id": report.decision_id,
         "metadata": asdict(report.metadata),
         "forward_refs": [asdict(r) for r in report.forward_refs],

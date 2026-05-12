@@ -35,6 +35,62 @@ def _default_output(root: Path) -> Path:
     return root / "docs" / "evaluation" / f"{date.today().isoformat()}.md"
 
 
+def _calibrate_run(
+    *,
+    db,
+    root: Path,
+    methods,
+    query_set,
+    target_precision: float,
+) -> int:
+    """`decree retrieval-eval --calibrate` — run conformal calibration.
+
+    For each method passed in (typically just ``keyword-v1``), runs the
+    end-to-end calibration pipeline and writes
+    ``eval/calibrations/<method-name>.json``.
+
+    We deliberately calibrate against the *baseline*, not the
+    ``keyword-v1-calibrated`` wrapper — calibration writes the JSON the
+    wrapper reads.
+    """
+    from decree.eval.calibration import calibrate_method, save_calibration
+
+    target_dir = root / "eval" / "calibrations"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    exit_code = 0
+    for method in methods:
+        # The calibrated wrapper would loop forever if calibrated. Skip it.
+        if method.name.endswith("-calibrated"):
+            info("retrieval-eval", f"skipping {method.name} (calibration applies to baselines)")
+            continue
+        info("retrieval-eval", f"calibrating {method.name} (target precision={target_precision})")
+        try:
+            cal = calibrate_method(
+                method=method,
+                query_set=query_set,
+                target_precision=target_precision,
+                project_root=root,
+                db=db,
+            )
+        except Exception as e:  # noqa: BLE001
+            error("retrieval-eval", f"calibration failed for {method.name}: {e}")
+            exit_code = 1
+            continue
+
+        out_path = target_dir / f"{method.name}.json"
+        save_calibration(cal, out_path)
+        rel = out_path.relative_to(root) if out_path.is_relative_to(root) else out_path
+        success(
+            f"[retrieval-eval] wrote calibration {method.name} → {rel}\n"
+            f"  threshold      = {cal.threshold:.4f}\n"
+            f"  test precision = {cal.test_precision:.3f}\n"
+            f"  test coverage  = {cal.test_coverage:.3f}\n"
+            f"  notes          = {cal.notes}"
+        )
+    return exit_code
+
+
 def eval_run(args: argparse.Namespace) -> int:
     """`decree retrieval-eval` handler."""
     db, root, rc = _open_db_or_error(getattr(args, "project", None))
@@ -71,6 +127,16 @@ def eval_run(args: argparse.Namespace) -> int:
     if not methods:
         error("retrieval-eval", "no methods registered")
         return 2
+
+    # ── SPEC-013 calibration mode ────────────────────────
+    if getattr(args, "calibrate", False):
+        return _calibrate_run(
+            db=db,
+            root=root,
+            methods=methods,
+            query_set=query_set,
+            target_precision=float(getattr(args, "target_precision", 0.9)),
+        )
 
     # ── Resolve baseline snapshot ───────────────────────
     baseline_name = args.baseline or "keyword-v1"

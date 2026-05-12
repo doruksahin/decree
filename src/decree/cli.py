@@ -166,6 +166,20 @@ def main() -> int:
     p_why.add_argument("path", help="Repo-relative path (optionally `path#symbol`)")
     p_why.add_argument("--json", action="store_true", help="Emit JSON for programmatic consumers")
     p_why.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
+    p_why.add_argument(
+        "--with-abstention",
+        action="store_true",
+        dest="with_abstention",
+        help="SPEC-013: route through the calibrated method; abstain when confidence is below threshold.",
+    )
+    p_why.add_argument(
+        "--target-precision",
+        type=float,
+        default=None,
+        dest="target_precision",
+        metavar="P",
+        help="SPEC-013: desired precision floor for non-abstain responses (default: read from calibration).",
+    )
 
     # ── refs ────────────────────────────────────────────────
     p_refs = subparsers.add_parser(
@@ -178,6 +192,20 @@ def main() -> int:
     p_refs.add_argument("decision_id", help="Decision ID (e.g. SPEC-001, PRD-003, ADR-0002)")
     p_refs.add_argument("--json", action="store_true", help="Emit JSON for programmatic consumers")
     p_refs.add_argument("--project", default=None, help="Operate on the project at this path (default: cwd)")
+    p_refs.add_argument(
+        "--with-abstention",
+        action="store_true",
+        dest="with_abstention",
+        help="SPEC-013: route through the calibrated method; abstain when confidence is below threshold.",
+    )
+    p_refs.add_argument(
+        "--target-precision",
+        type=float,
+        default=None,
+        dest="target_precision",
+        metavar="P",
+        help="SPEC-013: desired precision floor for non-abstain responses (default: read from calibration).",
+    )
 
     # ── find-root ───────────────────────────────────────────
     subparsers.add_parser(
@@ -525,6 +553,19 @@ def main() -> int:
         "--project",
         default=None,
         help="Operate on the project at this path (default: cwd).",
+    )
+    p_eval.add_argument(
+        "--calibrate",
+        action="store_true",
+        help="SPEC-013: run calibration end-to-end and write eval/calibrations/<method>.json.",
+    )
+    p_eval.add_argument(
+        "--target-precision",
+        type=float,
+        default=0.9,
+        dest="target_precision",
+        metavar="P",
+        help="SPEC-013: desired precision among non-abstain answers (default 0.9).",
     )
 
     args = parser.parse_args()

@@ -1,0 +1,19 @@
+{
+  "method_name": "keyword-v1",
+  "target_precision": 0.9,
+  "threshold": 0.6634896293369843,
+  "gate_weights": {
+    "dominance": 1.0,
+    "identifier-citation": 1.0,
+    "hedge-phrase": 1.0,
+    "status": 1.0,
+    "recency": 1.0,
+    "coverage": 1.0,
+    "authorship": 1.0
+  },
+  "calibrated_at": "2026-05-12T12:26:26+00:00",
+  "n_calibration_queries": 19,
+  "test_precision": 0.9,
+  "test_coverage": 0.7142857142857143,
+  "notes": "crepes.ConformalClassifier fitted on n=19; τ=0.6635; test precision=0.900, coverage=0.714"
+}
