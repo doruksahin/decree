@@ -457,9 +457,80 @@ def main() -> int:
         help="Operate on the project at this path (default: cwd).",
     )
 
+    # ── retrieval-eval (SPEC-012) ───────────────────────────
+    p_eval = subparsers.add_parser(
+        "retrieval-eval",
+        help="Run labeled-query retrieval evaluation (SPEC-012)",
+        description="Run registered retrieval methods against a YAML query set "
+        "and emit a markdown report with Recall@K / MRR / nDCG@10 and 95% "
+        "bootstrap confidence intervals. Compares non-baseline methods against "
+        "the frozen `keyword-v1` baseline. Uses `ir_measures` for metrics and "
+        "`scipy.stats.bootstrap` for CIs.",
+    )
+    p_eval.add_argument(
+        "--queries",
+        default=None,
+        metavar="PATH",
+        help="Path to the YAML query set. Default: eval/queries.yaml",
+    )
+    p_eval.add_argument(
+        "--method",
+        action="append",
+        default=None,
+        metavar="NAME",
+        help="Run only these methods (repeatable). Default: all registered.",
+    )
+    p_eval.add_argument(
+        "--baseline",
+        default=None,
+        metavar="NAME",
+        help="Method used as comparison baseline. Default: keyword-v1.",
+    )
+    p_eval.add_argument(
+        "--output",
+        default=None,
+        metavar="PATH",
+        help="Path to write markdown report. Default: docs/evaluation/<YYYY-MM-DD>.md",
+    )
+    p_eval.add_argument(
+        "--json",
+        action="store_true",
+        help="Also emit machine-readable JSON alongside the markdown report.",
+    )
+    p_eval.add_argument(
+        "--bootstrap-iterations",
+        type=int,
+        default=1000,
+        help="Bootstrap resample count (default 1000).",
+    )
+    p_eval.add_argument(
+        "--k",
+        action="append",
+        type=int,
+        default=None,
+        metavar="K",
+        help="K value for Recall@K (repeatable). Default: 1, 3, 5, 10.",
+    )
+    p_eval.add_argument(
+        "--freeze",
+        action="store_true",
+        help="Write the chosen baseline's scores to eval/baselines/<method>.json.",
+    )
+    p_eval.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Include per-query breakdown in the report.",
+    )
+    p_eval.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
     args = parser.parse_args()
     from decree.commands import commit as commit_cmd
     from decree.commands import ddd as ddd_cmd
+    from decree.commands import eval as eval_cmd
     from decree.commands import health as health_cmd
     from decree.commands import hook as hook_cmd
     from decree.commands import index_db_cli
@@ -516,6 +587,7 @@ def main() -> int:
         "stale": health_cmd.stale_run,
         "intent-review": intent_review_cmd.intent_review_run,
         "migrate": _migrate_dispatch,
+        "retrieval-eval": eval_cmd.eval_run,
     }
     return commands[args.command](args)
 

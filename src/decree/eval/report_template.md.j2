@@ -1,0 +1,99 @@
+# Retrieval Evaluation — {{ report.corpus }}
+
+Generated: {{ report.generated_at }}
+
+- **Corpus**: `{{ report.corpus }}`
+- **Query count**: {{ report.query_count }}
+- **Methods evaluated**: {{ report.methods | map(attribute='method_name') | join(", ") }}
+- **K values**: {{ report.k_values | join(", ") }}
+- **Bootstrap iterations**: {{ report.bootstrap_iterations }}
+- **Baseline**: `{{ report.baseline_name or "(none)" }}`
+
+## Summary
+
+| Method | Metric | Mean | 95% CI | N |
+|--------|--------|------|--------|---|
+{%- for mr in report.methods %}
+{%- if mr.error %}
+| `{{ mr.method_name }}` | — | (failed) | (failed) | 0 |
+{%- else %}
+{%- for stat in mr.stats %}
+| `{{ mr.method_name }}` | {{ stat.metric }} | {{ fmt(stat.mean) }} | [{{ fmt(stat.ci_low) }}, {{ fmt(stat.ci_high) }}] | {{ stat.n }} |
+{%- endfor %}
+{%- endif %}
+{%- endfor %}
+
+## Per-method tables
+{% for mr in report.methods %}
+### `{{ mr.method_name }}`
+
+> {{ mr.description }}
+{% if mr.error %}
+**ERROR:** `{{ mr.error }}`
+{% else %}
+| Metric | Mean | 95% CI | N |
+|--------|------|--------|---|
+{%- for stat in mr.stats %}
+| {{ stat.metric }} | {{ fmt(stat.mean) }} | [{{ fmt(stat.ci_low) }}, {{ fmt(stat.ci_high) }}] | {{ stat.n }} |
+{%- endfor %}
+{% endif %}
+{% endfor %}
+
+## Ablation vs baseline
+
+{% if report.ablation %}
+| Method | Metric | Mean | Baseline | Δ | CI overlap |
+|--------|--------|------|----------|----|------------|
+{%- for row in report.ablation %}
+| `{{ row.method }}` | {{ row.metric }} | {{ fmt(row.mean) }} | {{ fmt(row.baseline_mean) }} | {{ fmt(row.delta) }} | {{ "yes" if row.ci_overlaps else "no" }} |
+{%- endfor %}
+{% else %}
+_No non-baseline methods evaluated — ablation is empty._
+{% endif %}
+
+## Methodology
+
+- Per-query retrieval scores are passed to `ir_measures.calc_aggregate` /
+  `iter_calc` (MIT-licensed canonical IR-metrics library) — no hand-rolled
+  metric code.
+- 95% confidence intervals computed via `scipy.stats.bootstrap`
+  (`method="percentile"`, `n_resamples={{ report.bootstrap_iterations }}`,
+  `random_state=42` for reproducibility).
+- Abstention queries (`relevant: []`) are excluded from metric computation
+  (avoids divide-by-zero / 0/0 noise) but are still reported under
+  per-query breakdown.
+- K values: {{ report.k_values | join(", ") }}.
+- Query set: hand-authored against the `{{ report.corpus }}` corpus,
+  shipped in-tree at `eval/queries.yaml` for visibility.
+
+## Limitations
+
+1. **Small corpus.** The decree corpus is ~17 documents in v1, far below
+   the size at which retrieval-quality numbers are statistically informative
+   in absolute terms. Numbers here are useful for *ablation* (relative
+   delta against the frozen `keyword-v1` baseline), not for absolute claims
+   about quality.
+2. **Single-author labels.** The query set is hand-authored by one person.
+   Inter-annotator agreement is therefore undefined; latent labeler bias
+   (over-weighting queries where the keyword baseline already wins) is
+   plausible.
+3. **No external corpus.** v1 evaluates against decree-only documents —
+   results do not generalise to other corpora. A future SPEC will add an
+   open-source ADR corpus (CNCF, C4 model project, etc.).
+4. **Binary relevance dominant.** Most queries use binary relevance even
+   though the schema supports graded; graded judgments would change
+   nDCG@10 meaningfully on borderline cases.
+5. **Bootstrap requires N≥2.** Single-relevant-doc queries with empty runs
+   still contribute to the per-query series, but very small N tightens the
+   CI artificially. Interpret CIs at N<10 with suspicion.
+
+## Per-query breakdown
+{% if verbose %}
+| Query ID | Kind | Query | Relevant | {% for mr in report.methods %}{{ mr.method_name }} top-{{ report.k_values | max }}{% if not loop.last %} | {% endif %}{% endfor %} |
+|----------|------|-------|----------|{% for mr in report.methods %}{% if not loop.last %}-|{% else %}-|{% endif %}{% endfor %}
+{%- for qid, rels in report.qrels.items() %}
+| `{{ qid }}` | — | — | {{ rels.keys() | join(", ") if rels else "(abstain)" }} | {% for mr in report.methods %}{{ mr.run.get(qid, {}) | list | join(", ") }}{% if not loop.last %} | {% endif %}{% endfor %} |
+{%- endfor %}
+{% else %}
+_Pass `--verbose` to include the per-query breakdown._
+{% endif %}

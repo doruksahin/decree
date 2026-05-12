@@ -25,6 +25,9 @@ dependencies = [
     "networkx>=3",
     "mcp[cli]>=1.0",
     "litellm>=1.83,<2",
+    "ir_measures>=0.3",
+    "scipy>=1.11",
+    "jinja2>=3",
 ]
 
 [project.urls]
