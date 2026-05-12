@@ -354,6 +354,49 @@ def main() -> int:
         help="Operate on the project at this path (default: cwd).",
     )
 
+    # ── migrate (sub-namespace: audit-coherence) ─────────────
+    p_migrate = subparsers.add_parser(
+        "migrate",
+        help="Corpus migration tooling — dry-run gate audits, suggestions (SPEC-010+)",
+        description="Migration tooling for the decree corpus. v1 ships "
+        "`audit-coherence` (SPEC-010), which runs SPEC-008's coherence gates in "
+        "dry-run mode against every doc and reports per-gate violations.",
+    )
+    migrate_subs = p_migrate.add_subparsers(dest="migrate_action", required=True)
+
+    p_mig_audit = migrate_subs.add_parser(
+        "audit-coherence",
+        help="Dry-run coherence-gate impact report (SPEC-010)",
+        description="Run SPEC-008's coherence gates in preview mode (force-enabled "
+        "regardless of decree.toml's per-type opt-in) across the entire corpus and "
+        "report per-gate violations. Exit 0 if clean, 1 if any findings. Use to "
+        "preview the lint-storm before enabling a gate globally.",
+    )
+    p_mig_audit.add_argument(
+        "--gate",
+        action="append",
+        default=None,
+        metavar="GATE",
+        help="Limit audit to specific gates (repeatable). Values: "
+        "terminal_status_progress, unreferenced_active, status_field_requirements. "
+        "Default: all gates.",
+    )
+    p_mig_audit.add_argument(
+        "--fix",
+        action="store_true",
+        help="Interactive remediation mode (fix/skip/defer/quit per finding). Requires a TTY.",
+    )
+    p_mig_audit.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON for programmatic consumers.",
+    )
+    p_mig_audit.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
     args = parser.parse_args()
     from decree.commands import commit as commit_cmd
     from decree.commands import ddd as ddd_cmd
@@ -362,6 +405,7 @@ def main() -> int:
     from decree.commands import index_db_cli
     from decree.commands import intent_review as intent_review_cmd
     from decree.commands import mcp_server as mcp_cmd
+    from decree.commands import migrate as migrate_cmd
     from decree.commands import queries as queries_cmd
 
     # The `index` command has sub-actions: rebuild, status, verify, regenerate.
@@ -384,6 +428,14 @@ def main() -> int:
             return mcp_cmd.mcp_serve_run(a)
         raise ValueError(f"unknown mcp action: {action}")
 
+    # The `migrate` command has sub-actions: audit-coherence (SPEC-010);
+    # future: governs (SPEC-011), backfill-trailers (v2).
+    def _migrate_dispatch(a):
+        action = a.migrate_action
+        if action == "audit-coherence":
+            return migrate_cmd.audit_coherence_run(a)
+        raise ValueError(f"unknown migrate action: {action}")
+
     commands = {
         "new": new.run,
         "status": status.run,
@@ -401,6 +453,7 @@ def main() -> int:
         "health": health_cmd.health_run,
         "stale": health_cmd.stale_run,
         "intent-review": intent_review_cmd.intent_review_run,
+        "migrate": _migrate_dispatch,
     }
     return commands[args.command](args)
 

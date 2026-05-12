@@ -66,13 +66,32 @@ def run(args: argparse.Namespace | None = None) -> int:
         getattr(dt, "coherence", None) is not None for dt in doc_types
     )
     if any_coherence_enabled:
+        from decree.config import load_coherence_exceptions
         from decree.validators import (
             validate_terminal_status_progress,
             validate_unreferenced_active,
         )
 
-        errors.extend(validate_terminal_status_progress(all_docs, doc_types_by_name))
-        errors.extend(validate_unreferenced_active(all_docs, doc_types_by_name))
+        # SPEC-010: per-type, per-gate exception lists honoured by the live gate.
+        exceptions_by_type = load_coherence_exceptions()
+        exc_terminal = {
+            t: exceptions_by_type.get(t, {}).get("terminal_status_progress", frozenset())
+            for t in exceptions_by_type
+        }
+        exc_unref = {
+            t: exceptions_by_type.get(t, {}).get("unreferenced_active", frozenset())
+            for t in exceptions_by_type
+        }
+        errors.extend(
+            validate_terminal_status_progress(
+                all_docs, doc_types_by_name, exceptions=exc_terminal
+            )
+        )
+        errors.extend(
+            validate_unreferenced_active(
+                all_docs, doc_types_by_name, exceptions=exc_unref
+            )
+        )
 
         # SPEC-008 Gate 2: when both primary and deferred ACs exist, surface the
         # split as an informational line (not an error). Only for types that have

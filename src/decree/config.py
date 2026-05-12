@@ -197,6 +197,52 @@ def _parse_coherence_config(type_name: str, cfg: dict) -> CoherenceConfig | None
     )
 
 
+def _parse_coherence_exceptions(type_name: str, cfg: dict) -> dict[str, frozenset[str]]:
+    """Parse `[types.<name>.coherence_exceptions]` into a {gate: frozenset(doc_id)} map.
+
+    SPEC-010: each gate-name key maps to a list of doc IDs to skip when that
+    gate runs. Used both by the live gate (skip listed docs) and by the audit
+    (still report, but flag as "deferred via exception").
+
+    Returns an empty dict if the block is absent. Unknown gate names are *not*
+    rejected (forward-compat): the audit/gate code simply won't consult them.
+    """
+    raw = cfg.get("coherence_exceptions")
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f"Type '{type_name}': [types.{type_name}.coherence_exceptions] must be a table, "
+            f"got {type(raw).__name__}"
+        )
+    out: dict[str, frozenset[str]] = {}
+    for gate_name, ids in raw.items():
+        if not isinstance(ids, list):
+            raise ValueError(
+                f"Type '{type_name}': [types.{type_name}.coherence_exceptions.{gate_name}] "
+                f"must be a list of doc IDs, got {type(ids).__name__}"
+            )
+        out[gate_name] = frozenset(str(i) for i in ids)
+    return out
+
+
+def load_coherence_exceptions() -> dict[str, dict[str, frozenset[str]]]:
+    """Load coherence exceptions for every configured type.
+
+    Returns: {type_name: {gate_name: frozenset(doc_id)}}.
+    Cached at the call site via load_doc_types' lifecycle (caller should
+    invalidate alongside load_doc_types.cache_clear()).
+    """
+    decree_toml = get_project_root() / "decree.toml"
+    with open(decree_toml, "rb") as f:
+        data = tomllib.load(f)
+    types_config = data.get("types", {})
+    return {
+        name: _parse_coherence_exceptions(name, cfg)
+        for name, cfg in types_config.items()
+    }
+
+
 # ── SPEC-008 health config (global [health] block) ────────
 
 

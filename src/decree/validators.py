@@ -94,7 +94,11 @@ def validate_governs_paths(docs: list, project_root: Path) -> list[str]:
 
 
 
-def validate_terminal_status_progress(docs: list, doc_types_by_name: dict) -> list[str]:
+def validate_terminal_status_progress(
+    docs: list,
+    doc_types_by_name: dict,
+    exceptions: dict[str, frozenset[str]] | None = None,
+) -> list[str]:
     """SPEC-008 Gate 1: terminal-status docs must have 100% primary AC progress.
 
     For each doc whose type has `coherence.terminal_status_progress = true` and whose
@@ -102,6 +106,9 @@ def validate_terminal_status_progress(docs: list, doc_types_by_name: dict) -> li
     `_parse_checkboxes_by_section`) and emit an error if primary is not all done.
 
     Returns one error string per offending doc.
+
+    SPEC-010: `exceptions` maps type-name -> frozenset of doc_ids to skip for
+    this gate. Listed docs are dropped before validation (no error emitted).
     """
     from decree.commands.report import (
         DEFAULT_DEFERRED_SECTION_PATTERNS,
@@ -110,6 +117,7 @@ def validate_terminal_status_progress(docs: list, doc_types_by_name: dict) -> li
     )
 
     errors: list[str] = []
+    exc = exceptions or {}
     for doc in docs:
         dt = doc_types_by_name.get(doc.doc_type.name) if doc.doc_type else None
         if dt is None:
@@ -118,6 +126,8 @@ def validate_terminal_status_progress(docs: list, doc_types_by_name: dict) -> li
         if coh is None or not getattr(coh, "terminal_status_progress", False):
             continue
         if not is_terminal_success(dt, doc.meta.status):
+            continue
+        if doc.doc_id in exc.get(dt.name, frozenset()):
             continue
         patterns = tuple(coh.deferred_sections) or DEFAULT_DEFERRED_SECTION_PATTERNS
         parsed = _parse_checkboxes_by_section(doc.body, patterns)
@@ -144,7 +154,11 @@ def validate_terminal_status_progress(docs: list, doc_types_by_name: dict) -> li
     return errors
 
 
-def validate_unreferenced_active(docs: list, doc_types_by_name: dict) -> list[str]:
+def validate_unreferenced_active(
+    docs: list,
+    doc_types_by_name: dict,
+    exceptions: dict[str, frozenset[str]] | None = None,
+) -> list[str]:
     """SPEC-008 Gate 3: active-status docs with no inbound references after N days.
 
     For each doc whose type has `coherence.unreferenced_active = true`:
@@ -153,10 +167,14 @@ def validate_unreferenced_active(docs: list, doc_types_by_name: dict) -> list[st
       - no other doc references this doc's id, AND
       - frontmatter date is more than `unreferenced_after_days` ago,
     emit an error.
+
+    SPEC-010: `exceptions` maps type-name -> frozenset of doc_ids to skip for
+    this gate. Listed docs are dropped before validation (no error emitted).
     """
     from datetime import date as _date
 
     errors: list[str] = []
+    exc = exceptions or {}
     today = _date.today()
 
     # Pre-compute inbound reference count per doc_id
@@ -172,6 +190,8 @@ def validate_unreferenced_active(docs: list, doc_types_by_name: dict) -> list[st
             continue
         coh = getattr(dt, "coherence", None)
         if coh is None or not getattr(coh, "unreferenced_active", False):
+            continue
+        if doc.doc_id in exc.get(dt.name, frozenset()):
             continue
         # Decide which statuses are "active" — explicit list wins; else heuristic
         # of any non-terminal status whose name suggests acceptance.
