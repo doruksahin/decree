@@ -24,6 +24,7 @@ dependencies = [
     "mistletoe>=1.3",
     "networkx>=3",
     "mcp[cli]>=1.0",
+    "litellm>=1.83,<2",
 ]
 
 [project.urls]

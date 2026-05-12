@@ -733,3 +733,572 @@ def _is_tty_override(stream: io.IOBase | None = None) -> bool:
     """Indirection so tests can monkeypatch stdin tty state."""
     target = stream if stream is not None else sys.stdin
     return bool(target.isatty()) if hasattr(target, "isatty") else False
+
+
+
+# ─── SPEC-011: governs backfill ────────────────────────────────────────────
+
+
+@dataclasses.dataclass(frozen=True)
+class SuggestionResult:
+    """One LLM-proposed `governs:` array for a single document.
+
+    `proposed_governs` is the *full* proposal (verified + unverified, in the
+    order the model returned them). `verified_paths` and `unverified_paths`
+    split that list by on-disk existence at `project_root` — a human reviewer
+    can prioritise scrutiny on the unverified entries before applying.
+
+    `error` is set when the LLM call or response parse failed for this doc;
+    other docs in the batch are unaffected (per-doc error isolation).
+    """
+
+    doc_id: str
+    doc_path: str
+    current_governs: tuple[str, ...]
+    proposed_governs: tuple[str, ...]
+    confidence: str
+    rationale: str
+    verified_paths: tuple[str, ...]
+    unverified_paths: tuple[str, ...]
+    error: str | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class ApplyResult:
+    """Outcome of writing one SuggestionResult to disk."""
+
+    doc_id: str
+    doc_path: str
+    wrote: bool
+    skipped_reason: str | None = None
+    error: str | None = None
+
+
+def _validate_governs_entry(entry: object) -> str | None:
+    """Mirror `validators.validate_governs_paths` + frontmatter's `governs_syntax`.
+
+    Returns the cleaned path string if valid, else None. Invalid entries are
+    dropped (caller logs / counts them).
+    """
+    if not isinstance(entry, str):
+        return None
+    path_part = entry.split("#", 1)[0]
+    if not path_part:
+        return None
+    if path_part.startswith("/"):
+        return None
+    if ".." in path_part.split("/"):
+        return None
+    return entry
+
+
+def _parse_llm_json(content: str) -> dict:
+    """Parse an LLM response body as JSON.
+
+    litellm with `response_format={"type":"json_object"}` returns the JSON
+    payload as a string in `choices[0].message.content`. Some providers wrap
+    the response in markdown code fences even when asked for json_object —
+    strip a single leading/trailing ```/```json fence pair if present.
+    """
+    text = content.strip()
+    if text.startswith("```"):
+        first_nl = text.find("\n")
+        if first_nl != -1:
+            text = text[first_nl + 1 :]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+    return json.loads(text)
+
+
+def suggest_governs(
+    docs: list,
+    model: str,
+    project_root: Path,
+) -> list[SuggestionResult]:
+    """Call the LLM once per doc to propose a `governs:` array.
+
+    Per-doc behaviour:
+      1. If `doc.meta.governs` is already non-empty, skip — return a result
+         with empty `proposed_governs`, no error. Caller renders as "already
+         has governs".
+      2. Build a prompt via `build_governs_prompt(doc.body)`.
+      3. Call `litellm.completion(...)` with `temperature=0`,
+         `response_format={"type":"json_object"}`, 60s timeout.
+      4. Parse the response. Drop entries that fail the same validation rules
+         enforced by `DocFrontmatter.governs_syntax` + SPEC-004's
+         `validate_governs_paths`.
+      5. Split the survivors into `verified_paths` (exist on disk) and
+         `unverified_paths` (don't exist — kept but flagged).
+      6. On any exception (litellm error, JSON parse error, network), catch
+         and stash the message on `error`. The batch keeps going.
+    """
+    import litellm  # local import — keep the litellm dep out of the cold path
+
+    from decree.migrate_prompts import build_governs_prompt
+
+    results: list[SuggestionResult] = []
+    for doc in docs:
+        doc_path = _display_path(doc.path)
+        current = tuple(doc.meta.governs or ())
+        if current:
+            results.append(
+                SuggestionResult(
+                    doc_id=doc.doc_id,
+                    doc_path=doc_path,
+                    current_governs=current,
+                    proposed_governs=(),
+                    confidence="",
+                    rationale="already has governs; skipped",
+                    verified_paths=(),
+                    unverified_paths=(),
+                    error=None,
+                )
+            )
+            continue
+
+        prompt = build_governs_prompt(doc.body or "")
+        try:
+            response = litellm.completion(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                response_format={"type": "json_object"},
+                timeout=60,
+            )
+            content = response.choices[0].message.content
+            payload = _parse_llm_json(content)
+        except Exception as e:  # noqa: BLE001 — per-doc isolation by design
+            results.append(
+                SuggestionResult(
+                    doc_id=doc.doc_id,
+                    doc_path=doc_path,
+                    current_governs=current,
+                    proposed_governs=(),
+                    confidence="",
+                    rationale="",
+                    verified_paths=(),
+                    unverified_paths=(),
+                    error=f"{type(e).__name__}: {e}",
+                )
+            )
+            continue
+
+        raw_paths = payload.get("governs", []) if isinstance(payload, dict) else []
+        confidence = payload.get("confidence", "") if isinstance(payload, dict) else ""
+        rationale = payload.get("rationale", "") if isinstance(payload, dict) else ""
+        if not isinstance(raw_paths, list):
+            raw_paths = []
+        cleaned: list[str] = []
+        for entry in raw_paths:
+            v = _validate_governs_entry(entry)
+            if v is not None:
+                cleaned.append(v)
+
+        verified: list[str] = []
+        unverified: list[str] = []
+        for entry in cleaned:
+            path_part = entry.split("#", 1)[0]
+            if (project_root / path_part).exists():
+                verified.append(entry)
+            else:
+                unverified.append(entry)
+
+        results.append(
+            SuggestionResult(
+                doc_id=doc.doc_id,
+                doc_path=doc_path,
+                current_governs=current,
+                proposed_governs=tuple(cleaned),
+                confidence=str(confidence) if confidence is not None else "",
+                rationale=str(rationale) if rationale is not None else "",
+                verified_paths=tuple(verified),
+                unverified_paths=tuple(unverified),
+                error=None,
+            )
+        )
+    return results
+
+
+def _suggestion_diff(
+    doc_full_path: Path, suggestion: SuggestionResult
+) -> str:
+    """Return a unified diff (as text) for setting `governs:` on the doc.
+
+    The diff is built from the current file's frontmatter against a new
+    frontmatter where `governs:` is set to `proposed_governs`. We use
+    `python-frontmatter` to round-trip so the diff includes only the
+    frontmatter change, never accidental body normalisation.
+    """
+    import difflib
+
+    import frontmatter
+
+    original_text = doc_full_path.read_text()
+    post = frontmatter.loads(original_text)
+    post["governs"] = list(suggestion.proposed_governs)
+    new_text = frontmatter.dumps(post)
+    if not new_text.endswith("\n"):
+        new_text += "\n"
+
+    rel_path = suggestion.doc_path
+    diff = difflib.unified_diff(
+        original_text.splitlines(keepends=True),
+        new_text.splitlines(keepends=True),
+        fromfile=f"a/{rel_path}",
+        tofile=f"b/{rel_path}",
+        lineterm="",
+    )
+    return "".join(diff)
+
+
+def apply_governs(
+    suggestions: list[SuggestionResult],
+    project_root: Path,
+    *,
+    dry_run: bool,
+) -> list[ApplyResult]:
+    """Write `proposed_governs` to each suggestion's doc frontmatter.
+
+    Uses `python-frontmatter` to round-trip so the body is preserved verbatim.
+    Writes are atomic (write to .tmp sibling, rename). `dry_run` skips the
+    write but still returns a successful result so callers can report what
+    *would* have happened.
+
+    Suggestions with empty `proposed_governs` (skipped or LLM-errored) are
+    reported as `wrote=False, skipped_reason=...` and no write is attempted.
+    """
+    import frontmatter
+
+    results: list[ApplyResult] = []
+    for s in suggestions:
+        full_path = project_root / s.doc_path
+        if not full_path.exists():
+            # Display path may have been truncated; try a glob.
+            matches = list(project_root.glob(f"**/{Path(s.doc_path).name}"))
+            if matches:
+                full_path = matches[0]
+
+        if s.error:
+            results.append(
+                ApplyResult(
+                    doc_id=s.doc_id,
+                    doc_path=s.doc_path,
+                    wrote=False,
+                    skipped_reason=None,
+                    error=s.error,
+                )
+            )
+            continue
+        if not s.proposed_governs:
+            reason = (
+                "already has governs"
+                if s.current_governs
+                else "LLM proposed no paths"
+            )
+            results.append(
+                ApplyResult(
+                    doc_id=s.doc_id,
+                    doc_path=s.doc_path,
+                    wrote=False,
+                    skipped_reason=reason,
+                )
+            )
+            continue
+
+        if dry_run:
+            results.append(
+                ApplyResult(
+                    doc_id=s.doc_id,
+                    doc_path=s.doc_path,
+                    wrote=False,
+                    skipped_reason="dry-run",
+                )
+            )
+            continue
+
+        try:
+            post = frontmatter.loads(full_path.read_text())
+            post["governs"] = list(s.proposed_governs)
+            new_text = frontmatter.dumps(post)
+            if not new_text.endswith("\n"):
+                new_text += "\n"
+            _atomic_write(full_path, new_text)
+            results.append(
+                ApplyResult(
+                    doc_id=s.doc_id,
+                    doc_path=s.doc_path,
+                    wrote=True,
+                )
+            )
+        except Exception as e:  # noqa: BLE001 — per-doc isolation
+            results.append(
+                ApplyResult(
+                    doc_id=s.doc_id,
+                    doc_path=s.doc_path,
+                    wrote=False,
+                    error=f"{type(e).__name__}: {e}",
+                )
+            )
+    return results
+
+
+# ─── model resolution ─────────────────────────────────────────────────────
+
+
+def resolve_model(args: argparse.Namespace) -> str:
+    """Pick an LLM model string from --model, env, or provider defaults.
+
+    Priority:
+      1. `args.model` if non-empty.
+      2. `DECREE_LLM_MODEL` env var.
+      3. `ANTHROPIC_API_KEY` set → `claude-3-5-sonnet-latest`.
+      4. `OPENAI_API_KEY` set → `gpt-4o-mini`.
+      5. Else: SystemExit(2) with a clear error.
+
+    No validation that the model string is well-formed; litellm will surface
+    that at call time with a clear message.
+    """
+    explicit = getattr(args, "model", None)
+    if explicit:
+        return str(explicit)
+    env_model = os.environ.get("DECREE_LLM_MODEL")
+    if env_model:
+        return env_model
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "claude-3-5-sonnet-latest"
+    if os.environ.get("OPENAI_API_KEY"):
+        return "gpt-4o-mini"
+    raise SystemExit(
+        "decree migrate governs: no model resolved. Pass --model, set "
+        "DECREE_LLM_MODEL, or export ANTHROPIC_API_KEY / OPENAI_API_KEY."
+    )
+
+
+# ─── governs CLI handler ──────────────────────────────────────────────────
+
+
+def _filter_docs_for_suggest(
+    all_docs: list, only: list[str] | None
+) -> list:
+    """Apply `--only` filter (case-insensitive on doc_id)."""
+    if not only:
+        return all_docs
+    wanted = {x.strip() for x in only if x and x.strip()}
+    return [d for d in all_docs if d.doc_id in wanted]
+
+
+def _confirm_apply(yes: bool) -> bool:
+    """Prompt the user to confirm a write. Returns True iff approved."""
+    if yes:
+        return True
+    if not sys.stdin.isatty():
+        error(
+            "migrate-governs",
+            "stdin is not a TTY; refuse to apply without --yes. "
+            "Re-run with --yes for non-interactive use.",
+        )
+        return False
+    try:
+        answer = input("Apply changes? [y/N]: ").strip().lower()
+    except EOFError:
+        return False
+    return answer == "y"
+
+
+def _suggestion_to_dict(s: SuggestionResult) -> dict:
+    return {
+        "doc_id": s.doc_id,
+        "doc_path": s.doc_path,
+        "current_governs": list(s.current_governs),
+        "proposed_governs": list(s.proposed_governs),
+        "confidence": s.confidence,
+        "rationale": s.rationale,
+        "verified_paths": list(s.verified_paths),
+        "unverified_paths": list(s.unverified_paths),
+        "error": s.error,
+    }
+
+
+def _apply_to_dict(a: ApplyResult) -> dict:
+    return {
+        "doc_id": a.doc_id,
+        "doc_path": a.doc_path,
+        "wrote": a.wrote,
+        "skipped_reason": a.skipped_reason,
+        "error": a.error,
+    }
+
+
+def _format_suggestions_human(
+    suggestions: list[SuggestionResult], project_root: Path
+) -> str:
+    """Render suggestions as a sequence of unified-diff hunks.
+
+    Each hunk is prefixed with confidence + rationale as `#` comments so a
+    reviewer can prioritise scrutiny. Docs with errors, no proposed paths, or
+    pre-existing `governs:` are summarised as a one-liner instead of a diff.
+    """
+    out: list[str] = []
+    for s in suggestions:
+        if s.error:
+            out.append(f"# {s.doc_id} ({s.doc_path}): ERROR: {s.error}")
+            out.append("")
+            continue
+        if s.current_governs and not s.proposed_governs:
+            out.append(
+                f"# {s.doc_id} ({s.doc_path}): already has governs; skipped"
+            )
+            out.append("")
+            continue
+        if not s.proposed_governs:
+            out.append(
+                f"# {s.doc_id} ({s.doc_path}): LLM proposed no paths"
+            )
+            if s.rationale:
+                out.append(f"# rationale: {s.rationale}")
+            out.append("")
+            continue
+        out.append(f"# {s.doc_id} ({s.doc_path})")
+        out.append(f"# confidence: {s.confidence or 'unknown'}")
+        if s.rationale:
+            out.append(f"# rationale: {s.rationale}")
+        if s.unverified_paths:
+            out.append(
+                "# unverified paths (don't exist on disk): "
+                + ", ".join(s.unverified_paths)
+            )
+        full_path = project_root / s.doc_path
+        if not full_path.exists():
+            matches = list(project_root.glob(f"**/{Path(s.doc_path).name}"))
+            if matches:
+                full_path = matches[0]
+        try:
+            diff = _suggestion_diff(full_path, s)
+            out.append(diff)
+        except Exception as e:  # noqa: BLE001
+            out.append(f"# (could not render diff: {e})")
+        out.append("")
+    return "\n".join(out)
+
+
+def suggest_governs_run(args: argparse.Namespace) -> int:
+    """`decree migrate governs --suggest [--apply]` — CLI entrypoint.
+
+    v1 merges suggest + apply into a single handler: --suggest emits the
+    diff, --apply (which requires --suggest semantically) then optionally
+    writes it. Exit codes per SPEC-011:
+      0 — clean run, with or without --apply.
+      1 — at least one doc errored, batch continued.
+      2 — config error (no API key, no docs).
+    """
+    try:
+        root = _resolve_root(getattr(args, "project", None))
+    except FileNotFoundError as e:
+        fail(str(e))
+        return 2
+
+    try:
+        model = resolve_model(args)
+    except SystemExit as e:
+        fail(str(e))
+        return 2
+
+    # Load corpus from project_root the same way audit_coherence does.
+    cwd_before = Path.cwd()
+    os.chdir(root)
+    try:
+        from decree.config import get_project_root, load_doc_types
+        from decree.parser import load_all_types
+
+        get_project_root.cache_clear()
+        load_doc_types.cache_clear()
+        all_docs = load_all_types(strict=False)
+    finally:
+        os.chdir(cwd_before)
+
+    only = getattr(args, "only", None) or None
+    docs = _filter_docs_for_suggest(all_docs, only)
+    if not docs:
+        fail(
+            "no documents matched --only filter"
+            if only
+            else "no documents in corpus"
+        )
+        return 2
+
+    suggestions = suggest_governs(docs, model, root)
+
+    apply_results: list[ApplyResult] | None = None
+    do_apply = bool(getattr(args, "apply", False))
+    dry_run = bool(getattr(args, "dry_run", False))
+    yes = bool(getattr(args, "yes", False))
+    as_json = bool(getattr(args, "json", False))
+
+    if as_json:
+        payload = {
+            "model": model,
+            "suggestions": [_suggestion_to_dict(s) for s in suggestions],
+            "apply": None,
+        }
+        if do_apply:
+            # In JSON mode we never prompt; --yes is required for apply.
+            if not yes:
+                fail(
+                    "--apply in --json mode requires --yes (no interactive prompt)"
+                )
+                payload["error"] = "apply refused: --yes required in --json mode"
+                print(json.dumps(payload, indent=2, sort_keys=True))
+                return 2
+            apply_results = apply_governs(
+                suggestions, root, dry_run=dry_run
+            )
+            payload["apply"] = [_apply_to_dict(a) for a in apply_results]
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(_format_suggestions_human(suggestions, root))
+        if do_apply:
+            has_changes = any(
+                s.proposed_governs and not s.error for s in suggestions
+            )
+            if not has_changes:
+                info("migrate-governs", "no changes to apply.")
+            else:
+                if _confirm_apply(yes):
+                    apply_results = apply_governs(
+                        suggestions, root, dry_run=dry_run
+                    )
+                    for r in apply_results:
+                        if r.wrote:
+                            success(f"wrote {r.doc_id} ({r.doc_path})")
+                        elif r.error:
+                            error(
+                                "migrate-governs",
+                                f"{r.doc_id}: {r.error}",
+                            )
+                        elif r.skipped_reason:
+                            info(
+                                "migrate-governs",
+                                f"{r.doc_id}: skipped ({r.skipped_reason})",
+                            )
+                else:
+                    info("migrate-governs", "apply aborted.")
+
+    # Exit-code policy: any LLM error → 1; otherwise 0.
+    errored = [s for s in suggestions if s.error]
+    if apply_results is not None:
+        errored_apply = [a for a in apply_results if a.error]
+        if errored_apply:
+            return 1
+    if errored:
+        return 1
+    return 0
+
+
+def apply_governs_run(args: argparse.Namespace) -> int:
+    """Thin alias — `--apply` is a flag on the suggest handler, not its own
+    subcommand. This exists for symmetry with the SPEC's library-API naming
+    so future SPECs can wire it differently if they want.
+    """
+    setattr(args, "apply", True)
+    return suggest_governs_run(args)

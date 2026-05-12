@@ -354,13 +354,15 @@ def main() -> int:
         help="Operate on the project at this path (default: cwd).",
     )
 
-    # ── migrate (sub-namespace: audit-coherence) ─────────────
+    # ── migrate (sub-namespace: audit-coherence, governs) ───
     p_migrate = subparsers.add_parser(
         "migrate",
         help="Corpus migration tooling — dry-run gate audits, suggestions (SPEC-010+)",
         description="Migration tooling for the decree corpus. v1 ships "
         "`audit-coherence` (SPEC-010), which runs SPEC-008's coherence gates in "
-        "dry-run mode against every doc and reports per-gate violations.",
+        "dry-run mode against every doc and reports per-gate violations. "
+        "SPEC-011 adds `governs`, an LLM-assisted backfill for the typed "
+        "`governs:` frontmatter field.",
     )
     migrate_subs = p_migrate.add_subparsers(dest="migrate_action", required=True)
 
@@ -397,6 +399,64 @@ def main() -> int:
         help="Operate on the project at this path (default: cwd).",
     )
 
+    p_mig_gov = migrate_subs.add_parser(
+        "governs",
+        help="LLM-assisted backfill of `governs:` frontmatter (SPEC-011)",
+        description="For each document without a `governs:` field, ask an LLM "
+        "(via litellm — provider-agnostic) to propose a repo-relative path "
+        "array. Emits a unified-diff proposal; --apply writes it after a "
+        "y/N confirmation (suppressed by --yes). Skips docs that already "
+        "have `governs:`. Per-doc errors are isolated and the batch keeps "
+        "going. Pinned: litellm>=1.83,<2 (post-2026-03-24 incident).",
+    )
+    p_mig_gov.add_argument(
+        "--suggest",
+        action="store_true",
+        help="Emit a unified-diff proposal to stdout. Default behaviour even "
+        "if not passed (kept for documentation symmetry with SPEC-011).",
+    )
+    p_mig_gov.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write the proposed governs arrays to disk (after y/N "
+        "confirmation unless --yes).",
+    )
+    p_mig_gov.add_argument(
+        "--model",
+        default=None,
+        metavar="MODEL",
+        help="litellm model string (e.g., claude-3-5-sonnet-latest, gpt-4o-mini, "
+        "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0). Falls back to "
+        "DECREE_LLM_MODEL env var, then to a provider-key-based default.",
+    )
+    p_mig_gov.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="With --apply, don't write — report what would change.",
+    )
+    p_mig_gov.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        metavar="ID",
+        help="Limit to specific document IDs (repeatable).",
+    )
+    p_mig_gov.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip the interactive confirmation prompt (CI-suitable).",
+    )
+    p_mig_gov.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit machine-readable JSON instead of unified diffs.",
+    )
+    p_mig_gov.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
     args = parser.parse_args()
     from decree.commands import commit as commit_cmd
     from decree.commands import ddd as ddd_cmd
@@ -428,12 +488,14 @@ def main() -> int:
             return mcp_cmd.mcp_serve_run(a)
         raise ValueError(f"unknown mcp action: {action}")
 
-    # The `migrate` command has sub-actions: audit-coherence (SPEC-010);
-    # future: governs (SPEC-011), backfill-trailers (v2).
+    # The `migrate` command has sub-actions: audit-coherence (SPEC-010),
+    # governs (SPEC-011); future: backfill-trailers (v2).
     def _migrate_dispatch(a):
         action = a.migrate_action
         if action == "audit-coherence":
             return migrate_cmd.audit_coherence_run(a)
+        if action == "governs":
+            return migrate_cmd.suggest_governs_run(a)
         raise ValueError(f"unknown migrate action: {action}")
 
     commands = {
