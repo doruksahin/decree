@@ -64,3 +64,56 @@ def test_collects_all_errors(adr_env, capsys):
 
 def test_empty_dir_passes(adr_env):
     assert run(argparse.Namespace()) == 0
+
+
+def test_governs_missing_path_fails(adr_env, project_dir, capsys):
+    """SPEC-004: lint reports governs path-not-found errors with the exact format."""
+    (adr_env / "0001-test.md").write_text(
+        "---\n"
+        "status: proposed\n"
+        "date: 2026-04-02\n"
+        "governs:\n"
+        "  - src/api/missing.py\n"
+        "---\n\n" + VALID_BODY
+    )
+    assert run(argparse.Namespace()) == 1
+    out = capsys.readouterr().out
+    assert "governs path does not exist: src/api/missing.py" in out
+    assert "0001-test.md" in out
+
+
+def test_governs_existing_path_passes(adr_env, project_dir):
+    """A governs path that exists in the working tree passes lint."""
+    (project_dir / "src" / "api").mkdir(parents=True)
+    (project_dir / "src" / "api" / "real.py").touch()
+    (adr_env / "0001-test.md").write_text(
+        "---\n"
+        "status: proposed\n"
+        "date: 2026-04-02\n"
+        "governs:\n"
+        "  - src/api/real.py\n"
+        "  - src/api/real.py#some_symbol\n"
+        "---\n\n" + VALID_BODY
+    )
+    assert run(argparse.Namespace()) == 0
+
+
+def test_governs_mix_of_valid_and_invalid_reports_all(adr_env, project_dir, capsys):
+    """When multiple governs entries are present, all missing ones are reported."""
+    (project_dir / "src").mkdir()
+    (project_dir / "src" / "exists.py").touch()
+    (adr_env / "0001-test.md").write_text(
+        "---\n"
+        "status: proposed\n"
+        "date: 2026-04-02\n"
+        "governs:\n"
+        "  - src/exists.py\n"
+        "  - src/missing_a.py\n"
+        "  - src/missing_b.py\n"
+        "---\n\n" + VALID_BODY
+    )
+    assert run(argparse.Namespace()) == 1
+    out = capsys.readouterr().out
+    assert "src/missing_a.py" in out
+    assert "src/missing_b.py" in out
+    assert "src/exists.py" not in out

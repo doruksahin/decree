@@ -8,6 +8,7 @@ from decree.parser import DocDocument, DocFrontmatter
 from decree.validators import (
     validate_attachments_exist,
     validate_cross_file_integrity,
+    validate_governs_paths,
     validate_sections,
 )
 
@@ -61,6 +62,65 @@ class TestCrossFileIntegrity:
         old = _make_doc("0001", "superseded", **{"superseded-by": "ADR-0099"})
         errors = validate_cross_file_integrity([old])
         assert any("does not exist" in e for e in errors)
+
+
+class TestValidateGovernsPaths:
+    """SPEC-004: lint reports a clear error per missing governs path."""
+
+    def _governs_doc(self, tmp_path, governs):
+        meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2), governs=governs)
+        doc_path = tmp_path / "docs" / "adr" / "0001-test.md"
+        doc_path.parent.mkdir(parents=True, exist_ok=True)
+        return DocDocument(path=doc_path, meta=meta, body="# T\n", doc_type=ADR_DEFAULT)
+
+    def test_all_paths_exist(self, tmp_path):
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "foo.py").touch()
+        doc = self._governs_doc(tmp_path, ["src/foo.py"])
+        assert validate_governs_paths([doc], tmp_path) == []
+
+    def test_missing_path_reported(self, tmp_path):
+        doc = self._governs_doc(tmp_path, ["src/missing.py"])
+        errors = validate_governs_paths([doc], tmp_path)
+        assert len(errors) == 1
+        assert "governs path does not exist: src/missing.py" in errors[0]
+        assert "0001-test.md" in errors[0]
+
+    def test_symbol_form_validates_path_only(self, tmp_path):
+        """`path#symbol`: path must exist; symbol after `#` is preserved but not checked."""
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "foo.py").touch()
+        # Path exists, but the symbol `nonexistent_func` is NOT validated — should pass.
+        doc = self._governs_doc(tmp_path, ["src/foo.py#nonexistent_func"])
+        assert validate_governs_paths([doc], tmp_path) == []
+
+    def test_symbol_form_with_missing_path_reports_path(self, tmp_path):
+        doc = self._governs_doc(tmp_path, ["src/missing.py#whatever"])
+        errors = validate_governs_paths([doc], tmp_path)
+        assert len(errors) == 1
+        # The error reports only the path part, not the full entry.
+        assert "src/missing.py" in errors[0]
+        assert "#whatever" not in errors[0]
+
+    def test_absent_governs_no_errors(self, tmp_path):
+        meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
+        doc_path = tmp_path / "docs" / "adr" / "0001-test.md"
+        doc_path.parent.mkdir(parents=True)
+        doc = DocDocument(path=doc_path, meta=meta, body="# T\n", doc_type=ADR_DEFAULT)
+        assert validate_governs_paths([doc], tmp_path) == []
+
+    def test_multiple_partial_missing(self, tmp_path):
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "a.py").touch()
+        doc = self._governs_doc(tmp_path, ["src/a.py", "src/b.py"])
+        errors = validate_governs_paths([doc], tmp_path)
+        assert len(errors) == 1
+        assert "src/b.py" in errors[0]
+
+    def test_directory_path_counts_as_existing(self, tmp_path):
+        (tmp_path / "src" / "pkg").mkdir(parents=True)
+        doc = self._governs_doc(tmp_path, ["src/pkg"])
+        assert validate_governs_paths([doc], tmp_path) == []
 
 
 class TestValidateAttachments:

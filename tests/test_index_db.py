@@ -257,6 +257,43 @@ class TestRebuild:
         h2 = {r["id"]: r["body_hash"] for r in db.db["decisions"].rows}
         assert h1 == h2
 
+    def test_rebuild_populates_governs_from_typed_field(self, monkeypatch, project: Path):
+        """SPEC-004: rebuild reads governs off doc.meta.governs (typed) and splits #symbol."""
+        monkeypatch.chdir(project)
+        # Replace SPEC-001 with a governs block (paths must exist for parser to accept).
+        (project / "src").mkdir()
+        (project / "src" / "foo.py").touch()
+        (project / "src" / "bar.py").touch()
+        (project / "decree" / "spec" / "001-test.md").write_text(
+            """---
+status: draft
+date: 2026-05-12
+references: [PRD-001, ADR-0001]
+governs:
+  - src/foo.py
+  - src/bar.py#baz
+---
+
+# SPEC-001 Test SPEC
+
+## Overview
+
+Prose.
+"""
+        )
+        db = IndexDB(default_db_path(project))
+        stats = db.rebuild(project)
+        # Two governs rows for SPEC-001.
+        rows = sorted(
+            (r["decision_id"], r["path"], r["symbol"], r["order_index"])
+            for r in db.db["governs"].rows
+        )
+        assert rows == [
+            ("SPEC-001", "src/bar.py", "baz", 1),
+            ("SPEC-001", "src/foo.py", "", 0),
+        ]
+        assert stats.governs == 2
+
     def test_rebuild_then_status(self, monkeypatch, project: Path):
         monkeypatch.chdir(project)
         db = IndexDB(default_db_path(project))

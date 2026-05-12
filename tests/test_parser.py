@@ -83,6 +83,65 @@ class TestDocFrontmatter:
         assert evolved.superseded_by == "ADR-0005"
 
 
+class TestGovernsFrontmatter:
+    """SPEC-004: governs is a typed list of path or path#symbol entries."""
+
+    def test_well_formed_path(self):
+        fm = DocFrontmatter(
+            status="proposed",
+            date=date(2026, 4, 2),
+            governs=["src/decree/c4.py"],
+        )
+        assert fm.governs == ["src/decree/c4.py"]
+
+    def test_symbol_form(self):
+        fm = DocFrontmatter(
+            status="proposed",
+            date=date(2026, 4, 2),
+            governs=["src/decree/parser.py#DocFrontmatter"],
+        )
+        assert fm.governs == ["src/decree/parser.py#DocFrontmatter"]
+
+    def test_absent_field(self):
+        fm = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
+        assert fm.governs is None
+
+    def test_non_string_entry_rejected(self):
+        # Pydantic's typed `list[str]` rejects non-string entries with `string_type`
+        # before our custom validator runs. Either way, a non-string entry is rejected
+        # with a clear error — which is what the SPEC AC requires.
+        with pytest.raises(ValueError, match="(governs entries must be strings|valid string)"):
+            DocFrontmatter(
+                status="proposed",
+                date=date(2026, 4, 2),
+                governs=[123],  # type: ignore[list-item]
+            )
+
+    def test_leading_slash_rejected(self):
+        with pytest.raises(ValueError, match="repo-relative"):
+            DocFrontmatter(
+                status="proposed",
+                date=date(2026, 4, 2),
+                governs=["/abs/path.py"],
+            )
+
+    def test_dotdot_segment_rejected(self):
+        with pytest.raises(ValueError, match=r"'\.\.' segments"):
+            DocFrontmatter(
+                status="proposed",
+                date=date(2026, 4, 2),
+                governs=["../outside.py"],
+            )
+
+    def test_empty_path_part_rejected(self):
+        with pytest.raises(ValueError, match="empty path"):
+            DocFrontmatter(
+                status="proposed",
+                date=date(2026, 4, 2),
+                governs=["#bar"],
+            )
+
+
 class TestDocDocument:
     def _make_doc(
         self,

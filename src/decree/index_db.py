@@ -231,21 +231,18 @@ class IndexDB:
             if doc.meta.superseded_by:
                 refs_rows.append({"from_id": doc.doc_id, "to_id": doc.meta.superseded_by, "kind": "superseded-by"})
 
-            # governs: read whatever's there (lint validation lands in SPEC-004)
-            governs_raw = raw_md.get("governs")
-            if isinstance(governs_raw, list):
-                for i, entry in enumerate(governs_raw):
-                    if not isinstance(entry, str):
-                        continue
-                    path_part, _, symbol_part = entry.partition("#")
-                    governs_rows.append(
-                        {
-                            "decision_id": doc.doc_id,
-                            "path": path_part,
-                            "symbol": symbol_part,
-                            "order_index": i,
-                        }
-                    )
+            # governs: typed field on DocFrontmatter (SPEC-004). Pydantic already
+            # validated syntax at load time; here we just split on `#` and emit rows.
+            for i, entry in enumerate(doc.meta.governs or []):
+                path_part, _, symbol_part = entry.partition("#")
+                governs_rows.append(
+                    {
+                        "decision_id": doc.doc_id,
+                        "path": path_part,
+                        "symbol": symbol_part,
+                        "order_index": i,
+                    }
+                )
 
             # acceptance criteria with primary/deferred split (reused from SPEC-002)
             parsed = _parse_checkboxes_by_section(doc.body, DEFAULT_DEFERRED_SECTION_PATTERNS)

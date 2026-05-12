@@ -4,6 +4,9 @@ references:
 - PRD-003
 - ADR-0002
 status: implemented
+governs:
+- src/decree/index_db.py
+- src/decree/commands/index_db_cli.py
 ---
 
 # SPEC-003 SQLite Provenance Index — Schema and Sync

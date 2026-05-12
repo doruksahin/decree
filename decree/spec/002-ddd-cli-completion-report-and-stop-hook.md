@@ -3,6 +3,11 @@ date: '2026-05-12'
 references:
 - PRD-002
 status: implemented
+governs:
+- src/decree/commands/ddd.py
+- src/decree/commands/hook.py
+- src/decree/commands/report.py
+- scripts/hooks/decree-ddd-stop.sh
 ---
 
 # SPEC-002 DDD CLI, Completion Report, and Stop Hook

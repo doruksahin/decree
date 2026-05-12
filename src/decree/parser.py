@@ -35,6 +35,7 @@ class DocFrontmatter(BaseModel):
     informed: list[str] | None = None
     references: list[str] | None = None
     attachments: list[str] | None = None
+    governs: list[str] | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -66,6 +67,30 @@ class DocFrontmatter(BaseModel):
                 fmt = f"{doc_type.prefix}-{'N' * doc_type.digits}"
                 raise ValueError(f"Reference '{v}' must match format {fmt}")
             raise ValueError(f"ADR reference '{v}' must match format ADR-NNNN")
+        return v
+
+    @field_validator("governs")
+    @classmethod
+    def governs_syntax(cls, v: list[str] | None) -> list[str] | None:
+        """Per SPEC-004: each entry is `<path>` or `<path>#<symbol>` (repo-relative path)."""
+        if v is None:
+            return v
+        for entry in v:
+            if not isinstance(entry, str):
+                raise ValueError(
+                    f"governs entries must be strings; got {type(entry).__name__}: {entry!r}"
+                )
+            path_part = entry.split("#", 1)[0]
+            if not path_part:
+                raise ValueError(f"governs entry has empty path: {entry!r}")
+            if path_part.startswith("/"):
+                raise ValueError(
+                    f"governs path must be repo-relative (no leading '/'): {entry!r}"
+                )
+            if ".." in path_part.split("/"):
+                raise ValueError(
+                    f"governs path must not contain '..' segments: {entry!r}"
+                )
         return v
 
     def evolve(self, doc_type=None, **overrides) -> "DocFrontmatter":

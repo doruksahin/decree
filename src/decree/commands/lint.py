@@ -8,6 +8,7 @@ from decree.log import fail, success
 from decree.validators import (
     validate_cross_file_integrity,
     validate_cross_type_references,
+    validate_governs_paths,
     validate_sections,
 )
 
@@ -53,6 +54,10 @@ def run(args: argparse.Namespace | None = None) -> int:
     # Cross-type reference validation
     cross_type_errors = validate_cross_type_references(all_docs)
     errors.extend(cross_type_errors)
+
+    # governs: path existence (SPEC-004)
+    governs_errors = validate_governs_paths(all_docs, get_project_root())
+    errors.extend(governs_errors)
 
     # Attachment file existence (opt-in)
     if getattr(args, "check_attachments", False):

@@ -69,6 +69,30 @@ def validate_cross_type_references(docs: list) -> list[str]:
     return errors
 
 
+def validate_governs_paths(docs: list, project_root: Path) -> list[str]:
+    """Per SPEC-004: for each doc's `governs:` list, verify each path part exists in the
+    working tree at `project_root`. The symbol part (after `#`) is preserved but NOT
+    validated in v1 — symbol-level resolution is deferred to v2 (tree-sitter / LSP).
+
+    Returns a list of error strings, one per missing path, with format:
+        <doc-path>: governs path does not exist: <path>
+    """
+    errors: list[str] = []
+    for doc in docs:
+        if not doc.meta.governs:
+            continue
+        try:
+            rel_doc_path = doc.path.relative_to(project_root)
+            doc_path_str = str(rel_doc_path)
+        except ValueError:
+            doc_path_str = str(doc.path)
+        for entry in doc.meta.governs:
+            path_part = entry.split("#", 1)[0]
+            if not (project_root / path_part).exists():
+                errors.append(f"{doc_path_str}: governs path does not exist: {path_part}")
+    return errors
+
+
 def validate_attachments_exist(docs: list, project_root: Path) -> list[str]:
     """Check that attachment file paths exist on disk. Opt-in via --check-attachments."""
     errors: list[str] = []
