@@ -456,3 +456,140 @@ class TestCli:
         )
         rc = verify_run(argparse.Namespace(project=None, json=False))
         assert rc == 1
+
+
+# ── Git-trailer ingestion (SPEC-006) ─────────────────────────
+
+
+def _git_init(repo: Path) -> None:
+    """Init a git repo with a deterministic identity."""
+    import subprocess
+
+    subprocess.run(["git", "-C", str(repo), "init"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.email", "t@example.com"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "user.name", "T"], check=True)
+    subprocess.run(["git", "-C", str(repo), "config", "commit.gpgsign", "false"], check=True)
+
+
+def _git_commit(repo: Path, file_name: str, message: str) -> str:
+    """Stage `file_name` and commit with `message`; return the SHA."""
+    import subprocess
+
+    (repo / file_name).write_text(file_name)
+    subprocess.run(["git", "-C", str(repo), "add", file_name], check=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-m", message], check=True, capture_output=True)
+    sha = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    return sha
+
+
+class TestSyncCommitsFromGit:
+    def test_simple_implements_trailer(self, tmp_path: Path):
+        _git_init(tmp_path)
+        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-001")
+        db = IndexDB(default_db_path(tmp_path))
+        rows, ms = db.sync_commits_from_git(tmp_path)
+        assert rows == 1
+        assert ms >= 0
+        row = list(db.db.conn.execute("SELECT decision_id, trailer_kind FROM commits"))[0]
+        assert row == ("SPEC-001", "Implements")
+
+    def test_multi_value_trailer_yields_multiple_rows(self, tmp_path: Path):
+        _git_init(tmp_path)
+        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-001, SPEC-002")
+        db = IndexDB(default_db_path(tmp_path))
+        rows, _ = db.sync_commits_from_git(tmp_path)
+        assert rows == 2
+        ids = sorted(
+            r[0] for r in db.db.conn.execute("SELECT decision_id FROM commits")
+        )
+        assert ids == ["SPEC-001", "SPEC-002"]
+
+    def test_refs_and_fixes_kinds_preserved(self, tmp_path: Path):
+        _git_init(tmp_path)
+        _git_commit(
+            tmp_path,
+            "a.txt",
+            "fix: a\n\nImplements: SPEC-001\nRefs: ADR-0002\nFixes: SPEC-003",
+        )
+        db = IndexDB(default_db_path(tmp_path))
+        db.sync_commits_from_git(tmp_path)
+        kinds = sorted(
+            r[0] for r in db.db.conn.execute("SELECT trailer_kind FROM commits")
+        )
+        assert kinds == ["Fixes", "Implements", "Refs"]
+
+    def test_non_git_project_is_noop(self, tmp_path: Path):
+        # No `git init` — sync should silently return (0, 0).
+        db = IndexDB(default_db_path(tmp_path))
+        db.init_schema()  # so commits table exists
+        rows, ms = db.sync_commits_from_git(tmp_path)
+        assert rows == 0
+        assert ms == 0
+        count = next(db.db.conn.execute("SELECT COUNT(*) FROM commits"))[0]
+        assert count == 0
+
+    def test_commit_without_trailers_skipped(self, tmp_path: Path):
+        _git_init(tmp_path)
+        _git_commit(tmp_path, "a.txt", "chore: no trailers here")
+        db = IndexDB(default_db_path(tmp_path))
+        rows, _ = db.sync_commits_from_git(tmp_path)
+        assert rows == 0
+
+    def test_summary_and_committed_at_populated(self, tmp_path: Path):
+        _git_init(tmp_path)
+        _git_commit(tmp_path, "a.txt", "feat: my subject\n\nImplements: SPEC-001")
+        db = IndexDB(default_db_path(tmp_path))
+        db.sync_commits_from_git(tmp_path)
+        row = next(db.db.conn.execute("SELECT summary, committed_at FROM commits"))
+        assert row[0] == "feat: my subject"
+        # ISO timestamp with timezone — sanity-check shape
+        assert "T" in row[1] and len(row[1]) >= 19
+
+    def test_rebuild_includes_commits(self, project: Path, monkeypatch):
+        """rebuild() walks git and counts commits in RebuildStats."""
+        monkeypatch.chdir(project)
+        _git_init(project)
+        # Commit the existing corpus with a trailer
+        import subprocess
+
+        subprocess.run(["git", "-C", str(project), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(project), "commit", "-m", "feat: corpus\n\nImplements: SPEC-001"],
+            check=True,
+            capture_output=True,
+        )
+        db = IndexDB(default_db_path(project))
+        stats = db.rebuild(project)
+        assert stats.commits >= 1
+        assert stats.git_sync_ms >= 0
+
+    def test_commits_gc_on_rewrite(self, tmp_path: Path):
+        """SHAs not in current git log are wiped on next sync."""
+        _git_init(tmp_path)
+        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-001")
+        db = IndexDB(default_db_path(tmp_path))
+        db.sync_commits_from_git(tmp_path)
+        assert next(db.db.conn.execute("SELECT COUNT(*) FROM commits"))[0] == 1
+
+        # Insert a row referencing a phantom SHA — simulates a rebased-away
+        # commit that the previous sync had recorded.
+        db.db.conn.execute(  # type: ignore[attr-defined]
+            "INSERT INTO commits VALUES ('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', "
+            "'SPEC-999', 'Implements', 'phantom', '2026-01-01T00:00:00+00:00')"
+        )
+        db.db.conn.commit()  # type: ignore[attr-defined]
+        # Confirm phantom landed.
+        assert next(db.db.conn.execute("SELECT COUNT(*) FROM commits"))[0] == 2
+
+        # Re-sync. The phantom is purged because we wipe-and-insert.
+        db.sync_commits_from_git(tmp_path)
+        shas = {
+            r[0] for r in db.db.conn.execute("SELECT sha FROM commits")
+        }
+        assert "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" not in shas
+        assert next(db.db.conn.execute("SELECT COUNT(*) FROM commits"))[0] == 1

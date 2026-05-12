@@ -187,6 +187,55 @@ def main() -> int:
         "Prints the path on stdout; exits 1 if not found.",
     )
 
+    # ── commit ──────────────────────────────────────────────
+    p_commit = subparsers.add_parser(
+        "commit",
+        help="git commit wrapper that adds Implements:/Refs:/Fixes: trailers",
+        description="Wraps `git commit` with structural trailer construction via "
+        "`git interpret-trailers`. Inspects staged files, optionally infers the "
+        "active SPEC (most-likely match against `governs:` paths among in-flight SPECs), "
+        "and appends `Implements:`, `Refs:`, and `Fixes:` trailers to the commit message. "
+        "After a successful commit, syncs the `commits` table so `decree refs SPEC-NNN` "
+        "surfaces the new commit immediately.",
+    )
+    p_commit.add_argument("-m", "--message", default=None, help="Commit message (passed through to git commit)")
+    p_commit.add_argument(
+        "--implements",
+        action="append",
+        default=None,
+        metavar="ID",
+        help="Add `Implements: <ID>` trailer (repeatable). Disables inference when given.",
+    )
+    p_commit.add_argument(
+        "--refs",
+        action="append",
+        default=None,
+        metavar="ID",
+        help="Add `Refs: <ID>` trailer (repeatable).",
+    )
+    p_commit.add_argument(
+        "--fixes",
+        action="append",
+        default=None,
+        metavar="ID",
+        help="Add `Fixes: <ID>` trailer (repeatable).",
+    )
+    p_commit.add_argument(
+        "--no-infer",
+        action="store_true",
+        help="Skip active-SPEC inference entirely (don't auto-add `Implements:`).",
+    )
+    p_commit.add_argument(
+        "--amend",
+        action="store_true",
+        help="Pass through to `git commit --amend`.",
+    )
+    p_commit.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
     # ── hook ────────────────────────────────────────────────
     p_hook = subparsers.add_parser(
         "hook",
@@ -207,6 +256,7 @@ def main() -> int:
     )
 
     args = parser.parse_args()
+    from decree.commands import commit as commit_cmd
     from decree.commands import ddd as ddd_cmd
     from decree.commands import hook as hook_cmd
     from decree.commands import index_db_cli
@@ -237,6 +287,7 @@ def main() -> int:
         "hook": hook_cmd.run,
         "why": queries_cmd.why_run,
         "refs": queries_cmd.refs_run,
+        "commit": commit_cmd.commit_run,
     }
     return commands[args.command](args)
 

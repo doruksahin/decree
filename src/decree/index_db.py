@@ -35,6 +35,8 @@ class RebuildStats:
     governs: int
     acceptance_criteria: int
     fts_indexed: int
+    commits: int = 0
+    git_sync_ms: int = 0
 
 
 @dataclass(frozen=True)
@@ -181,7 +183,9 @@ class IndexDB:
         start = time.monotonic()
         self.init_schema()
 
-        # Wipe markdown-derived tables. Do NOT wipe `commits` (owned by SPEC-006).
+        # Wipe markdown-derived tables. Do NOT wipe `commits` here — the
+        # SPEC-006 `sync_commits_from_git` call below owns that table and
+        # does its own wipe-and-insert against the live git log.
         with self.db.conn:  # type: ignore[attr-defined]
             self.db.conn.execute("DELETE FROM decisions")  # type: ignore[attr-defined]
             self.db.conn.execute("DELETE FROM refs")  # type: ignore[attr-defined]
@@ -286,6 +290,11 @@ class IndexDB:
         if ac_rows:
             self.db["acceptance_criteria"].insert_all(ac_rows, replace=True)
 
+        # Git-trailer ingestion (SPEC-006). Happens after the markdown
+        # side completes so the `commits` table is consistent with the
+        # current `decisions` view. No-op on non-git projects.
+        commits_count, git_sync_ms = self.sync_commits_from_git(project_root)
+
         # FTS: populate manually since we disabled auto-triggers
         # decisions_fts(id UNINDEXED, title, body) — we need to push title+body in.
         self.db.conn.execute("DELETE FROM decisions_fts")  # type: ignore[attr-defined]
@@ -311,6 +320,8 @@ class IndexDB:
             governs=len(governs_rows),
             acceptance_criteria=len(ac_rows),
             fts_indexed=len(decisions_rows),
+            commits=commits_count,
+            git_sync_ms=git_sync_ms,
         )
 
     # ── Read-only: status ───────────────────────────────────
@@ -397,6 +408,137 @@ class IndexDB:
                 )
 
         return findings
+
+    # ── git-trailer ingestion (SPEC-006) ─────────────────────
+
+    def sync_commits_from_git(self, project_root: Path) -> tuple[int, int]:
+        """Walk `git log` and populate the `commits` table from trailers.
+
+        Returns (rows_written, duration_ms). Silent no-op (0, 0) if the
+        project is not a git repository.
+
+        Uses `git interpret-trailers --parse` so we never re-implement
+        trailer parsing in Python. Multi-value trailers (e.g.
+        `Implements: SPEC-001, SPEC-002`) yield one row per value.
+
+        Old SHAs (no longer in `git log` — e.g., after a rebase) are
+        wiped from `commits` to keep the index consistent with HEAD.
+        """
+        import subprocess
+
+        start = time.monotonic()
+
+        # Non-git project → silent no-op.
+        try:
+            check = subprocess.run(
+                ["git", "-C", str(project_root), "rev-parse", "--show-toplevel"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except FileNotFoundError:
+            # git binary missing — treat as non-git.
+            return 0, 0
+        if check.returncode != 0:
+            return 0, 0
+
+        # Walk log. Use NUL-separated fields, RS (\x1e) record terminator
+        # so commit bodies containing newlines/pipes parse cleanly.
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(project_root),
+                "log",
+                "--format=%H%x00%ct%x00%s%x00%B%x1e",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            # Empty repo (no commits) or corrupted — treat as no-op
+            # but still wipe stale rows so leftovers from prior syncs
+            # don't linger.
+            self.init_schema()
+            with self.db.conn:  # type: ignore[attr-defined]
+                self.db.conn.execute("DELETE FROM commits")  # type: ignore[attr-defined]
+            return 0, int((time.monotonic() - start) * 1000)
+
+        self.init_schema()
+
+        rows: list[dict] = []
+
+        # Records are RS-terminated. The final record may have a trailing
+        # newline before the RS or not — strip empties.
+        records = [r for r in result.stdout.split("\x1e") if r.strip()]
+
+        for rec in records:
+            # Each record starts with \n (left by %B) in some git versions —
+            # strip leading whitespace before the SHA.
+            rec = rec.lstrip("\n")
+            parts = rec.split("\x00", 3)
+            if len(parts) < 4:
+                continue
+            sha, ts_str, subject, body = parts
+            try:
+                ts = int(ts_str)
+            except ValueError:
+                continue
+            committed_at = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(timespec="seconds")
+
+            # Fast-path: skip the subprocess if the body has none of our
+            # trailer keywords. `git interpret-trailers --parse` is still
+            # the canonical parser when we do run it — this is just a
+            # cheap negative filter so we don't fork once per commit for
+            # a 1000-commit repo where almost none have trailers.
+            if not any(k in body for k in ("Implements:", "Refs:", "Fixes:")):
+                continue
+
+            # Parse trailers via git itself — no Python trailer parser.
+            parse = subprocess.run(
+                ["git", "-C", str(project_root), "interpret-trailers", "--parse"],
+                input=body,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if parse.returncode != 0:
+                continue
+
+            for line in parse.stdout.splitlines():
+                if ":" not in line:
+                    continue
+                key, _, value = line.partition(":")
+                key = key.strip()
+                value = value.strip()
+                if key not in ("Implements", "Refs", "Fixes"):
+                    continue
+                # Multi-value: comma-split, strip whitespace
+                for raw in value.split(","):
+                    decision_id = raw.strip()
+                    if not decision_id:
+                        continue
+                    rows.append(
+                        {
+                            "sha": sha,
+                            "decision_id": decision_id,
+                            "trailer_kind": key,
+                            "summary": subject,
+                            "committed_at": committed_at,
+                        }
+                    )
+
+        # Wipe rows whose SHA no longer exists in git log (rebase / amend),
+        # then insert the freshly-parsed rows. Doing a full wipe-and-insert
+        # is simpler than diffing — SPEC says incremental sync is v2.
+        with self.db.conn:  # type: ignore[attr-defined]
+            self.db.conn.execute("DELETE FROM commits")  # type: ignore[attr-defined]
+        if rows:
+            self.db["commits"].insert_all(rows, replace=True)  # type: ignore[attr-defined]
+        self.db.conn.commit()  # type: ignore[attr-defined]
+
+        return len(rows), int((time.monotonic() - start) * 1000)
 
 
 # ── Path resolution ─────────────────────────────────────────

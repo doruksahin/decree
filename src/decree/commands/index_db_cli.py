@@ -58,7 +58,12 @@ def rebuild_run(args: argparse.Namespace) -> int:
     db = IndexDB(default_db_path(root))
     info("index", f"rebuilding into {db.db_path.relative_to(root)}")
     stats = db.rebuild(root)
-    info("index", f"decisions={stats.decisions}  refs={stats.refs}  governs={stats.governs}  acs={stats.acceptance_criteria}")
+    info(
+        "index",
+        f"decisions={stats.decisions}  refs={stats.refs}  governs={stats.governs}  "
+        f"acs={stats.acceptance_criteria}  commits={stats.commits}",
+    )
+    info("index", f"git_sync_ms={stats.git_sync_ms}")
     success(f"index rebuilt in {stats.duration_ms}ms")
     return 0
 
