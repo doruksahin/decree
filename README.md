@@ -72,8 +72,10 @@ decree migrate ids --apply
 ## LLM Agents
 
 decree is designed to be called by LLM agents before and after code changes.
-For the agent contract, model-resolution chain, explicit failure policy, and
+For the agent contract, explicit failure policy, and
 recommended command loop, see [LLM Agent Integration](docs/llm-agent-integration.md).
+For agent-side `governs:` suggestion generation, use the portable
+[decree-governs-suggest skill](skills/decree-governs-suggest/SKILL.md).
 
 ## Features
 
@@ -311,6 +313,7 @@ Decree ships as a [Claude Code](https://claude.com/product/claude-code) plugin w
 | `/decree:spec` | Create a SPEC with stale-reference warnings |
 | `/decree:lint` | Validate all documents, create tasks per error found |
 | `/decree:ddd` | Check project state, guide next step in the PRD→ADR→SPEC flow |
+| `decree-governs-suggest` | Agent-side `governs:` suggestions from the analyze JSON contract |
 
 ## Live Example: Decree Managing Itself
 
@@ -321,11 +324,11 @@ $ decree progress
 Scope: all documents
 
   SPEC-01KT22NMRWENYKC3MGRA50M7GE  C4 Validation and Diagram Generation      implemented  ██████████ 100% (32/32 primary); deferred 0/5
-  SPEC-01KT22NMS0BN1F5B01HEFK87W0  Claude Code CLI LLM Provider...           draft        ░░░░░░░░░░   0% (0/21 primary); deferred 0/8
+  SPEC-01KT22NMS0BN1F5B01HEFK87W0  Provider-Free Agent Suggestion Contract   implemented  ██████████ 100% (17/17 primary)
   SPEC-01KT22NMS0D19VMD8VPK4D2MNX  Parallel-Safe Document Identity...        implemented  ██████████ 100% (11/11 primary)
 
-✓ 367/388 primary items complete (95%) across 25 documents
-[progress] 0/90 deferred items separated from primary progress
+✓ 368/368 primary items complete (100%) across 25 documents
+[progress] 0/69 deferred items separated from primary progress
 ```
 
 Several features are tracked at different lifecycle stages:
@@ -379,7 +382,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, developer guidelines, and code
 
 ## Design Principles
 
-- **Explicit LLM boundaries** — core lifecycle, lint, index, query, and progress commands are deterministic. LLM-backed commands such as `migrate governs` and `intent-check --judge-conflicts` are opt-in and document their provider chain.
+- **Explicit LLM boundaries** — core lifecycle, lint, index, query, progress,
+  `migrate governs`, and `intent-check` are deterministic. Agents may call
+  LLMs outside decree, then hand explicit JSON back to decree for validation
+  and application.
 - **Config-driven** — no hardcoded document types. Everything is defined in `decree.toml`.
 - **`warn_on_reference` != terminal** — "implemented" is terminal (no further transitions) but healthy to reference. "rejected" is terminal AND dead.
 - **Staleness is direct-only** — if a SPEC directly references a superseded ADR, only that SPEC is flagged. Transitive chains are not followed.

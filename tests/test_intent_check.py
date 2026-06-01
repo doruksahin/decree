@@ -1,8 +1,7 @@
 """SPEC-00000000000000000000000014 — intent-check tests.
 
-Mirrors the fixture and corpus patterns from ``tests/test_intent_review.py``
-(SPEC-00000000000000000000000009). All LLM calls under ``--judge-conflicts`` are mocked via
-``monkeypatch.setattr(litellm, ...)`` — no live network in CI.
+Mirrors the fixture and corpus patterns from ``tests/test_intent_review.py``.
+Core intent-check is deterministic and does not call LLM providers.
 """
 
 from __future__ import annotations
@@ -12,21 +11,16 @@ import json
 import subprocess
 import time
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 
 from decree.commands.intent_check import (
     IntentCheckReport,
-    _judge_conflict,
-    _parse_llm_json,
     _plan_mentions_architecture,
     intent_check,
     intent_check_run,
     report_to_dict,
 )
-from decree.commands.intent_review import Conflict
 from decree.index_db import IndexDB, default_db_path
 
 # ── Fixture helpers (mirrors test_intent_review.py) ─────────
@@ -218,20 +212,6 @@ def in_flight_db_and_root(tmp_path: Path, monkeypatch) -> tuple[IndexDB, Path]:
     return db, tmp_path
 
 
-# ── Internal helpers ────────────────────────────────────────
-
-
-class TestParseLLMJson:
-    def test_bare_json(self) -> None:
-        assert _parse_llm_json('{"x": 1}') == {"x": 1}
-
-    def test_fenced_json_block(self) -> None:
-        assert _parse_llm_json('```json\n{"x": 1}\n```') == {"x": 1}
-
-    def test_fenced_block_no_lang(self) -> None:
-        assert _parse_llm_json('```\n{"x": 1}\n```') == {"x": 1}
-
-
 class TestPlanArchitectureHeuristic:
     @pytest.mark.parametrize(
         "plan",
@@ -333,7 +313,7 @@ class TestIntentCheckLibrary:
         c = report.conflicts[0]
         assert c.path == "src/foo.py"
         assert set(c.decision_ids) == {"SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002"}
-        # Structural-only — no semantic verdict without --judge-conflicts.
+        # Structural-only — core decree does not perform semantic LLM judging.
         assert c.semantic_verdict is None
         actions = {r.action for r in report.recommended_actions}
         assert "resolve_conflict_first" in actions
@@ -342,103 +322,6 @@ class TestIntentCheckLibrary:
         db, root = basic_db_and_root
         report = intent_check(db, root, "Plan", ["src/foo.py", "src/foo.py", "src/foo.py"])
         assert report.planned_files == ("src/foo.py",)
-
-
-# ── --judge-conflicts (LLM mocked) ──────────────────────────
-
-
-def _mock_completion(payload: dict | None, *, raise_exc: Exception | None = None):
-    """Build a MagicMock to substitute for ``litellm.completion``.
-
-    If ``raise_exc`` is set, the mock raises it. Otherwise it returns a
-    response with ``choices[0].message.content = json.dumps(payload)``.
-    """
-
-    def _make_response(content: str) -> SimpleNamespace:
-        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
-
-    def side_effect(**kwargs):
-        if raise_exc is not None:
-            raise raise_exc
-        return _make_response(json.dumps(payload))
-
-    return MagicMock(side_effect=side_effect)
-
-
-class TestJudgeConflicts:
-    def test_judge_real_conflict(self, tmp_path: Path, monkeypatch) -> None:
-        _write_corpus_two_specs_same_file(tmp_path)
-        db = _rebuild_index(tmp_path, monkeypatch)
-
-        import litellm
-
-        mock = _mock_completion({"is_real_conflict": True, "reasoning": "they disagree on format"})
-        monkeypatch.setattr(litellm, "completion", mock)
-
-        report = intent_check(
-            db,
-            tmp_path,
-            "Touch src/foo.py",
-            ["src/foo.py"],
-            judge_conflicts=True,
-            model="mock-model",
-        )
-        assert mock.called
-        assert len(report.conflicts) == 1
-        verdict = report.conflicts[0].semantic_verdict
-        assert verdict is not None
-        assert verdict["is_real_conflict"] is True
-        assert "disagree" in verdict["reasoning"]
-
-    def test_judge_complementary(self, tmp_path: Path, monkeypatch) -> None:
-        _write_corpus_two_specs_same_file(tmp_path)
-        db = _rebuild_index(tmp_path, monkeypatch)
-
-        import litellm
-
-        mock = _mock_completion(
-            {
-                "is_real_conflict": False,
-                "reasoning": "different aspects of same file",
-            }
-        )
-        monkeypatch.setattr(litellm, "completion", mock)
-
-        report = intent_check(
-            db,
-            tmp_path,
-            "Touch src/foo.py",
-            ["src/foo.py"],
-            judge_conflicts=True,
-            model="mock-model",
-        )
-        assert len(report.conflicts) == 1
-        verdict = report.conflicts[0].semantic_verdict
-        assert verdict is not None
-        assert verdict["is_real_conflict"] is False
-
-    def test_judge_llm_error_falls_back_to_structural(self, tmp_path: Path, monkeypatch) -> None:
-        _write_corpus_two_specs_same_file(tmp_path)
-        db = _rebuild_index(tmp_path, monkeypatch)
-
-        import litellm
-
-        mock = _mock_completion(None, raise_exc=RuntimeError("network down"))
-        monkeypatch.setattr(litellm, "completion", mock)
-
-        report = intent_check(
-            db,
-            tmp_path,
-            "Touch src/foo.py",
-            ["src/foo.py"],
-            judge_conflicts=True,
-            model="mock-model",
-        )
-        # Conflict still surfaces, just without semantic_verdict.
-        assert len(report.conflicts) == 1
-        assert report.conflicts[0].semantic_verdict is None
-        actions = {r.action for r in report.recommended_actions}
-        assert "resolve_conflict_first" in actions
 
 
 # ── --with-abstention ───────────────────────────────────────
@@ -538,7 +421,7 @@ class TestReportToDict:
         report = intent_check(db, tmp_path, "Plan", ["src/foo.py"])
         payload = report_to_dict(report)
         assert len(payload["conflicts"]) == 1
-        # Even without --judge-conflicts the key must be present.
+        # The schema key remains present for consumers, but core leaves it empty.
         assert "semantic_verdict" in payload["conflicts"][0]
         assert payload["conflicts"][0]["semantic_verdict"] is None
 
@@ -552,8 +435,6 @@ def _make_args(**kw) -> argparse.Namespace:
         files=[],
         with_abstention=False,
         target_precision=None,
-        judge_conflicts=False,
-        model=None,
         json=False,
         project=None,
     )
@@ -586,28 +467,6 @@ class TestIntentCheckCLI:
         rc = intent_check_run(args)
         capsys.readouterr()
         assert rc == 1
-
-    def test_judge_conflicts_without_api_key_exit_2(
-        self,
-        basic_db_and_root: tuple[IndexDB, Path],
-        monkeypatch,
-        capsys,
-    ) -> None:
-        _db, root = basic_db_and_root
-        # Strip every API-key env var so resolve_model raises SystemExit(2).
-        for var in ("DECREE_LLM_MODEL", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
-            monkeypatch.delenv(var, raising=False)
-        # SPEC-00000000000000000000000015: stub the new `claude` step so we still hit the exit-2 path.
-        monkeypatch.setattr("decree.llm_io.shutil.which", lambda n: None)
-        args = _make_args(
-            plan="Touch foo",
-            files=["src/foo.py"],
-            judge_conflicts=True,
-            project=str(root),
-        )
-        rc = intent_check_run(args)
-        capsys.readouterr()
-        assert rc == 2
 
     def test_json_output_schema_stable(
         self,
@@ -660,60 +519,3 @@ class TestRecommendationDeterminism:
         actions_a = [(r.action, r.target_id, r.detail) for r in a.recommended_actions]
         actions_b = [(r.action, r.target_id, r.detail) for r in b.recommended_actions]
         assert actions_a == actions_b
-
-
-# ── _judge_conflict isolation ───────────────────────────────
-
-
-class TestJudgeConflictHelper:
-    def test_parses_well_formed_response(self, monkeypatch) -> None:
-        import litellm
-
-        mock = _mock_completion({"is_real_conflict": True, "reasoning": "they disagree"})
-        monkeypatch.setattr(litellm, "completion", mock)
-        c = Conflict(
-            path="src/foo.py", decision_ids=("SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002")
-        )
-        result = _judge_conflict(
-            "Plan",
-            c,
-            {"decision_id": "SPEC-00000000000000000000000001", "title": "A", "body": "body A"},
-            {"decision_id": "SPEC-00000000000000000000000002", "title": "B", "body": "body B"},
-            "mock-model",
-        )
-        assert result == {"is_real_conflict": True, "reasoning": "they disagree"}
-
-    def test_returns_none_on_invalid_payload(self, monkeypatch) -> None:
-        import litellm
-
-        # Mock returns a payload missing the required key.
-        mock = _mock_completion({"reasoning": "missing the verdict bool"})
-        monkeypatch.setattr(litellm, "completion", mock)
-        c = Conflict(
-            path="src/foo.py", decision_ids=("SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002")
-        )
-        result = _judge_conflict(
-            "Plan",
-            c,
-            {"decision_id": "SPEC-00000000000000000000000001", "title": "A", "body": "body A"},
-            {"decision_id": "SPEC-00000000000000000000000002", "title": "B", "body": "body B"},
-            "mock-model",
-        )
-        assert result is None
-
-    def test_returns_none_on_exception(self, monkeypatch) -> None:
-        import litellm
-
-        mock = _mock_completion(None, raise_exc=RuntimeError("api error"))
-        monkeypatch.setattr(litellm, "completion", mock)
-        c = Conflict(
-            path="src/foo.py", decision_ids=("SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002")
-        )
-        result = _judge_conflict(
-            "Plan",
-            c,
-            {"decision_id": "SPEC-00000000000000000000000001", "title": "A", "body": "body A"},
-            {"decision_id": "SPEC-00000000000000000000000002", "title": "B", "body": "body B"},
-            "mock-model",
-        )
-        assert result is None

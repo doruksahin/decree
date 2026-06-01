@@ -37,7 +37,7 @@ Applies to command modules under `src/decree/commands/`.
 - `queries.py`: `why` and `refs`; index-backed governance queries.
 - `intent_check.py`: pre-code plan governance.
 - `intent_review.py`: post-code diff governance.
-- `migrate.py`: explicit corpus migrations and LLM-assisted backfills.
+- `migrate.py`: explicit corpus migrations and agent-assisted backfills.
 - `report.py`: completion report snapshots.
 - `commit.py`: git commit wrapper and trailer sync.
 

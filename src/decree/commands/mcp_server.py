@@ -631,7 +631,6 @@ def intent_check(
     plan: str,
     planned_files: list[str],
     with_abstention: bool = False,
-    judge_conflicts: bool = False,
 ) -> dict:
     """Pre-code governance check — what decisions apply to your plan?
 
@@ -646,9 +645,8 @@ def intent_check(
 
     Args:
         plan: One-sentence to one-paragraph description of what you intend
-            to build. Used as semantic context for the LLM-judged conflict
-            detection (when `judge_conflicts=True`) and for the
-            architectural-keyword heuristic that triggers `draft_adr_first`.
+            to build. Used for the architectural-keyword heuristic that
+            triggers `draft_adr_first`.
         planned_files: List of repo-relative paths the plan will create or
             modify. Required, must be non-empty in practice (an empty list
             collapses to a `proceed` recommendation).
@@ -657,18 +655,6 @@ def intent_check(
             all paths return empty governance the response includes an
             `abstention` block with signals and threshold so the caller
             can see *why* the calibrator deflected.
-        judge_conflicts: If True (default False), for each structural
-            conflict run an LLM judge to decide whether the conflict is
-            *real* (decisions disagree about behavior) or *complementary*
-            (decisions cover different aspects of the same file). Adds
-            provider latency per conflict and uses the same explicit model
-            resolution chain as the CLI: `DECREE_LLM_MODEL`, then `claude`
-            on PATH -> `claude-code/sonnet`, then `ANTHROPIC_API_KEY` ->
-            `claude-3-5-sonnet-latest`, then `OPENAI_API_KEY` ->
-            `gpt-4o-mini`. `claude-code/...` routes through the local Claude
-            Code CLI; other model strings route through litellm. When no
-            provider is resolvable the response includes a `judge_error`
-            field and conflicts are returned structural-only.
 
     Returns:
         A dict with the same shape as `decree intent-check --json`:
@@ -750,31 +736,14 @@ def intent_check(
     if stale is not None:
         return stale
 
-    # Resolve a model for judging conflicts; if unavailable we fall back to
-    # structural-only and surface a hint so the caller can fix it.
-    model: str | None = None
-    judge_error: str | None = None
-    if judge_conflicts:
-        try:
-            from decree.commands.migrate import resolve_model
-
-            model = resolve_model(argparse.Namespace(model=None))
-        except SystemExit as e:
-            judge_error = f"--judge-conflicts requested but no LLM model resolvable: {e}"
-
     report = _intent_check_lib(
         db,
         root,
         plan,
         list(planned_files or []),
         with_abstention=with_abstention,
-        judge_conflicts=judge_conflicts and model is not None,
-        model=model,
     )
-    payload = report_to_dict(report)
-    if judge_error is not None:
-        payload["judge_error"] = judge_error
-    return payload
+    return report_to_dict(report)
 
 
 def mcp_serve_run(args: argparse.Namespace) -> int:

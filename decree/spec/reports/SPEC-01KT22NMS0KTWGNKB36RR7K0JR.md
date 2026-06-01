@@ -2,7 +2,7 @@
 
 **Document**: `/Users/doruk/Desktop/SIDE_HUSTLE/decree/decree/spec/spec-01kt22nms0ktwgnkb36rr7k0jr-decree-intent-check-pre-pr-planning-phase-governance.md`
 **Transitioned to `implemented` on**: 2026-06-01
-**Generated**: 2026-06-01T19:22:58Z
+**Generated**: 2026-06-01T21:03:22Z
 **Total documents in chain**: 2
 
 ## Document chain
@@ -12,57 +12,23 @@
 | PRD | PRD-01KT22NMRSXYT95XE808VD8EV4 | implemented | State-of-the-Art Decision Reasoning |
 | SPEC | SPEC-01KT22NMS0KTWGNKB36RR7K0JR | implemented | decree intent-check — Pre-PR Planning-Phase Governance |
 
-## Acceptance Criteria — primary (21/21)
+## Acceptance Criteria — primary (13/13)
 
-### Library + CLI (6/6)
+### v1 Acceptance Criteria (13/13)
 
-- [x] `src/decree/commands/intent_check.py` exists with `intent_check()`, `intent_check_run()`, `IntentCheckReport`.
-- [x] Library composes existing helpers (`queries.why`, `queries.refs`, `health.stale_decisions`, optionally calibrated routing).
-- [x] `decree intent-check` subcommand registered with all flags.
-- [x] Exit codes match SPEC.
-- [x] `--with-abstention` routes governance lookups through SPEC-01KT22NMS0VWCTYPFPHP8M8V36.
-- [x] `--judge-conflicts` calls litellm for each structural conflict.
-
-### LLM judge (4/4)
-
-- [x] `build_conflict_judge_prompt(plan, path, doc_a, doc_b)` added to `migrate_prompts.py`.
-- [x] Uses `litellm.completion()` with the SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S model-resolution chain.
-- [x] LLM failure falls back to structural-only conflict listing (no crash).
-- [x] Response parsing tolerates fenced JSON (reuse `_parse_llm_json` from SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S or copy pattern).
-
-### Recommendations (2/2)
-
-- [x] 5 new verbs emitted appropriately: `draft_adr_first`, `update_spec_first`, `resolve_conflict_first`, `proceed`, plus reuse of SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 verbs.
-- [x] Recommendations deterministic given the same inputs.
-
-### MCP tool (3/3)
-
-- [x] `intent_check` registered with 5-section docstring.
-- [x] Accepts `plan: str`, `planned_files: list[str]`, `with_abstention: bool = False`, `judge_conflicts: bool = False`.
-- [x] Tool registry grows to 6 tools.
-
-### Tests (4/4)
-
-- [x] `tests/test_intent_check.py` covers all unit + integration cases.
-- [x] `tests/test_mcp_server.py` extended to assert 6 tools registered.
-- [x] No live LLM calls — all `--judge-conflicts` paths mocked.
-- [x] Full suite passes (535 baseline + new tests).
-
-### Dogfood (2/2)
-
-- [x] SPEC-01KT22NMS0KTWGNKB36RR7K0JR's frontmatter declares `governs: ["src/decree/commands/intent_check.py"]` after file exists.
-- [x] PM-recorded MCP smoke test.
-
-## Deferred / Out of scope (0/6)
-
-### What this does NOT do (deferred) (0/6)
-
-- [ ] Live LLM calls in CI.
-- [ ] Symbol-level governance.
-- [ ] GitHub PR bot integration — research-frontiers D.3.
-- [ ] Multi-step plan parsing.
-- [ ] Automatic decree.toml edits.
-- [ ] Agent-loop integration.
+- [x] `decree intent-check` subcommand registered with deterministic flags.
+- [x] `--plan` is required.
+- [x] `--files` accepts one or more repo-relative paths.
+- [x] Command returns governing decisions for planned files.
+- [x] Command surfaces unchecked acceptance criteria for non-terminal governing
+- [x] Command surfaces stale governance using indexed git history.
+- [x] Command surfaces structural conflicts when multiple decisions govern a
+- [x] Command supports `--with-abstention`.
+- [x] Command supports `--json`.
+- [x] Command fails closed when the SQLite index is missing or stale.
+- [x] MCP `intent_check` exposes the deterministic report shape.
+- [x] Core implementation does not call LLM providers or resolve provider
+- [x] Tests cover structural conflict behavior without provider mocks.
 
 ---
 

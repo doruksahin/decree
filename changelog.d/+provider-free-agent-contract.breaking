@@ -1,0 +1,1 @@
+Remove in-core LLM provider execution from governs migration and intent-check; replace it with deterministic analyze/apply JSON contracts for agent-owned suggestion generation.

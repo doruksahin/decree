@@ -80,20 +80,20 @@ The failure mode this enables is documented in market research (`docs/market-ana
 
 ### R9: Corpus migration tooling
 
-Existing decree consumers (the dogfood at 7 documents; jira-task-to-md at 167) cannot adopt this PRD's new features through hand-edits at scale. A `decree migrate` command provides preview-first, LLM-assisted, opt-in migration for the two specific surfaces that require corpus-wide work — without rewriting any file the user hasn't reviewed.
+Existing decree consumers (the dogfood at 7 documents; jira-task-to-md at 167) cannot adopt this PRD's new features through hand-edits at scale. A `decree migrate` command provides preview-first, agent-assisted, opt-in migration for the two specific surfaces that require corpus-wide work — without rewriting any file the user hasn't reviewed.
 
-- **`decree migrate governs --suggest`** — for each existing document, an LLM reads its body (looking specifically at sections like "Files touched", "Affected files", "Scope", and any prose mentioning paths) and proposes a `governs:` frontmatter array. Output is a unified diff against the current corpus, printed to stdout (or written to `decree-migrate-governs.patch`). No files are modified.
-- **`decree migrate governs --apply`** — applies the suggested diff after the user has reviewed it. Idempotent — re-running it on already-migrated documents is a no-op.
+- **`decree migrate governs --analyze --json`** — for each existing document, core decree emits a deterministic analysis contract for an external agent/skill. No LLM is called in core.
+- **`decree migrate governs --apply-suggestions FILE`** — validates an external `decree.governs-suggestions.v1` file and previews the resulting unified diff. `--apply` writes only after explicit confirmation.
 - **`decree migrate audit-coherence`** — dry-run R6's coherence gates against the current corpus. Reports, per gate, which documents would fail and the reasons. No changes made. The output is the prerequisite for safely enabling any R6 gate on a corpus with >50 documents.
 - **`decree migrate audit-coherence --fix`** — interactive: for each violation, prompt the user to fix (open in `$EDITOR`), defer (record an exception in `decree.toml`), or skip.
 - **`decree migrate backfill-trailers`** (v2, optional) — walks `git log`, proposes `git notes refs/notes/decree` annotations linking historical commits to SPECs. Human confirms each suggestion. Uses `git notes` rather than commit-message rewrite to avoid history mutation.
 - **`decree migrate --dry-run`** — applies to every subcommand. Shows what would change without writing.
 
 **Design properties (load-bearing):**
-- *Preview-first*: every subcommand has a `--suggest` / `audit` / `--dry-run` mode. Nothing is rewritten silently.
-- *LLM-assisted, not LLM-decided*: the `governs:` suggester proposes; the user accepts. A 128-SPEC corpus cannot be hand-authored; trusting an LLM blindly is reckless. The two-step (suggest → apply) is the user's control surface.
+- *Preview-first*: every subcommand has an `--analyze`, `audit`, `--dry-run`, or preview mode. Nothing is rewritten silently.
+- *Agent-assisted, not agent-decided*: the external `governs:` suggester proposes; decree validates and previews; the user accepts. A 128-SPEC corpus cannot be hand-authored; trusting any agent blindly is reckless. The analyze/apply-suggestions split is the user's control surface.
 - *Per-gate opt-in*: R6 gates are enabled one at a time through `decree.toml`, each preceded by an `audit-coherence` run for that gate. No "big bang."
-- *Reversible*: `decree migrate governs --apply` produces a single commit (or a single patch); reverting is a `git revert` or a `git apply -R`.
+- *Reversible*: `decree migrate governs --apply-suggestions FILE --apply` produces a single commit (or a single patch); reverting is a `git revert` or a `git apply -R`.
 - *Validated against the real-world corpus*: the SPEC implementing R9 ships with an integration test against jira-task-to-md's 167-document corpus. If migration is incorrect there, it's incorrect anywhere.
 
 **What R9 explicitly does not do:**
@@ -109,7 +109,7 @@ Existing decree consumers (the dogfood at 7 documents; jira-task-to-md at 167) c
 - **Staleness surface**: a SPEC whose governed files have changed without the SPEC being touched is flagged automatically. Today this is invisible.
 - **Coherence**: a SPEC cannot be marked `implemented` with deferred-to-v2 items dragging primary AC progress below 100% (this PRD's existence already documents the v1 dogfood: SPEC-01KT22NMRWENYKC3MGRA50M7GE reports 86% but its v1 ACs are 100%).
 - **Consumer fan-out**: at least one downstream consumer (the Electron app's intent-review panel, or the existing suppression-expiry ast-check) reads decree state via the MCP/`--json` API instead of regex.
-- **Migration completeness**: `decree migrate` (R9) successfully applies to jira-task-to-md's 167-document corpus — `governs --suggest` produces a reviewable diff covering ≥95% of SPECs and ADRs; `audit-coherence` runs against the full corpus without crashing and produces a per-gate violation report. The migration is the integration test for R2 + R6 working at real-world corpus scale.
+- **Migration completeness**: `decree migrate` (R9) successfully applies to jira-task-to-md's 167-document corpus — `governs --analyze --json` plus an external suggestion step produces a reviewable diff covering ≥95% of SPECs and ADRs; `audit-coherence` runs against the full corpus without crashing and produces a per-gate violation report. The migration is the integration test for R2 + R6 working at real-world corpus scale.
 - **No backward-compat surface in decree itself**: after R9 has been run against a consumer's corpus, there is no remaining code path in decree that reads "old format" documents (e.g., string-matching affected_files prose). The post-migration codebase is the only codebase.
 
 ## Scope
@@ -122,7 +122,7 @@ Existing decree consumers (the dogfood at 7 documents; jira-task-to-md at 167) c
 - `--json` output across all read commands.
 - MCP server exposing the five task-shaped tools listed in R5.
 - Coherence gates (R6) — opt-in per project, per gate.
-- **Migration tooling (R9)** — `decree migrate governs --suggest/--apply` and `decree migrate audit-coherence`. Validated against jira-task-to-md's 167-doc corpus.
+- **Migration tooling (R9)** — `decree migrate governs --analyze/--apply-suggestions` and `decree migrate audit-coherence`. Validated against jira-task-to-md's 167-doc corpus.
 
 **In scope (v2, after v1 ships):**
 - Symbol-level `governs:` (tree-sitter or LSP-backed).

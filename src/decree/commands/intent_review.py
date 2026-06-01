@@ -63,9 +63,9 @@ class UncheckedAC:
 class Conflict:
     """Two or more decisions structurally claim the same governed path.
 
-    SPEC-01KT22NMS0KTWGNKB36RR7K0JR added the optional ``semantic_verdict`` field, populated only when
-    ``intent_check`` is invoked with ``--judge-conflicts`` and an LLM has been
-    consulted. ``intent_review`` (SPEC-01KT22NMRYRZQ59EC88VJ5R0N6) leaves it as ``None``.
+    ``semantic_verdict`` remains for JSON schema compatibility with older
+    reports. Core decree leaves it as ``None``; agent/skill layers may
+    post-process JSON output if they need semantic conflict judging.
     """
 
     path: str

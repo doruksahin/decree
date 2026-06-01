@@ -1,8 +1,8 @@
 # SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S Completion Report
 
-**Document**: `/Users/doruk/Desktop/SIDE_HUSTLE/decree/decree/spec/spec-01kt22nmrzz0zz0dq4n0sjpn9s-decree-migrate-governs-llm-assisted-backfill.md`
+**Document**: `/Users/doruk/Desktop/SIDE_HUSTLE/decree/decree/spec/spec-01kt22nmrzz0zz0dq4n0sjpn9s-decree-migrate-governs-agent-assisted-backfill.md`
 **Transitioned to `implemented` on**: 2026-06-01
-**Generated**: 2026-06-01T19:22:58Z
+**Generated**: 2026-06-01T21:11:14Z
 **Total documents in chain**: 2
 
 ## Document chain
@@ -10,59 +10,27 @@
 | Type | ID | Status | Title |
 |---|---|---|---|
 | PRD | PRD-01KT22NMRS4QGHSFDBZ858PP1T | implemented | Queryable Decision Provenance Graph |
-| SPEC | SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S | implemented | decree migrate governs — LLM-Assisted Backfill |
+| SPEC | SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S | implemented | decree migrate governs — Agent-Assisted Backfill |
 
-## Acceptance Criteria — primary (23/23)
+## Acceptance Criteria — primary (15/15)
 
-### Library + CLI (8/8)
+### v1 Acceptance Criteria (15/15)
 
-- [x] `src/decree/commands/migrate.py` extended with `suggest_governs()`, `apply_governs()`, `suggest_governs_run()`, `apply_governs_run()` + `SuggestionResult` dataclass.
-- [x] `src/decree/migrate_prompts.py` exists with the governs prompt template.
-- [x] `decree migrate governs --suggest` subcommand registered.
-- [x] `--apply` flag works; refuses to run without preceding `--suggest` semantically (i.e., the diff is shown first).
-- [x] `--model` flag + `DECREE_LLM_MODEL` env var + default chain works.
-- [x] `--dry-run`, `--only`, `--yes`, `--json`, `--project` flags work.
-- [x] Output as unified-diff (human) or structured array (JSON).
-- [x] Exit codes match SPEC (0 clean, 1 partial failure, 2 config error).
-
-### LLM integration (6/6)
-
-- [x] `litellm>=1.83,<2` added to `pyproject.toml`.
-- [x] Single `completion()` call signature used for all providers.
-- [x] Response parsing: validates JSON shape, drops malformed entries with warnings.
-- [x] Path validation: existing paths → `verified`, missing → `unverified` (kept but flagged).
-- [x] Skips docs that already have `governs:` (unless future opt-in flag).
-- [x] Per-doc error isolation: one LLM failure doesn't abort the batch.
-
-### Apply mode (3/3)
-
-- [x] Writes via `python-frontmatter`; round-trip parse confirms.
-- [x] Interactive y/n confirmation unless `--yes`.
-- [x] `--dry-run` prevents writes.
-
-### Tests (3/3)
-
-- [x] All unit + integration cases mocking `litellm.completion`.
-- [x] No live API calls in CI; recorded fixtures used for one integration test.
-- [x] Full test suite passes (434 baseline + new tests).
-
-### Dogfood (3/3)
-
-- [x] SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S's frontmatter declares appropriate `governs:` after implementation.
-- [x] PM runs `decree migrate governs --suggest` against decree's own corpus; output captured in completion report.
-- [x] PM runs once against jira-task-to-md's 167-doc corpus (or a sampled subset for cost reasons) and records summary stats: success rate, average confidence, example suggestions.
-
-## Deferred / Out of scope (0/7)
-
-### What this does NOT do (deferred) (0/7)
-
-- [ ] Live API calls in CI.
-- [ ] Parallel / batched API calls.
-- [ ] `--force-regenerate` for docs that already have governs.
-- [ ] TUI / interactive editor.
-- [ ] Backfill of `references:` / `supersedes:` fields.
-- [ ] Cost reporting / budget guards.
-- [ ] `decree migrate backfill-trailers` (git notes) — v2.
+- [x] `decree migrate governs --analyze --json` subcommand mode registered.
+- [x] Analyze mode emits `decree.governs-analysis.v1`.
+- [x] Analyze mode includes document identity, status, title, current governs,
+- [x] `decree migrate governs --apply-suggestions FILE` subcommand mode
+- [x] Suggestions mode accepts only `decree.governs-suggestions.v1`.
+- [x] Invalid schema returns exit 2 with an explicit error.
+- [x] Invalid suggestion entries return non-zero and do not write.
+- [x] Existing `governs:` arrays are skipped instead of overwritten silently.
+- [x] Preview mode renders unified diffs without writing.
+- [x] `--apply --yes` writes valid suggestions.
+- [x] `--dry-run` reports apply intent without writing.
+- [x] `--only ID` scopes both analysis and suggestions validation.
+- [x] `--json` emits machine-readable analyze/apply payloads.
+- [x] No core LLM provider, model-resolution, API-key, or subprocess logic is
+- [x] Tests cover the deterministic contract without provider mocks.
 
 ---
 

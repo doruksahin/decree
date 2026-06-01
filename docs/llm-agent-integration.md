@@ -34,32 +34,49 @@ with the [Capability Index](index.md).
 6. Run `decree lint` again after changing decree documents.
 7. Add or verify a `changelog.d/` Towncrier fragment for user-visible changes.
 
-## LLM Provider Resolution
+## Agent-Owned LLM Calls
 
-Commands that need an LLM use one shared model-resolution chain:
+Core decree does not resolve models, read provider API keys, shell out to
+Claude Code, or call litellm. LLM execution belongs to the agent runtime.
 
-1. `--model MODEL`
-2. `DECREE_LLM_MODEL`
-3. `claude` on `PATH` -> `claude-code/sonnet`
-4. `ANTHROPIC_API_KEY` -> `claude-3-5-sonnet-latest`
-5. `OPENAI_API_KEY` -> `gpt-4o-mini`
-6. Otherwise the command exits with a configuration error or returns an
-   explicit `judge_error` field for MCP tool calls.
+For `governs:` migration, use this handoff:
 
-`claude-code/...` models route through the local Claude Code CLI. All other
-model strings route through litellm.
+If your agent supports portable skills, use
+[decree-governs-suggest](../skills/decree-governs-suggest/SKILL.md) for the
+suggestion-generation step.
 
-Claude Code routing is deliberately constrained for batch use:
+1. Run:
 
-- single prompt, single turn
-- `--output-format json`
-- `--permission-mode plan`
-- `--strict-mcp-config`
-- no tools by default (`--allowedTools none`)
-- API-key environment variables are not forwarded to the subprocess
+   ```bash
+   decree migrate governs --analyze --json > governs-analysis.json
+   ```
 
-This uses the user's local Claude Code subscription instead of Anthropic or
-OpenAI API keys.
+2. The agent reads `decree.governs-analysis.v1`, calls any chosen model/runtime,
+   and writes:
+
+   ```json
+   {
+     "schema": "decree.governs-suggestions.v1",
+     "suggestions": [
+       {
+         "document_id": "SPEC-01KT22...",
+         "governs": ["src/decree/commands/migrate.py"],
+         "confidence": "high",
+         "rationale": "The SPEC owns this command."
+       }
+     ]
+   }
+   ```
+
+3. Preview and apply through core decree:
+
+   ```bash
+   decree migrate governs --apply-suggestions governs-suggestions.json
+   decree migrate governs --apply-suggestions governs-suggestions.json --apply --yes
+   ```
+
+The agent owns prompts, retries, rate limits, auth, and provider flags. Decree
+owns schema validation, diff rendering, and writes.
 
 ## No Hidden Fallbacks
 
@@ -67,10 +84,10 @@ OpenAI API keys.
 - Stale indexes are errors for query commands and MCP query tools. Rebuild the
   index before asking `why`, `refs`, `intent-check`, or `intent-review` to make
   governance claims.
-- Per-document LLM failures in `decree migrate governs` are recorded on that
-  document's result and do not abort the whole batch.
-- Conflict-judge LLM failures never hide structural conflicts; they leave the
-  semantic verdict empty or add `judge_error`.
+- Invalid `governs` suggestions are reported and block writes.
+- `decree intent-check` reports structural conflicts. Agents may perform
+  semantic judging externally from `--json` output, but core decree never hides
+  structural conflicts behind provider failures.
 - Non-git projects make git-derived health and commit-sync data unavailable.
   Commands must say this in their result or documentation instead of implying
   that no history exists.
@@ -78,8 +95,8 @@ OpenAI API keys.
 ## Responsibilities
 
 - `src/decree/cli.py`: command registration and user-facing help only.
-- `src/decree/llm_io.py`: provider resolution, Claude Code subprocess routing,
-  litellm routing, and shared JSON parsing.
+- `src/decree/llm_io.py`: fenced JSON parsing only. Provider execution belongs
+  outside core decree.
 - `src/decree/index_db.py`: deterministic derived index and git trailer sync.
 - `src/decree/commands/queries.py`: `why` and `refs` library/CLI behavior.
 - `src/decree/commands/intent_check.py`: pre-code governance reports.
@@ -102,7 +119,8 @@ decree intent-check --plan "..." --files src/foo.py --json
 decree intent-review --json
 decree migrate ids --dry-run
 decree migrate audit-coherence --json
-decree migrate governs --suggest --json
+decree migrate governs --analyze --json
+decree migrate governs --apply-suggestions governs-suggestions.json
 uv run towncrier create +.feature --content "Add governed lookup for auth files."
 uv run towncrier check --staged
 ```

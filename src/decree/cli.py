@@ -14,7 +14,8 @@ examples:
   decree new prd "User Authentication"
   decree new adr "Auth via JWT"
   decree new spec "Token Storage API"
-  decree migrate governs --suggest --model claude-code/sonnet
+  decree migrate governs --analyze --json
+  decree migrate governs --apply-suggestions suggestions.json --apply --yes
   decree why src/auth/tokens.py
   decree intent-check --plan "Change token refresh" --files src/auth/tokens.py
   decree status ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ accept
@@ -528,25 +529,6 @@ def main() -> int:
         help="SPEC-01KT22NMS0VWCTYPFPHP8M8V36: desired precision floor for non-abstain responses.",
     )
     p_ic.add_argument(
-        "--judge-conflicts",
-        action="store_true",
-        dest="judge_conflicts",
-        help="Run an LLM judge on each structural conflict. Uses the explicit "
-        "model resolution chain documented by --model; failures are surfaced as "
-        "judge_error rather than hiding the structural conflict.",
-    )
-    p_ic.add_argument(
-        "--model",
-        default=None,
-        metavar="MODEL",
-        help="Model for --judge-conflicts. Resolution chain: this flag, "
-        "DECREE_LLM_MODEL, `claude` on PATH -> claude-code/sonnet, "
-        "ANTHROPIC_API_KEY -> claude-3-5-sonnet-latest, OPENAI_API_KEY -> "
-        "gpt-4o-mini. `claude-code/...` routes through the local Claude Code CLI; "
-        "it runs single-turn plan mode with tools disabled and does not require "
-        "provider API keys. All other strings route through litellm.",
-    )
-    p_ic.add_argument(
         "--json",
         action="store_true",
         help="Emit JSON for programmatic consumers.",
@@ -560,12 +542,12 @@ def main() -> int:
     # ── migrate (sub-namespace: audit-coherence, governs) ───
     p_migrate = subparsers.add_parser(
         "migrate",
-        help="Corpus migration tooling — dry-run audits, suggestions, and ID migration",
+        help="Corpus migration tooling — dry-run audits, explicit suggestions, and ID migration",
         description="Migration tooling for the decree corpus. v1 ships "
         "`audit-coherence`, which runs coherence gates in "
         "dry-run mode against every doc and reports per-gate violations. "
-        "`governs` adds an LLM-assisted backfill for the typed "
-        "`governs:` frontmatter field.",
+        "`governs` emits deterministic analysis JSON and applies externally "
+        "generated suggestions for the typed `governs:` frontmatter field.",
     )
     migrate_subs = p_migrate.add_subparsers(dest="migrate_action", required=True)
 
@@ -604,41 +586,34 @@ def main() -> int:
 
     p_mig_gov = migrate_subs.add_parser(
         "governs",
-        help="LLM-assisted backfill of `governs:` frontmatter (SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S)",
-        description="Adoption helper for an existing decree corpus: for each "
-        "document without `governs:`, ask an LLM to propose repo-relative paths "
-        "so `decree why <path>`, `decree refs <id>`, intent-check, and MCP tools "
-        "can answer which decision owns code. Emits a unified-diff proposal; "
-        "--apply writes it after a y/N confirmation (suppressed by --yes). "
-        "Skips docs that already have `governs:`. Per-doc provider, parse, and "
-        "path-validation errors are reported in the result and the batch keeps going.",
+        help="Analyze missing `governs:` links and apply explicit suggestions",
+        description="Adoption helper for an existing decree corpus. Core decree "
+        "does not call an LLM here. Use --analyze --json to emit a stable JSON "
+        "contract for an external agent/skill, then pass that agent's "
+        "decree.governs-suggestions.v1 file to --apply-suggestions. Apply mode "
+        "validates schema, document IDs, repo-relative paths, duplicates, and "
+        "on-disk existence before writing.",
     )
-    p_mig_gov.add_argument(
-        "--suggest",
+    gov_mode = p_mig_gov.add_mutually_exclusive_group(required=True)
+    gov_mode.add_argument(
+        "--analyze",
         action="store_true",
-        help="Emit a unified-diff proposal to stdout. Default behaviour even "
-        "if not passed (kept for documentation symmetry with SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S).",
+        help="Emit deterministic analysis for external agents. Pair with --json for the full contract.",
+    )
+    gov_mode.add_argument(
+        "--apply-suggestions",
+        metavar="FILE",
+        help="Read a decree.governs-suggestions.v1 JSON file and preview/apply validated governs edits.",
     )
     p_mig_gov.add_argument(
         "--apply",
         action="store_true",
-        help="Write the proposed governs arrays to disk (after y/N confirmation unless --yes).",
-    )
-    p_mig_gov.add_argument(
-        "--model",
-        default=None,
-        metavar="MODEL",
-        help="Model for suggestions. Resolution chain: this flag, "
-        "DECREE_LLM_MODEL, `claude` on PATH -> claude-code/sonnet, "
-        "ANTHROPIC_API_KEY -> claude-3-5-sonnet-latest, OPENAI_API_KEY -> "
-        "gpt-4o-mini. `claude-code/...` routes through local Claude Code in "
-        "single-turn plan mode with tools disabled and no provider API keys; "
-        "all other strings route through litellm.",
+        help="With --apply-suggestions, write validated governs arrays after confirmation.",
     )
     p_mig_gov.add_argument(
         "--dry-run",
         action="store_true",
-        help="With --apply, don't write — report what would change.",
+        help="With --apply, don't write; report what would change.",
     )
     p_mig_gov.add_argument(
         "--only",
@@ -804,7 +779,7 @@ def main() -> int:
         if action == "audit-coherence":
             return migrate_cmd.audit_coherence_run(a)
         if action == "governs":
-            return migrate_cmd.suggest_governs_run(a)
+            return migrate_cmd.governs_run(a)
         if action == "ids":
             return migrate_cmd.migrate_ids_run(a)
         raise ValueError(f"unknown migrate action: {action}")

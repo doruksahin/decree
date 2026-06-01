@@ -602,24 +602,6 @@ class TestIntentCheckTool:
         # there's no calibration on disk in the test sandbox.
         assert "abstention" in result
 
-    def test_judge_conflicts_without_api_key_returns_judge_error(self, project_with_index: Path, monkeypatch) -> None:
-        # Strip every provider source so resolve_model raises SystemExit(2).
-        for var in ("DECREE_LLM_MODEL", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
-            monkeypatch.delenv(var, raising=False)
-        # SPEC-00000000000000000000000015 adds a `claude` CLI default before API-key fallbacks; stub it
-        # away so this test still covers the no-provider error path.
-        monkeypatch.setattr("decree.llm_io.shutil.which", lambda name: None)
-
-        result = mcp_server.intent_check(
-            plan="Plan to touch src/foo.py",
-            planned_files=["src/foo.py"],
-            judge_conflicts=True,
-        )
-        # Tool stays callable; surfaces the resolution failure inline.
-        assert "error" not in result
-        assert "judge_error" in result
-        assert "no LLM model resolvable" in result["judge_error"]
-
     def test_intent_check_has_full_docstring(self) -> None:
         tools = {t.name: t for t in mcp._tool_manager.list_tools()}
         desc = tools["intent_check"].description or ""

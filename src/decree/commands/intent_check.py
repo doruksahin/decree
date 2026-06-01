@@ -15,12 +15,11 @@ SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 used:
     passed ``--with-abstention``.
   * ``commands.health.stale_decisions`` (SPEC-01KT22NMRYNFYM7EN80WS2HD6F) for stale intersection.
   * Acceptance-criteria SQL identical to SPEC-01KT22NMRYRZQ59EC88VJ5R0N6's.
-  * ``litellm`` (already in deps via SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S) for the optional structural-
-    conflict semantic judge.
 
 The dataclasses are reused from SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 wherever the shape is the same.
 ``IntentCheckReport`` is the new top-level container; ``Conflict`` from
-SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 was extended in-place with an optional ``semantic_verdict`` field.
+SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 keeps its optional ``semantic_verdict`` field
+for schema compatibility, but core intent-check does not call LLM providers.
 """
 
 from __future__ import annotations
@@ -101,66 +100,6 @@ def _plan_mentions_architecture(plan: str) -> bool:
     return any(kw in lowered for kw in _ADR_KEYWORDS)
 
 
-def _fetch_decision_for_judge(db: IndexDB, decision_id: str) -> dict | None:
-    """Return ``{decision_id, title, body}`` for the LLM judge, or None.
-
-    Body lives in the FTS5 virtual table (see ``IndexDB._ensure_schema``).
-    Title lives in ``decisions``. The judge needs both.
-    """
-    conn = db.db.conn  # type: ignore[attr-defined]
-    row = conn.execute("SELECT id, title FROM decisions WHERE id = ?", (decision_id,)).fetchone()
-    if row is None:
-        return None
-    did, title = row
-    body_row = conn.execute("SELECT body FROM decisions_fts WHERE id = ?", (decision_id,)).fetchone()
-    body = body_row[0] if body_row is not None else ""
-    return {"decision_id": did, "title": title or "", "body": body or ""}
-
-
-def _judge_conflict(
-    plan: str,
-    conflict: Conflict,
-    doc_a: dict,
-    doc_b: dict,
-    model: str,
-) -> dict | None:
-    """Call the LLM to decide whether a structural conflict is real.
-
-    Returns ``{"is_real_conflict": bool, "reasoning": str}`` on success and
-    ``None`` on any failure (network, parse, provider). The caller is
-    expected to leave ``Conflict.semantic_verdict = None`` in that case;
-    the conflict still surfaces in the report.
-
-    Routes through :func:`decree.llm_io.complete` per SPEC-01KT22NMS0BN1F5B01HEFK87W0 so the
-    ``claude-code/`` model namespace is supported transparently.
-    """
-    from decree.llm_io import complete
-    from decree.migrate_prompts import build_conflict_judge_prompt
-
-    prompt = build_conflict_judge_prompt(plan, conflict.path, doc_a, doc_b)
-    try:
-        content = complete(prompt, model, timeout=30)
-        payload = _parse_llm_json(content)
-    except Exception:
-        return None
-
-    if not isinstance(payload, dict):
-        return None
-    if "is_real_conflict" not in payload:
-        return None
-    return {
-        "is_real_conflict": bool(payload.get("is_real_conflict")),
-        "reasoning": str(payload.get("reasoning", "") or ""),
-    }
-
-
-def _parse_llm_json(content: str) -> dict:
-    """Thin wrapper for back-compat. Real impl in :mod:`decree.llm_io`."""
-    from decree.llm_io import parse_llm_json
-
-    return parse_llm_json(content or "")
-
-
 # ── Library: intent_check() ─────────────────────────────────
 
 
@@ -171,15 +110,13 @@ def intent_check(
     planned_files: list[str],
     *,
     with_abstention: bool = False,
-    judge_conflicts: bool = False,
-    model: str | None = None,
     threshold_commits: int = 10,
 ) -> IntentCheckReport:
     """Compose an ``IntentCheckReport`` for a plan and planned files.
 
     Stitches the same prior-SPEC primitives SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 used, plus optional
-    SPEC-01KT22NMS0VWCTYPFPHP8M8V36 calibrated abstention and an LLM-judged semantic verdict on
-    structural conflicts. See SPEC-01KT22NMS0KTWGNKB36RR7K0JR for the per-component contract.
+    SPEC-01KT22NMS0VWCTYPFPHP8M8V36 calibrated abstention. Structural conflicts are deterministic;
+    provider-backed semantic judging belongs in agent/skill layers.
     """
     # 0. Normalize planned_files: stable order, deduped.
     seen: dict[str, None] = {}
@@ -245,31 +182,9 @@ def intent_check(
             if len(ids) > 1:
                 raw_conflicts.append(Conflict(path=path, decision_ids=ids))
 
-    # 5. Optional LLM judge per conflict. Failures are per-conflict and
-    #    fall back to structural-only (the conflict still surfaces).
+    # 5. conflicts stay structural-only in core decree. Agent/skill layers may
+    #    post-process this JSON if they want semantic conflict judging.
     conflicts: list[Conflict] = list(raw_conflicts)
-    if judge_conflicts and raw_conflicts and model:
-        # Caller is responsible for validating that a model can be resolved
-        # *before* invoking intent_check; if model is None we skip judging.
-        judged: list[Conflict] = []
-        for c in raw_conflicts:
-            # Only judge the first two ids deterministically; 3+ ids on a
-            # single path is rare and v1 ships pairwise.
-            id_a = c.decision_ids[0]
-            id_b = c.decision_ids[1]
-            doc_a = _fetch_decision_for_judge(db, id_a)
-            doc_b = _fetch_decision_for_judge(db, id_b)
-            verdict: dict | None = None
-            if doc_a is not None and doc_b is not None:
-                verdict = _judge_conflict(plan, c, doc_a, doc_b, model)
-            judged.append(
-                Conflict(
-                    path=c.path,
-                    decision_ids=c.decision_ids,
-                    semantic_verdict=verdict,
-                )
-            )
-        conflicts = judged
 
     # 6. abstention — populated when --with-abstention and all governance
     #    lookups returned nothing. We synthesize a single abstention block
@@ -620,28 +535,10 @@ def intent_check_run(args: argparse.Namespace) -> int:
     """`decree intent-check` — pre-PR governance report CLI entry point.
 
     Exit codes (SPEC-01KT22NMS0KTWGNKB36RR7K0JR):
-      * 0 — no conflicts (real or judged) and no stale governance.
+      * 0 — no structural conflicts and no stale governance.
       * 1 — at least one conflict or stale governance entry surfaced.
-      * 2 — config error (e.g. ``--judge-conflicts`` without an API key,
-        missing flags); enforced at parse time *before* opening the index.
+      * 2 — config error (e.g. missing or stale index).
     """
-    # ── Pre-flight: enforce --judge-conflicts requires a resolvable model ─
-    judge_conflicts = bool(getattr(args, "judge_conflicts", False))
-    resolved_model: str | None = None
-    if judge_conflicts:
-        try:
-            from decree.commands.migrate import resolve_model
-
-            resolved_model = resolve_model(args)
-        except SystemExit as e:
-            # resolve_model uses SystemExit(2) for no-key; surface a clean
-            # decree-style error and propagate exit 2.
-            error(
-                "intent-check",
-                f"--judge-conflicts requires a resolvable LLM model: {e}",
-            )
-            return 2
-
     db, root, rc = _open_db_or_error(getattr(args, "project", None))
     if db is None:
         return rc
@@ -658,8 +555,6 @@ def intent_check_run(args: argparse.Namespace) -> int:
         plan,
         planned_files,
         with_abstention=with_abstention,
-        judge_conflicts=judge_conflicts,
-        model=resolved_model,
     )
 
     if getattr(args, "json", False):

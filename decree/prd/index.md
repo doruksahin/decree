@@ -12,28 +12,3 @@
 | PRD-01KT22NMRTFTWFFARAN0PVEETA | Parallel-Safe Document Identity and Scoped Progress | implemented | 2026-06-01 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->
-
-## Decision Timeline
-
-```mermaid
-timeline
-    title PRD Decision Timeline
-    section 2026-04-05
-        PRD-01KT22NMRR63TXR7NX5XYRG5FK  : C4 Architecture Support
-    section 2026-04-30
-        PRD-01KT22NMRR0BX7KBF0F0N5ER6Z  : DDD CLI Command and Proofshot Integration
-    section 2026-05-12
-        PRD-01KT22NMRS4QGHSFDBZ858PP1T  : Queryable Decision Provenance Graph
-        PRD-01KT22NMRSXYT95XE808VD8EV4  : State-of-the-Art Decision Reasoning
-        PRD-01KT22NMRTAF9581AXC53EHQTW  : Real-Corpus Validation Against jira-task-to-md
-    section 2026-06-01
-        PRD-01KT22NMRTFTWFFARAN0PVEETA  : Parallel-Safe Document Identity and Scoped Progress
-```
-
-## Status Distribution
-
-```mermaid
-pie title PRD Status Distribution
-    "approved" : 1
-    "implemented" : 5
-```

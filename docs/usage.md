@@ -126,19 +126,21 @@ decree in a project that already has decisions but does not yet say which files
 or directories each decision owns.
 
 ```bash
-decree migrate governs --suggest --model claude-code/sonnet
-decree migrate governs --apply --model claude-code/sonnet
+decree migrate governs --analyze --json > governs-analysis.json
+decree migrate governs --apply-suggestions governs-suggestions.json
+decree migrate governs --apply-suggestions governs-suggestions.json --apply --yes
 ```
 
-The command asks an LLM to propose repo-relative path arrays, emits a unified
-diff proposal, and writes only when `--apply` is passed and confirmed. Documents
-that already have `governs:` are skipped. Per-document provider, parse, and
-path-validation errors are reported explicitly instead of being hidden.
+Core decree does not call an LLM. `--analyze --json` emits
+`decree.governs-analysis.v1` for an external agent/skill. That agent writes a
+`decree.governs-suggestions.v1` file. `--apply-suggestions` validates schema,
+document IDs, repo-relative paths, duplicates, and on-disk existence before
+rendering a unified diff. It writes only when `--apply` is passed and
+confirmed.
 
-`claude-code/...` models use the local Claude Code CLI subscription in a
-single-turn plan-mode subprocess with tools disabled. Other model strings route
-through litellm. See [LLM Agent Integration](llm-agent-integration.md) for the
-resolution chain.
+Invalid suggestions are reported explicitly and block writes. Documents that
+already have `governs:` are skipped instead of overwritten silently. See
+[LLM Agent Integration](llm-agent-integration.md) for the agent-side contract.
 
 ### `decree graph`
 
@@ -184,9 +186,9 @@ decree intent-check \
   --files src/auth/tokens.py tests/test_tokens.py
 ```
 
-Use `--judge-conflicts` only when structural conflicts need an LLM semantic
-check. LLM failures are surfaced as `judge_error`; they do not hide the
-structural conflict.
+`intent-check` is deterministic. It reports structural conflicts; semantic LLM
+judging can be implemented by an agent/skill that post-processes `--json`
+output.
 
 ### `decree mcp serve`
 
@@ -217,7 +219,7 @@ fi
 ### LLM (Claude Code, Cursor, Copilot)
 
 LLMs should read [LLM Agent Integration](llm-agent-integration.md) for the
-command loop, explicit model-resolution chain, and failure policy. They create
+command loop, explicit JSON contracts, and failure policy. They create
 and transition documents via CLI where possible; if they edit frontmatter
 directly, they must run `decree lint` and `decree index rebuild` afterwards.
 

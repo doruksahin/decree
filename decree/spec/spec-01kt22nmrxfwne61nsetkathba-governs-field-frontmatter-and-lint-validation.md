@@ -107,7 +107,7 @@ This is purely a code-path consolidation — behavior is identical for documents
 
 - Symbol-level validation. Entries like `src/foo.py#bar` have their path part validated but the `bar` symbol is not resolved. That's PRD-01KT22NMRS4QGHSFDBZ858PP1T R2 v2 (tree-sitter / LSP).
 - Glob pattern resolution. An entry like `src/api/**` is treated as a literal path that must exist. Glob support is a future enhancement.
-- Migration tooling. PRD-01KT22NMRS4QGHSFDBZ858PP1T R9 (`decree migrate governs --suggest`) ships in its own SPEC.
+- Migration tooling. PRD-01KT22NMRS4QGHSFDBZ858PP1T R9 (`decree migrate governs --analyze/--apply-suggestions`) ships in its own SPEC.
 - Wildcard / fuzzy matching of paths. Exact path match only.
 
 ## Testing Strategy

@@ -884,20 +884,25 @@ def _write_id_mapping(root: Path, docs: list[LegacyDoc]) -> Path:
     return path
 
 
-# ─── SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S: governs backfill ────────────────────────────────────────────
+# ─── SPEC-01KT22NMS0BN1F5B01HEFK87W0: deterministic governs handoff ───────
+
+GOVERNS_ANALYSIS_SCHEMA = "decree.governs-analysis.v1"
+GOVERNS_SUGGESTIONS_SCHEMA = "decree.governs-suggestions.v1"
+GOVERNS_APPLY_SCHEMA = "decree.governs-apply.v1"
+GOVERNS_BODY_CHAR_BUDGET = 24_000
+_PATH_CANDIDATE_RE = re.compile(r"(?<![\w/.-])(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+(?:#[A-Za-z_][\w.]*)?")
 
 
 @dataclasses.dataclass(frozen=True)
 class SuggestionResult:
-    """One LLM-proposed `governs:` array for a single document.
+    """One externally proposed `governs:` array for a single document.
 
-    `proposed_governs` is the *full* proposal (verified + unverified, in the
-    order the model returned them). `verified_paths` and `unverified_paths`
-    split that list by on-disk existence at `project_root` — a human reviewer
-    can prioritise scrutiny on the unverified entries before applying.
+    Proposals are untrusted input from an agent/skill. Core decree validates
+    schema, document IDs, path syntax, duplicate entries, and on-disk existence
+    before diffing or writing anything.
 
-    `error` is set when the LLM call or response parse failed for this doc;
-    other docs in the batch are unaffected (per-doc error isolation).
+    `error` is populated for invalid input. Invalid suggestions are shown and
+    block writes; decree never silently drops malformed paths.
     """
 
     doc_id: str
@@ -940,112 +945,166 @@ def _validate_governs_entry(entry: object) -> str | None:
     return entry
 
 
+def _body_excerpt(body: str) -> str:
+    if len(body) <= GOVERNS_BODY_CHAR_BUDGET:
+        return body
+    return body[:GOVERNS_BODY_CHAR_BUDGET] + "\n\n[... document truncated for length ...]"
+
+
+def _candidate_paths_from_body(body: str, project_root: Path) -> tuple[str, ...]:
+    """Extract deterministic repo-relative path candidates mentioned in text."""
+    candidates: dict[str, None] = {}
+    for match in _PATH_CANDIDATE_RE.finditer(body or ""):
+        raw = match.group(0).rstrip(".,;:)")
+        cleaned = _validate_governs_entry(raw)
+        if cleaned is None:
+            continue
+        path_part = cleaned.split("#", 1)[0]
+        if (project_root / path_part).exists():
+            candidates.setdefault(cleaned, None)
+    return tuple(candidates)
+
+
+def analyze_governs(docs: list, project_root: Path) -> dict:
+    """Return the deterministic analysis contract consumed by agent skills."""
+    documents: list[dict] = []
+    for doc in docs:
+        current = tuple(doc.meta.governs or ())
+        documents.append(
+            {
+                "document_id": doc.doc_id,
+                "document_path": _display_path(doc.path),
+                "document_type": doc.doc_type.name if doc.doc_type is not None else "",
+                "status": doc.meta.status,
+                "title": doc.title,
+                "needs_governs": not bool(current),
+                "existing_governs": list(current),
+                "candidate_paths": list(_candidate_paths_from_body(doc.body or "", project_root)),
+                "body_excerpt": _body_excerpt(doc.body or ""),
+            }
+        )
+    return {
+        "schema": GOVERNS_ANALYSIS_SCHEMA,
+        "rules": {
+            "suggestion_schema": GOVERNS_SUGGESTIONS_SCHEMA,
+            "governs_paths": [
+                "repo-relative only",
+                "no absolute paths",
+                "no '..' path segments",
+                "path part before an optional '#symbol' must exist on disk",
+                "do not include duplicates",
+            ],
+            "core_responsibility": "validate suggestions and apply only explicit diffs",
+            "agent_responsibility": "call any LLM/runtime externally and write suggestions JSON",
+        },
+        "documents": documents,
+    }
+
+
 def _parse_llm_json(content: str) -> dict:
-    """Thin wrapper for back-compat. Real impl in :mod:`decree.llm_io`."""
+    """Thin wrapper for fenced JSON parsing used by external suggestion files."""
     from decree.llm_io import parse_llm_json
 
     return parse_llm_json(content)
 
 
-def suggest_governs(
-    docs: list,
-    model: str,
+def _suggestion_result_from_payload(
+    item: object,
+    docs_by_id: dict[str, object],
     project_root: Path,
-) -> list[SuggestionResult]:
-    """Call the LLM once per doc to propose a `governs:` array.
+) -> SuggestionResult:
+    """Validate one untrusted suggestions.v1 item."""
+    if not isinstance(item, dict):
+        return SuggestionResult("", "", (), (), "", "", (), (), "suggestion item must be an object")
 
-    Per-doc behaviour:
-      1. If `doc.meta.governs` is already non-empty, skip — return a result
-         with empty `proposed_governs`, no error. Caller renders as "already
-         has governs".
-      2. Build a prompt via `build_governs_prompt(doc.body)`.
-      3. Call :func:`decree.llm_io.complete` (routes to claude-code or
-         litellm per SPEC-01KT22NMS0BN1F5B01HEFK87W0).
-      4. Parse the response. Drop entries that fail the same validation rules
-         enforced by `DocFrontmatter.governs_syntax` + SPEC-01KT22NMRXFWNE61NSETKATHBA's
-         `validate_governs_paths`.
-      5. Split the survivors into `verified_paths` (exist on disk) and
-         `unverified_paths` (don't exist — kept but flagged).
-      6. On any exception (provider error, JSON parse error, network), catch
-         and stash the message on `error`. The batch keeps going.
-    """
-    from decree.llm_io import complete
-    from decree.migrate_prompts import build_governs_prompt
+    raw_doc_id = item.get("document_id")
+    if not isinstance(raw_doc_id, str) or not raw_doc_id:
+        return SuggestionResult("", "", (), (), "", "", (), (), "suggestion item missing document_id")
 
-    results: list[SuggestionResult] = []
-    for doc in docs:
-        doc_path = _display_path(doc.path)
-        current = tuple(doc.meta.governs or ())
-        if current:
-            results.append(
-                SuggestionResult(
-                    doc_id=doc.doc_id,
-                    doc_path=doc_path,
-                    current_governs=current,
-                    proposed_governs=(),
-                    confidence="",
-                    rationale="already has governs; skipped",
-                    verified_paths=(),
-                    unverified_paths=(),
-                    error=None,
-                )
-            )
-            continue
+    doc = docs_by_id.get(raw_doc_id)
+    if doc is None:
+        return SuggestionResult(raw_doc_id, "", (), (), "", "", (), (), f"unknown document_id: {raw_doc_id}")
 
-        prompt = build_governs_prompt(doc.body or "")
-        try:
-            content = complete(prompt, model, timeout=60)
-            payload = _parse_llm_json(content)
-        except Exception as e:
-            results.append(
-                SuggestionResult(
-                    doc_id=doc.doc_id,
-                    doc_path=doc_path,
-                    current_governs=current,
-                    proposed_governs=(),
-                    confidence="",
-                    rationale="",
-                    verified_paths=(),
-                    unverified_paths=(),
-                    error=f"{type(e).__name__}: {e}",
-                )
-            )
-            continue
-
-        raw_paths = payload.get("governs", []) if isinstance(payload, dict) else []
-        confidence = payload.get("confidence", "") if isinstance(payload, dict) else ""
-        rationale = payload.get("rationale", "") if isinstance(payload, dict) else ""
-        if not isinstance(raw_paths, list):
-            raw_paths = []
-        cleaned: list[str] = []
-        for entry in raw_paths:
-            v = _validate_governs_entry(entry)
-            if v is not None:
-                cleaned.append(v)
-
-        verified: list[str] = []
-        unverified: list[str] = []
-        for entry in cleaned:
-            path_part = entry.split("#", 1)[0]
-            if (project_root / path_part).exists():
-                verified.append(entry)
-            else:
-                unverified.append(entry)
-
-        results.append(
-            SuggestionResult(
-                doc_id=doc.doc_id,
-                doc_path=doc_path,
-                current_governs=current,
-                proposed_governs=tuple(cleaned),
-                confidence=str(confidence) if confidence is not None else "",
-                rationale=str(rationale) if rationale is not None else "",
-                verified_paths=tuple(verified),
-                unverified_paths=tuple(unverified),
-                error=None,
-            )
+    doc_path = _display_path(doc.path)
+    current = tuple(doc.meta.governs or ())
+    confidence = str(item.get("confidence", "") or "")
+    if current:
+        return SuggestionResult(
+            doc_id=doc.doc_id,
+            doc_path=doc_path,
+            current_governs=current,
+            proposed_governs=(),
+            confidence=confidence,
+            rationale="already has governs; skipped to avoid overwrite",
+            verified_paths=(),
+            unverified_paths=(),
+            error=None,
         )
-    return results
+
+    raw_governs = item.get("governs")
+    if not isinstance(raw_governs, list):
+        return SuggestionResult(
+            doc.doc_id,
+            doc_path,
+            current,
+            (),
+            confidence,
+            str(item.get("rationale", "") or ""),
+            (),
+            (),
+            "governs must be a list",
+        )
+
+    cleaned: list[str] = []
+    verified: list[str] = []
+    errors: list[str] = []
+    seen: set[str] = set()
+    for entry in raw_governs:
+        value = _validate_governs_entry(entry)
+        if value is None:
+            errors.append(f"invalid governs entry: {entry!r}")
+            continue
+        if value in seen:
+            errors.append(f"duplicate governs entry: {value}")
+            continue
+        seen.add(value)
+        path_part = value.split("#", 1)[0]
+        if not (project_root / path_part).exists():
+            errors.append(f"governs path does not exist: {path_part}")
+            continue
+        cleaned.append(value)
+        verified.append(value)
+
+    return SuggestionResult(
+        doc_id=doc.doc_id,
+        doc_path=doc_path,
+        current_governs=current,
+        proposed_governs=tuple(cleaned) if not errors else (),
+        confidence=confidence,
+        rationale=str(item.get("rationale", "") or ""),
+        verified_paths=tuple(verified) if not errors else (),
+        unverified_paths=(),
+        error="; ".join(errors) if errors else None,
+    )
+
+
+def load_governs_suggestions(path: Path, docs: list, project_root: Path) -> list[SuggestionResult]:
+    """Load and validate an external `decree.governs-suggestions.v1` JSON file."""
+    try:
+        payload = _parse_llm_json(path.read_text())
+    except Exception as e:
+        raise ValueError(f"cannot parse suggestions JSON: {type(e).__name__}: {e}") from e
+
+    schema = payload.get("schema")
+    if schema != GOVERNS_SUGGESTIONS_SCHEMA:
+        raise ValueError(f"suggestions schema must be {GOVERNS_SUGGESTIONS_SCHEMA!r}, got {schema!r}")
+
+    raw_suggestions = payload.get("suggestions")
+    if not isinstance(raw_suggestions, list):
+        raise ValueError("suggestions must be a list")
+
+    docs_by_id = {doc.doc_id: doc for doc in docs}
+    return [_suggestion_result_from_payload(item, docs_by_id, project_root) for item in raw_suggestions]
 
 
 def _suggestion_diff(doc_full_path: Path, suggestion: SuggestionResult) -> str:
@@ -1091,7 +1150,7 @@ def apply_governs(
     write but still returns a successful result so callers can report what
     *would* have happened.
 
-    Suggestions with empty `proposed_governs` (skipped or LLM-errored) are
+    Suggestions with empty `proposed_governs` (skipped or invalid) are
     reported as `wrote=False, skipped_reason=...` and no write is attempted.
     """
     import frontmatter
@@ -1117,7 +1176,7 @@ def apply_governs(
             )
             continue
         if not s.proposed_governs:
-            reason = "already has governs" if s.current_governs else "LLM proposed no paths"
+            reason = "already has governs" if s.current_governs else "suggestions file proposed no paths"
             results.append(
                 ApplyResult(
                     doc_id=s.doc_id,
@@ -1163,20 +1222,6 @@ def apply_governs(
                 )
             )
     return results
-
-
-# ─── model resolution ─────────────────────────────────────────────────────
-
-
-def resolve_model(args: argparse.Namespace) -> str:
-    """Pick an LLM model string for ``commands.migrate``.
-
-    Thin wrapper for back-compat — real impl in :mod:`decree.llm_io` per
-    SPEC-01KT22NMS0BN1F5B01HEFK87W0 (the chain now prefers a local ``claude`` CLI over API keys).
-    """
-    from decree.llm_io import resolve_model as _resolve
-
-    return _resolve(args)
 
 
 # ─── governs CLI handler ──────────────────────────────────────────────────
@@ -1249,7 +1294,7 @@ def _format_suggestions_human(suggestions: list[SuggestionResult], project_root:
             out.append("")
             continue
         if not s.proposed_governs:
-            out.append(f"# {s.doc_id} ({s.doc_path}): LLM proposed no paths")
+            out.append(f"# {s.doc_id} ({s.doc_path}): suggestions file proposed no paths")
             if s.rationale:
                 out.append(f"# rationale: {s.rationale}")
             out.append("")
@@ -1274,25 +1319,28 @@ def _format_suggestions_human(suggestions: list[SuggestionResult], project_root:
     return "\n".join(out)
 
 
-def suggest_governs_run(args: argparse.Namespace) -> int:
-    """`decree migrate governs --suggest [--apply]` — CLI entrypoint.
+def _format_analysis_human(payload: dict) -> str:
+    lines = ["governs analysis", ""]
+    for item in payload["documents"]:
+        marker = "needs governs" if item["needs_governs"] else "already has governs"
+        lines.append(f"{item['document_id']} ({item['document_path']}): {marker}")
+        if item["candidate_paths"]:
+            lines.append("  candidate paths:")
+            for path in item["candidate_paths"]:
+                lines.append(f"    - {path}")
+    return "\n".join(lines)
 
-    v1 merges suggest + apply into a single handler: --suggest emits the
-    diff, --apply (which requires --suggest semantically) then optionally
-    writes it. Exit codes per SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S:
-      0 — clean run, with or without --apply.
-      1 — at least one doc errored, batch continued.
-      2 — config error (no API key, no docs).
+
+def governs_run(args: argparse.Namespace) -> int:
+    """`decree migrate governs` deterministic analyze/apply entrypoint.
+
+    Core decree performs no LLM calls here. `--analyze --json` emits a stable
+    contract for an external agent/skill. `--apply-suggestions FILE` validates
+    that agent output and previews/applies explicit frontmatter diffs.
     """
     try:
         root = _resolve_root(getattr(args, "project", None))
     except FileNotFoundError as e:
-        fail(str(e))
-        return 2
-
-    try:
-        model = resolve_model(args)
-    except SystemExit as e:
         fail(str(e))
         return 2
 
@@ -1315,23 +1363,44 @@ def suggest_governs_run(args: argparse.Namespace) -> int:
         fail("no documents matched --only filter" if only else "no documents in corpus")
         return 2
 
-    suggestions = suggest_governs(docs, model, root)
+    as_json = bool(getattr(args, "json", False))
+    if bool(getattr(args, "analyze", False)):
+        payload = analyze_governs(docs, root)
+        if as_json:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        else:
+            print(_format_analysis_human(payload))
+        return 0
+
+    suggestions_path = getattr(args, "apply_suggestions", None)
+    if not suggestions_path:
+        fail("choose exactly one mode: --analyze or --apply-suggestions FILE")
+        return 2
+
+    try:
+        suggestions = load_governs_suggestions(Path(suggestions_path), docs, root)
+    except ValueError as e:
+        fail(str(e))
+        return 2
 
     apply_results: list[ApplyResult] | None = None
     do_apply = bool(getattr(args, "apply", False))
     dry_run = bool(getattr(args, "dry_run", False))
     yes = bool(getattr(args, "yes", False))
-    as_json = bool(getattr(args, "json", False))
+    errored = [s for s in suggestions if s.error]
 
     if as_json:
         payload = {
-            "model": model,
+            "schema": GOVERNS_APPLY_SCHEMA,
             "suggestions": [_suggestion_to_dict(s) for s in suggestions],
             "apply": None,
         }
+        if errored:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+            return 1
         if do_apply:
-            # In JSON mode we never prompt; --yes is required for apply.
-            if not yes:
+            # In JSON mode we never prompt. Dry-run does not write and needs no confirmation.
+            if not yes and not dry_run:
                 fail("--apply in --json mode requires --yes (no interactive prompt)")
                 payload["error"] = "apply refused: --yes required in --json mode"
                 print(json.dumps(payload, indent=2, sort_keys=True))
@@ -1341,12 +1410,14 @@ def suggest_governs_run(args: argparse.Namespace) -> int:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print(_format_suggestions_human(suggestions, root))
+        if errored:
+            return 1
         if do_apply:
             has_changes = any(s.proposed_governs and not s.error for s in suggestions)
             if not has_changes:
                 info("migrate-governs", "no changes to apply.")
             else:
-                if _confirm_apply(yes):
+                if dry_run or _confirm_apply(yes):
                     apply_results = apply_governs(suggestions, root, dry_run=dry_run)
                     for r in apply_results:
                         if r.wrote:
@@ -1364,21 +1435,19 @@ def suggest_governs_run(args: argparse.Namespace) -> int:
                 else:
                     info("migrate-governs", "apply aborted.")
 
-    # Exit-code policy: any LLM error → 1; otherwise 0.
-    errored = [s for s in suggestions if s.error]
     if apply_results is not None:
         errored_apply = [a for a in apply_results if a.error]
         if errored_apply:
             return 1
-    if errored:
-        return 1
     return 0
 
 
+def suggest_governs_run(args: argparse.Namespace) -> int:
+    """Backward internal alias for the CLI dispatcher."""
+    return governs_run(args)
+
+
 def apply_governs_run(args: argparse.Namespace) -> int:
-    """Thin alias — `--apply` is a flag on the suggest handler, not its own
-    subcommand. This exists for symmetry with the SPEC's library-API naming
-    so future SPECs can wire it differently if they want.
-    """
+    """Thin alias used by older internal tests; writes only explicit suggestions."""
     args.apply = True
-    return suggest_governs_run(args)
+    return governs_run(args)

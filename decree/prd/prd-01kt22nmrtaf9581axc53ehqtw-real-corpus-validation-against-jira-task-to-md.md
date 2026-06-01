@@ -16,7 +16,7 @@ Three specific claims are currently unfalsifiable:
 
 2. **"Calibrated abstention is worth the recall hit"**. Currently `keyword-v1-calibrated` drops R@1 from 0.85 → 0.80 in exchange for "fewer wrong answers." At n=19, that delta is within the CI noise. At n=100, we'll know whether the trade is actually favorable.
 
-3. **"The LLM-assisted governs backfill is useful"** (SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S's `migrate governs --suggest`). It's only ever been tested on mocked LLM responses. We've never run it against an actual corpus where the answer isn't already known.
+3. **"The agent-assisted governs backfill is useful"** (core `migrate governs --analyze --json` plus an external `decree.governs-suggestions.v1` producer). It's only ever been tested on controlled fixtures. We've never run it against an actual corpus where the answer isn't already known.
 
 The decree project is fundamentally an *educational/research artifact*. Without a real-corpus evaluation, the PM-level claims it makes ("queryable provenance graph", "calibrated trust surface", "intent-review for LLM-authored code") are aspirational rather than measured.
 
@@ -26,7 +26,7 @@ The deliverable is **a report**, not features. Decree gains no new commands or A
 
 ## Requirements
 
-### R1: Apply `decree migrate governs --suggest` to jira-task-to-md's corpus
+### R1: Apply `decree migrate governs --analyze` and external suggestions to jira-task-to-md's corpus
 
 - Run the SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S tool against the 167-doc jira-task-to-md corpus.
 - Sample ≥20% of generated proposals for human spot-check.
@@ -81,7 +81,7 @@ The deliverable is **a report**, not features. Decree gains no new commands or A
 ## Scope
 
 **In scope (v1):**
-- Full pipeline from `migrate governs --suggest` → query set authoring → retrieval eval → calibration → writeup.
+- Full pipeline from `migrate governs --analyze` → external suggestions → query set authoring → retrieval eval → calibration → writeup.
 - decree-corpus and jira-corpus baselines reported side-by-side for comparison.
 - Honest limitations.
 
@@ -95,13 +95,13 @@ The deliverable is **a report**, not features. Decree gains no new commands or A
 
 - All tooling from PRD-01KT22NMRS4QGHSFDBZ858PP1T v1 and PRD-01KT22NMRSXYT95XE808VD8EV4 v1.
 - A copy of jira-task-to-md's decree corpus (at `/Users/doruk/Desktop/ADCREATIVE/jira-task-to-md/decree/`). PM provides path; SPECs reference but don't bundle.
-- An LLM API key (Anthropic or OpenAI) for R1 (governs --suggest) and the LLM-bootstrap portion of R2. Cost cap above.
+- An external LLM-capable agent/runtime for R1 suggestions and the LLM-bootstrap portion of R2. Core decree does not require provider API keys.
 
 ## Open questions
 
 1. **Calibration set size**: is 100 queries enough for crepes to start being meaningful (vs the ceremonial 19)? Literature suggests ~100 minimum; we're at the low end. SPEC implementing R4 documents the resulting CI widths.
 
-2. **LLM model choice for `--suggest`**: should we use the same model for governs-suggest and for label-bootstrap to ensure consistency? PM call: yes. The R1/R2 SPECs lock the model in their respective frontmatter.
+2. **LLM model choice for external suggestions**: should we use the same model for governs suggestions and for label-bootstrap to ensure consistency? PM call: yes. The R1/R2 SPECs lock the model in their respective frontmatter or agent runbook.
 
 3. **Spot-check fraction**: 20% of governs proposals + 25% of bootstrapped labels. Both numbers are guesses. SPECs document them; future PRDs revise based on what worked.
 
@@ -112,7 +112,7 @@ The deliverable is **a report**, not features. Decree gains no new commands or A
 ## References
 
 - PRD-01KT22NMRS4QGHSFDBZ858PP1T, PRD-01KT22NMRSXYT95XE808VD8EV4 — the substrate this PRD validates.
-- SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S — `decree migrate governs --suggest` used in R1.
+- SPEC-01KT22NMS0BN1F5B01HEFK87W0 — provider-free analyze/apply contract used in R1.
 - SPEC-01KT22NMRZXE5C42F6Z0ZY559A — eval harness used in R3.
 - SPEC-01KT22NMS0VWCTYPFPHP8M8V36 — calibrated abstention used in R4.
 - `docs/market-analysis/discussion-notes.md` — the original Repowise + entire.io framing this PRD operationalises a measurement against.

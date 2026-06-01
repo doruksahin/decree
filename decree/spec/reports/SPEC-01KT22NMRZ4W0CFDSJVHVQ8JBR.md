@@ -2,7 +2,7 @@
 
 **Document**: `/Users/doruk/Desktop/SIDE_HUSTLE/decree/decree/spec/spec-01kt22nmrz4w0cfdsjvhvq8jbr-decree-migrate-audit-coherence-dry-run-gate-impact-report.md`
 **Transitioned to `implemented` on**: 2026-06-01
-**Generated**: 2026-06-01T19:22:58Z
+**Generated**: 2026-06-01T21:04:13Z
 **Total documents in chain**: 2
 
 ## Document chain
@@ -52,7 +52,7 @@
 
 ### What this does NOT do (deferred) (0/5)
 
-- [ ] `decree migrate governs --suggest/--apply` — SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S.
+- [ ] `decree migrate governs --analyze/--apply-suggestions` — SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S and SPEC-01KT22NMS0BN1F5B01HEFK87W0.
 - [ ] `decree migrate backfill-trailers` (git notes) — v2.
 - [ ] Automated (non-interactive) remediation.
 - [ ] Bulk-defer (`--defer-all` style).

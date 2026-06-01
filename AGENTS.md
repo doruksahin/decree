@@ -53,6 +53,7 @@ Read only the files relevant to your task:
 | Tests | [tests/AGENTS.md](tests/AGENTS.md) |
 | PRD/ADR/SPEC dogfood docs | [decree/AGENTS.md](decree/AGENTS.md) |
 | Public docs | [docs/AGENTS.md](docs/AGENTS.md) |
+| Portable agent skills | [skills/AGENTS.md](skills/AGENTS.md) |
 | Changelog/release notes | [changelog.d/AGENTS.md](changelog.d/AGENTS.md) and [docs/release.md](docs/release.md) |
 | Release/versioning | [docs/release.md](docs/release.md) |
 | Architecture overview | [docs/architecture.md](docs/architecture.md) |

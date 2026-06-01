@@ -17,7 +17,7 @@ Implements the first half of PRD-01KT22NMRS4QGHSFDBZ858PP1T R9 — the audit hal
 
 This SPEC also adds an interactive `--fix` mode for one-by-one remediation, and `--json` output for CI / pipeline consumers.
 
-The other half of PRD-01KT22NMRS4QGHSFDBZ858PP1T R9 — LLM-assisted `decree migrate governs --suggest/--apply` — ships in **SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S** (next). The `git notes` backfill stays v2.
+The other half of PRD-01KT22NMRS4QGHSFDBZ858PP1T R9 — agent-assisted `decree migrate governs --analyze/--apply-suggestions` — ships in **SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S** and is revised by **SPEC-01KT22NMS0BN1F5B01HEFK87W0**. The `git notes` backfill stays v2.
 
 After SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR + SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S land, PRD-01KT22NMRS4QGHSFDBZ858PP1T v1 closes.
 
@@ -105,7 +105,7 @@ Parsed by `config.py` alongside the existing coherence block. Each gate-name key
 
 ### What this SPEC does NOT do
 
-- **No `decree migrate governs --suggest/--apply`** — SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S.
+- **No `decree migrate governs --analyze/--apply-suggestions`** — SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S and SPEC-01KT22NMS0BN1F5B01HEFK87W0.
 - **No `decree migrate backfill-trailers`** — v2 (git notes).
 - **No automated remediation** — `--fix` is interactive only; user makes every change.
 - **No LLM-judged severity ranking** — severity is gate-derived (gate 1 = error; gate 2 split-count = warning).
@@ -173,7 +173,7 @@ Parsed by `config.py` alongside the existing coherence block. Each gate-name key
 
 ## What this does NOT do (deferred)
 
-- [ ] `decree migrate governs --suggest/--apply` — SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S.
+- [ ] `decree migrate governs --analyze/--apply-suggestions` — SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S and SPEC-01KT22NMS0BN1F5B01HEFK87W0.
 - [ ] `decree migrate backfill-trailers` (git notes) — v2.
 - [ ] Automated (non-interactive) remediation.
 - [ ] Bulk-defer (`--defer-all` style).

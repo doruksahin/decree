@@ -183,7 +183,7 @@ PM commits to **option (a)** from PRD-01KT22NMRSXYT95XE808VD8EV4's open question
 - **Create**: `src/decree/eval/report_template.md.j2` — jinja2 template.
 - **Create**: `src/decree/commands/eval.py` — `eval_run(args)` CLI handler.
 - **Modify**: `src/decree/cli.py` — register `decree retrieval-eval` subcommand.
-- **Modify**: `pyproject.toml` — add `ir_measures>=0.3`, `scipy>=1.11`, `jinja2>=3`. (numpy is transitive via scipy and litellm.)
+- **Modify**: `pyproject.toml` — add `ir_measures>=0.3`, `scipy>=1.11`, `jinja2>=3`. (numpy is transitive via scipy.)
 - **Create**: `eval/queries.yaml` — 30 hand-authored queries for the decree corpus.
 - **Create**: `eval/baselines/.gitkeep` — directory placeholder; populated on first `--freeze` run.
 - **Create**: `tests/test_eval.py` — unit + integration coverage.

@@ -42,7 +42,7 @@ Decree is intentionally explicit:
 | Health checks | `decree health`, `decree stale` | Detect stale decisions and high-churn files with no governing document. |
 | Pre-code planning guard | `decree intent-check` | Check a plan and planned file list against existing decisions before coding starts. |
 | Post-code intent review | `decree intent-review` | Compare a diff against governed decisions before code review. |
-| LLM-assisted adoption | `decree migrate governs` | Propose `governs:` path ownership links for an existing decision corpus. |
+| Agent-assisted adoption | `decree migrate governs` | Analyze missing `governs:` links and apply explicit external suggestions for an existing decision corpus. |
 | Agent integration | `decree mcp serve`, Claude Code hook/plugin | Expose decree state to LLM agents through task-shaped tools and session-end snapshots. |
 | Retrieval evaluation | `decree retrieval-eval` | Measure query quality with labeled data, baselines, and optional calibrated abstention. |
 | Architecture modeling | `decree lint`, `decree graph` with `[types.<name>.c4]` | Validate and render C4 system/container/component relationships. |
@@ -84,12 +84,15 @@ Use this sequence when adding decree to another application.
 
 5. Add `governs:` coverage.
 
-   Do this manually for critical areas. For large existing corpora, generate a
-   reviewed proposal:
+   Do this manually for critical areas. For large existing corpora, generate
+   deterministic analysis for an agent/skill, then apply the reviewed
+   suggestions file:
 
    ```bash
-   decree migrate governs --suggest --model claude-code/sonnet
-   decree migrate governs --apply --model claude-code/sonnet
+   decree migrate governs --analyze --json > governs-analysis.json
+   # agent/skill writes governs-suggestions.json
+   decree migrate governs --apply-suggestions governs-suggestions.json
+   decree migrate governs --apply-suggestions governs-suggestions.json --apply --yes
    ```
 
 6. Build and verify the query cache.
@@ -128,20 +131,20 @@ Use this sequence when adding decree to another application.
    decree hook install
    ```
 
-## LLM Provider Rules
+## LLM Boundary
 
-Commands that need LLMs use the shared model-resolution chain:
+Core decree does not call LLM providers. It emits explicit JSON contracts and
+validates explicit JSON inputs.
 
-1. `--model MODEL`
-2. `DECREE_LLM_MODEL`
-3. `claude` on `PATH` -> `claude-code/sonnet`
-4. `ANTHROPIC_API_KEY` -> `claude-3-5-sonnet-latest`
-5. `OPENAI_API_KEY` -> `gpt-4o-mini`
-6. No provider -> configuration error
-
-`claude-code/...` routes through the local Claude Code CLI in a single-turn,
-plan-mode subprocess with tools disabled. Other model strings route through
-litellm.
+- `decree migrate governs --analyze --json` emits
+  `decree.governs-analysis.v1` for an external agent/skill.
+- Agents may call Claude Code, OpenAI, local models, or a human review process
+  outside decree.
+- `decree migrate governs --apply-suggestions FILE` accepts only
+  `decree.governs-suggestions.v1`, validates it, previews a diff, and writes
+  only with `--apply`.
+- `decree intent-check` reports deterministic structural conflicts. Semantic
+  LLM judging belongs in an agent layer that post-processes `--json` output.
 
 ## Link Checking
 
@@ -162,8 +165,10 @@ lychee --config .lychee.toml --no-progress '**/*.md'
 - [README](../README.md): package overview and quick start.
 - [Usage](usage.md): command-by-command examples.
 - [Configuration](configuration.md): `decree.toml` schema.
-- [LLM Agent Integration](llm-agent-integration.md): agent contract and model
-  provider rules.
+- [LLM Agent Integration](llm-agent-integration.md): provider-free agent
+  contract and command loop.
+- [decree-governs-suggest skill](../skills/decree-governs-suggest/SKILL.md):
+  agent-side `governs:` suggestion workflow.
 - [Release, Changelog, and Versioning](release.md): package version source of
   truth, Towncrier fragments, and release checklist.
 - [Architecture](architecture.md): internal module responsibilities.

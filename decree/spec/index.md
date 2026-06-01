@@ -15,44 +15,10 @@
 | SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 | decree intent-review — Diff-aware Governance Report | implemented | 2026-05-12 |
 | SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR | decree migrate audit-coherence — Dry-run Gate Impact Report | implemented | 2026-05-12 |
 | SPEC-01KT22NMRZXE5C42F6Z0ZY559A | Evaluation Harness — Labeled Query Set and Retrieval Metrics | implemented | 2026-05-12 |
-| SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S | decree migrate governs — LLM-Assisted Backfill | implemented | 2026-05-12 |
+| SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S | decree migrate governs — Agent-Assisted Backfill | implemented | 2026-05-12 |
+| SPEC-01KT22NMS0BN1F5B01HEFK87W0 | Provider-Free Agent Suggestion Contract | implemented | 2026-05-12 |
 | SPEC-01KT22NMS0KTWGNKB36RR7K0JR | decree intent-check — Pre-PR Planning-Phase Governance | implemented | 2026-05-12 |
 | SPEC-01KT22NMS0VWCTYPFPHP8M8V36 | Calibrated Abstention — Conformal Confidence Gates | implemented | 2026-05-12 |
 | SPEC-01KT22NMS0D19VMD8VPK4D2MNX | Parallel-Safe Document Identity and Scoped Progress | implemented | 2026-06-01 |
-| SPEC-01KT22NMS0BN1F5B01HEFK87W0 | Claude Code CLI LLM Provider — Subprocess-based Routing | draft | 2026-05-12 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->
-
-## Decision Timeline
-
-```mermaid
-timeline
-    title SPEC Decision Timeline
-    section 2026-04-05
-        SPEC-01KT22NMRWENYKC3MGRA50M7GE  : C4 Validation and Diagram Generation
-    section 2026-05-12
-        SPEC-01KT22NMRW79Y92MKZT807B2J1  : DDD CLI, Completion Report, and Stop Hook
-        SPEC-01KT22NMRX176PCT00SKJ9G2AQ  : SQLite Provenance Index — Schema and Sync
-        SPEC-01KT22NMRXFWNE61NSETKATHBA  : governs Field — Frontmatter and Lint Validation
-        SPEC-01KT22NMRXWCS5TK5VC1FT6JER  : decree why and decree refs — Governed-File and Reverse Queries
-        SPEC-01KT22NMRY8YK9RP4323KX4RQG  : Git Trailers and decree commit Wrapper
-        SPEC-01KT22NMRYJ4482K92AX9GJTMA  : MCP Server — decree.why and decree.refs Tools
-        SPEC-01KT22NMRYNFYM7EN80WS2HD6F  : Coherence Gates, Staleness, and Ungoverned Hotspots
-        SPEC-01KT22NMRYRZQ59EC88VJ5R0N6  : decree intent-review — Diff-aware Governance Report
-        SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR  : decree migrate audit-coherence — Dry-run Gate Impact Report
-        SPEC-01KT22NMRZXE5C42F6Z0ZY559A  : Evaluation Harness — Labeled Query Set and Retrieval Metrics
-        SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S  : decree migrate governs — LLM-Assisted Backfill
-        SPEC-01KT22NMS0BN1F5B01HEFK87W0  : Claude Code CLI LLM Provider — Subprocess-based Routing
-        SPEC-01KT22NMS0KTWGNKB36RR7K0JR  : decree intent-check — Pre-PR Planning-Phase Governance
-        SPEC-01KT22NMS0VWCTYPFPHP8M8V36  : Calibrated Abstention — Conformal Confidence Gates
-    section 2026-06-01
-        SPEC-01KT22NMS0D19VMD8VPK4D2MNX  : Parallel-Safe Document Identity and Scoped Progress
-```
-
-## Status Distribution
-
-```mermaid
-pie title SPEC Status Distribution
-    "draft" : 1
-    "implemented" : 15
-```
