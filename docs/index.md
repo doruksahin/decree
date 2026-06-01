@@ -1,0 +1,167 @@
+# Decree Capability Index
+
+This is the entry point for integrating decree into a project or an LLM-agent
+workflow.
+
+Decree stores product intent, architecture decisions, implementation
+blueprints, and code ownership links in the same repository as the code. The
+core question it answers is:
+
+> Which decision explains this code, and is the planned change still aligned
+> with that decision chain?
+
+## Operating Model
+
+Decree is intentionally explicit:
+
+- Authoring truth lives in markdown frontmatter and body sections.
+- `.decree/index.sqlite` is a derived query cache. Rebuild it explicitly with
+  `decree index rebuild`.
+- Generated `index.md` tables are refreshed explicitly with
+  `decree index regenerate`.
+- Completion reports are snapshots. Refresh them explicitly with
+  `decree report regenerate`.
+- Query commands fail closed when the SQLite index is missing or stale. They do
+  not silently rebuild or return best-effort stale answers.
+- LLM calls are opt-in. Commands that need a model document their provider
+  resolution chain and surface per-call failures.
+- Legacy sequential IDs are migration input only. Runtime identity is the
+  canonical frontmatter `TYPE-ULID`.
+
+## Capability Map
+
+| Capability | Primary commands | What it is for |
+|------------|------------------|----------------|
+| Document lifecycle | `decree new`, `decree status`, `decree lint` | Create PRDs, ADRs, SPECs, enforce valid status transitions, and validate references. |
+| Parallel-safe identity | `decree new`, `decree migrate ids` | Generate distributed `TYPE-ULID` IDs and explicitly convert old numeric corpora. |
+| Scoped progress | `decree progress`, `decree ddd` | Track checkbox progress globally or by document, chain, changed files, or governed path. |
+| Governed-file lookup | `decree why`, `decree refs` | Ask which decisions govern a file and what depends on a decision. |
+| Index maintenance | `decree index rebuild`, `decree index verify`, `decree index status` | Keep the SQLite query cache synchronized and auditable. |
+| Generated tables and graphs | `decree index regenerate`, `decree graph` | Refresh document tables and Mermaid diagrams from frontmatter. |
+| Commit provenance | `decree commit` | Add `Implements:`, `Refs:`, and `Fixes:` trailers to git commits and sync them into the index. |
+| Health checks | `decree health`, `decree stale` | Detect stale decisions and high-churn files with no governing document. |
+| Pre-code planning guard | `decree intent-check` | Check a plan and planned file list against existing decisions before coding starts. |
+| Post-code intent review | `decree intent-review` | Compare a diff against governed decisions before code review. |
+| LLM-assisted adoption | `decree migrate governs` | Propose `governs:` path ownership links for an existing decision corpus. |
+| Agent integration | `decree mcp serve`, Claude Code hook/plugin | Expose decree state to LLM agents through task-shaped tools and session-end snapshots. |
+| Retrieval evaluation | `decree retrieval-eval` | Measure query quality with labeled data, baselines, and optional calibrated abstention. |
+| Architecture modeling | `decree lint`, `decree graph` with `[types.<name>.c4]` | Validate and render C4 system/container/component relationships. |
+| Package versioning | `decree --version` | Expose the installed package version from `pyproject.toml` metadata. |
+| Changelog fragments | `uv run towncrier create`, `uv run towncrier build` | Capture release notes at change time and generate `CHANGELOG.md` at release time. |
+
+## Integration Sequence
+
+Use this sequence when adding decree to another application.
+
+1. Install decree in the target project.
+
+   ```bash
+   uv add decree
+   # or
+   pip install decree
+   ```
+
+2. Add `decree.toml`.
+
+   Start with PRD, ADR, and SPEC types unless the project has a different
+   decision vocabulary. See [configuration](configuration.md).
+
+3. Create or import the first documents.
+
+   ```bash
+   decree new prd "Decision Lifecycle"
+   decree new adr "Store Decisions in Repo"
+   decree new spec "Decision Index"
+   ```
+
+4. If importing an old numeric corpus, convert it once.
+
+   ```bash
+   decree migrate ids --dry-run
+   decree migrate ids --apply
+   ```
+
+5. Add `governs:` coverage.
+
+   Do this manually for critical areas. For large existing corpora, generate a
+   reviewed proposal:
+
+   ```bash
+   decree migrate governs --suggest --model claude-code/sonnet
+   decree migrate governs --apply --model claude-code/sonnet
+   ```
+
+6. Build and verify the query cache.
+
+   ```bash
+   decree index rebuild
+   decree index verify
+   ```
+
+7. Use the governance loop during development.
+
+   ```bash
+   decree why src/foo.py
+   decree refs SPEC-01KT22NMS0D19VMD8VPK4D2MNX
+   decree progress --governs src/foo.py
+   decree intent-check --plan "Change foo behavior" --files src/foo.py
+   decree intent-review --diff-base origin/main
+   ```
+
+8. Add a changelog fragment for the change.
+
+   ```bash
+   uv run towncrier create +.feature --content "Add governed lookup for auth files."
+   ```
+
+9. Wire validation into developer workflow.
+
+   Run `decree lint`, `decree index verify`, tests, and link checks before
+   merge. If using pre-commit, keep the lychee and towncrier hooks active so
+   markdown links and changelog fragments stay valid.
+
+10. Expose decree to LLM agents only after the corpus is indexed.
+
+   ```bash
+   decree mcp serve --project .
+   decree hook install
+   ```
+
+## LLM Provider Rules
+
+Commands that need LLMs use the shared model-resolution chain:
+
+1. `--model MODEL`
+2. `DECREE_LLM_MODEL`
+3. `claude` on `PATH` -> `claude-code/sonnet`
+4. `ANTHROPIC_API_KEY` -> `claude-3-5-sonnet-latest`
+5. `OPENAI_API_KEY` -> `gpt-4o-mini`
+6. No provider -> configuration error
+
+`claude-code/...` routes through the local Claude Code CLI in a single-turn,
+plan-mode subprocess with tools disabled. Other model strings route through
+litellm.
+
+## Link Checking
+
+This repository uses [lychee](https://github.com/lycheeverse/lychee) through
+pre-commit. The config is online by default (`offline = false`) so external
+references are checked instead of skipped.
+
+Run it manually with:
+
+```bash
+lychee --config .lychee.toml --no-progress '**/*.md'
+```
+
+## Reference Docs
+
+- [README](../README.md): package overview and quick start.
+- [Usage](usage.md): command-by-command examples.
+- [Configuration](configuration.md): `decree.toml` schema.
+- [LLM Agent Integration](llm-agent-integration.md): agent contract and model
+  provider rules.
+- [Release, Changelog, and Versioning](release.md): package version source of
+  truth, Towncrier fragments, and release checklist.
+- [Architecture](architecture.md): internal module responsibilities.
+- [Roadmap](roadmap.md): planned future work.

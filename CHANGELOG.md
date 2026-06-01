@@ -2,18 +2,9 @@
 
 All notable changes to Decree are documented here.
 
-## Unreleased
+<!-- towncrier release notes start -->
 
-- Remove vestigial hardcoded constants from `config.py` (now sourced from `ADR_DEFAULT` and `decree.toml`)
-- Fix `adr index` typo in generated index files
-- Fix silent `"adr"` fallback in `new` command
-- Add pyproject.toml metadata (authors, classifiers, URLs)
-- Add `decree report regenerate` for explicit completion-report refreshes
-- Run Lychee online by default and exclude local virtualenv markdown files
-- Refresh dogfood completion reports and generated index wording
-- Add parallel-safe `TYPE-ULID` frontmatter IDs, `decree migrate ids`, scoped progress/DDD views, and explicit generated-artifact responsibility.
-
-## v1.0.0 — Multi-doctype Decree
+## v0.1.0 — Multi-doctype Decree
 
 Renamed from `madr-tools` to `decree`. Full rewrite as a general-purpose
 document lifecycle toolkit.

@@ -3,6 +3,9 @@
 This document is the progressive-disclosure entry point for using decree from
 LLM agents and automation.
 
+For the full command capability map and new-project adoption sequence, start
+with the [Capability Index](index.md).
+
 ## Contract
 
 - `decree.toml` is the project contract. Document types, status lifecycles,
@@ -16,6 +19,8 @@ LLM agents and automation.
   stable schema. Prefer JSON for automation.
 - Empty arrays are valid abstentions. Agents must not invent governance when
   `matches`, `governing_decisions`, or `conflicts` are empty.
+- User-visible changes require a Towncrier fragment in `changelog.d/`. Agents
+  should write the fragment in the same change while context is fresh.
 
 ## Recommended Agent Loop
 
@@ -27,6 +32,7 @@ LLM agents and automation.
 5. After code exists, run `decree intent-review --json` to compare the diff
    against the same governance corpus.
 6. Run `decree lint` again after changing decree documents.
+7. Add or verify a `changelog.d/` Towncrier fragment for user-visible changes.
 
 ## LLM Provider Resolution
 
@@ -43,11 +49,24 @@ Commands that need an LLM use one shared model-resolution chain:
 `claude-code/...` models route through the local Claude Code CLI. All other
 model strings route through litellm.
 
+Claude Code routing is deliberately constrained for batch use:
+
+- single prompt, single turn
+- `--output-format json`
+- `--permission-mode plan`
+- `--strict-mcp-config`
+- no tools by default (`--allowedTools none`)
+- API-key environment variables are not forwarded to the subprocess
+
+This uses the user's local Claude Code subscription instead of Anthropic or
+OpenAI API keys.
+
 ## No Hidden Fallbacks
 
 - Missing indexes are errors with a hint to run `decree index rebuild`.
-- Stale indexes are surfaced as warnings; query commands may still return data
-  so the caller can decide whether to rebuild.
+- Stale indexes are errors for query commands and MCP query tools. Rebuild the
+  index before asking `why`, `refs`, `intent-check`, or `intent-review` to make
+  governance claims.
 - Per-document LLM failures in `decree migrate governs` are recorded on that
   document's result and do not abort the whole batch.
 - Conflict-judge LLM failures never hide structural conflicts; they leave the
@@ -84,4 +103,6 @@ decree intent-review --json
 decree migrate ids --dry-run
 decree migrate audit-coherence --json
 decree migrate governs --suggest --json
+uv run towncrier create +.feature --content "Add governed lookup for auth files."
+uv run towncrier check --staged
 ```

@@ -1,6 +1,14 @@
 # Usage Scenarios
 
+For the structured capability map and recommended adoption sequence, see the
+[Capability Index](index.md).
+
 ## CLI Commands
+
+### `decree --version`
+
+Print the installed package version. The value comes from package metadata,
+whose source of truth is `[project].version` in `pyproject.toml`.
 
 ### `decree new adr "title"`
 
@@ -111,6 +119,27 @@ Dry-run prints the old-to-new mapping without writing. Apply writes `id:`,
 rewrites structured references, renames document files and report snapshots,
 regenerates indexes, and stores a mapping JSON in `decree/migrations/`.
 
+### `decree migrate governs`
+
+Backfill `governs:` frontmatter for an existing corpus. Use this when adopting
+decree in a project that already has decisions but does not yet say which files
+or directories each decision owns.
+
+```bash
+decree migrate governs --suggest --model claude-code/sonnet
+decree migrate governs --apply --model claude-code/sonnet
+```
+
+The command asks an LLM to propose repo-relative path arrays, emits a unified
+diff proposal, and writes only when `--apply` is passed and confirmed. Documents
+that already have `governs:` are skipped. Per-document provider, parse, and
+path-validation errors are reported explicitly instead of being hidden.
+
+`claude-code/...` models use the local Claude Code CLI subscription in a
+single-turn plan-mode subprocess with tools disabled. Other model strings route
+through litellm. See [LLM Agent Integration](llm-agent-integration.md) for the
+resolution chain.
+
 ### `decree graph`
 
 Generate a dependency/reference graph across documents.
@@ -147,6 +176,17 @@ file, stdin (`--diff -`), or `--diff-base REF`.
 ### `decree intent-check`
 
 Review a proposed plan and planned file list before implementation starts.
+Run this before coding when an agent knows which files it will touch:
+
+```bash
+decree intent-check \
+  --plan "Change token refresh storage" \
+  --files src/auth/tokens.py tests/test_tokens.py
+```
+
+Use `--judge-conflicts` only when structural conflicts need an LLM semantic
+check. LLM failures are surfaced as `judge_error`; they do not hide the
+structural conflict.
 
 ### `decree mcp serve`
 
@@ -177,9 +217,37 @@ fi
 ### LLM (Claude Code, Cursor, Copilot)
 
 LLMs should read [LLM Agent Integration](llm-agent-integration.md) for the
-command loop, explicit model-resolution chain, and fallback policy. They create
+command loop, explicit model-resolution chain, and failure policy. They create
 and transition documents via CLI where possible; if they edit frontmatter
 directly, they must run `decree lint` and `decree index rebuild` afterwards.
+
+### Link checks
+
+This repository checks markdown links with
+[lychee](https://github.com/lycheeverse/lychee). The config keeps
+`offline = false`, so external links are actually checked.
+
+```bash
+lychee --config .lychee.toml --no-progress '**/*.md'
+```
+
+### Changelog fragments
+
+This repository tracks release notes with
+[Towncrier](https://github.com/twisted/towncrier). Do not edit
+`CHANGELOG.md` directly for normal development. Add one fragment per
+user-visible change:
+
+```bash
+uv run towncrier create +.feature --content "Add governed lookup for auth files."
+uv run towncrier check --staged
+```
+
+Preview release notes before publishing:
+
+```bash
+uv run towncrier build --draft --version X.Y.Z
+```
 
 ### CI
 

@@ -6,12 +6,17 @@ Software decision lifecycle toolkit. Track the chain from **PRD** (what/why) thr
 PRD (what/why) → ADR (how) → SPEC (blueprint) → Implementation
 ```
 
+Start with the [Capability Index](docs/index.md) when integrating decree into
+another application or an LLM-agent workflow. It explains what decree can do,
+which commands own each responsibility, and the expected adoption sequence.
+
 ## Install
 
 ```bash
 pip install decree
 # or
 uv tool install decree
+decree --version
 ```
 
 ## Quick Start
@@ -63,7 +68,7 @@ decree migrate ids --apply
 ## LLM Agents
 
 decree is designed to be called by LLM agents before and after code changes.
-For the agent contract, model-resolution chain, explicit fallback policy, and
+For the agent contract, model-resolution chain, explicit failure policy, and
 recommended command loop, see [LLM Agent Integration](docs/llm-agent-integration.md).
 
 ## Features
@@ -349,13 +354,24 @@ This is what Decree Driven Development looks like — every feature has a tracea
 
 See [docs/roadmap.md](docs/roadmap.md) for planned features and ideas — including lightweight decision logs, release notes skill, and custom templates.
 
+## Release and Versioning
+
+Package versioning is single-sourced from `[project].version` in
+`pyproject.toml`. Runtime surfaces such as `decree --version` and
+`decree.__version__` read installed package metadata instead of duplicating the
+version string in source files.
+
+Changelog entries are Towncrier fragments in `changelog.d/`. Agents should add
+one fragment with each user-visible change; release builds generate
+`CHANGELOG.md` from those fragments. See [docs/release.md](docs/release.md).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, developer guidelines, and code style.
 
 ## Design Principles
 
-- **No LLM calls** — decree is deterministic and offline. AI tooling sits on top, consuming decree's output.
+- **Explicit LLM boundaries** — core lifecycle, lint, index, query, and progress commands are deterministic. LLM-backed commands such as `migrate governs` and `intent-check --judge-conflicts` are opt-in and document their provider chain.
 - **Config-driven** — no hardcoded document types. Everything is defined in `decree.toml`.
 - **`warn_on_reference` != terminal** — "implemented" is terminal (no further transitions) but healthy to reference. "rejected" is terminal AND dead.
 - **Staleness is direct-only** — if a SPEC directly references a superseded ADR, only that SPEC is flagged. Transitive chains are not followed.

@@ -4,6 +4,7 @@ import argparse
 import sys
 
 from decree.commands import graph, index, lint, new, progress, status
+from decree.version import get_version
 
 EPILOG = """\
 document chain:
@@ -13,16 +14,22 @@ examples:
   decree new prd "User Authentication"
   decree new adr "Auth via JWT"
   decree new spec "Token Storage API"
+  decree migrate governs --suggest --model claude-code/sonnet
+  decree why src/auth/tokens.py
+  decree intent-check --plan "Change token refresh" --files src/auth/tokens.py
   decree status ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ accept
   decree progress --changed --base origin/main
   decree lint
-  decree progress
 
 config:
   Document types are defined in decree.toml under [types.*].
   Each type has: prefix, statuses, transitions, warn_on_reference.
   New documents use explicit frontmatter IDs in TYPE-ULID format.
   C4 architecture support: add [types.spec.c4] with enabled, id_field, levels.
+
+capability index:
+  docs/index.md maps each capability to its command, responsibility, and
+  recommended adoption sequence for new projects and LLM agents.
 
 claude code skills (if decree plugin is installed):
   /decree:init   Scaffold decree/ folder with working PRD/ADR/SPEC examples
@@ -40,9 +47,15 @@ def main() -> int:
         prog="decree",
         description="Decree — software decision lifecycle toolkit. "
         "Manage PRDs, ADRs, and SPECs with cross-type references, "
-        "status enforcement, and validation.",
+        "`governs:` file ownership, status enforcement, and validation.",
         epilog=EPILOG,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {get_version()}",
+        help="Show the installed decree package version and exit.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -483,8 +496,9 @@ def main() -> int:
         description="Given a plan summary and the files the plan will touch, "
         "report which decisions govern those files, which are stale, which "
         "acceptance criteria are unchecked, and structural conflicts — "
-        "*before* any code is written. Exit 0 if clean, 1 if conflicts or "
-        "stale governance findings, 2 on config error.",
+        "*before* any code is written. This is the agent planning guard: use it "
+        "before implementation, not after a diff exists. Exit 0 if clean, 1 if "
+        "conflicts or stale governance findings, 2 on config error.",
     )
     p_ic.add_argument(
         "--plan",
@@ -529,7 +543,8 @@ def main() -> int:
         "DECREE_LLM_MODEL, `claude` on PATH -> claude-code/sonnet, "
         "ANTHROPIC_API_KEY -> claude-3-5-sonnet-latest, OPENAI_API_KEY -> "
         "gpt-4o-mini. `claude-code/...` routes through the local Claude Code CLI; "
-        "all other strings route through litellm.",
+        "it runs single-turn plan mode with tools disabled and does not require "
+        "provider API keys. All other strings route through litellm.",
     )
     p_ic.add_argument(
         "--json",
@@ -590,13 +605,13 @@ def main() -> int:
     p_mig_gov = migrate_subs.add_parser(
         "governs",
         help="LLM-assisted backfill of `governs:` frontmatter (SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S)",
-        description="For each document without a `governs:` field, ask an LLM "
-        "to propose a repo-relative path array. `claude-code/...` models route "
-        "through the local Claude Code CLI; other model strings route through "
-        "litellm. Emits a unified-diff proposal; --apply writes it after a y/N "
-        "confirmation (suppressed by --yes). Skips docs that already have "
-        "`governs:`. Per-doc provider/parse/path errors are reported in the "
-        "result and the batch keeps going.",
+        description="Adoption helper for an existing decree corpus: for each "
+        "document without `governs:`, ask an LLM to propose repo-relative paths "
+        "so `decree why <path>`, `decree refs <id>`, intent-check, and MCP tools "
+        "can answer which decision owns code. Emits a unified-diff proposal; "
+        "--apply writes it after a y/N confirmation (suppressed by --yes). "
+        "Skips docs that already have `governs:`. Per-doc provider, parse, and "
+        "path-validation errors are reported in the result and the batch keeps going.",
     )
     p_mig_gov.add_argument(
         "--suggest",
@@ -616,8 +631,9 @@ def main() -> int:
         help="Model for suggestions. Resolution chain: this flag, "
         "DECREE_LLM_MODEL, `claude` on PATH -> claude-code/sonnet, "
         "ANTHROPIC_API_KEY -> claude-3-5-sonnet-latest, OPENAI_API_KEY -> "
-        "gpt-4o-mini. `claude-code/...` routes through local Claude Code; all "
-        "other strings route through litellm.",
+        "gpt-4o-mini. `claude-code/...` routes through local Claude Code in "
+        "single-turn plan mode with tools disabled and no provider API keys; "
+        "all other strings route through litellm.",
     )
     p_mig_gov.add_argument(
         "--dry-run",

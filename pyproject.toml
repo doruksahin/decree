@@ -52,6 +52,7 @@ dev = [
     "pytest>=9.0.2",
     "ruff>=0.11",
     "pre-commit>=4.2",
+    "towncrier>=25.8.0",
 ]
 
 [tool.ruff]
@@ -60,3 +61,54 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.towncrier]
+package = "decree"
+package_dir = "src"
+filename = "CHANGELOG.md"
+directory = "changelog.d"
+title_format = "## v{version} - {project_date}"
+issue_format = "[#{issue}](https://github.com/doruksahin/decree/issues/{issue})"
+orphan_prefix = "+"
+wrap = true
+ignore = ["README.md"]
+
+[[tool.towncrier.type]]
+directory = "security"
+name = "Security"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "deprecation"
+name = "Deprecations and Removals"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "dependency"
+name = "Dependency Changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Internal Changes"
+showcontent = true
