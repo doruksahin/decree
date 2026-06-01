@@ -13,6 +13,7 @@ repos:
         entry: lychee --config .lychee.toml --no-progress
         language: system
         types: [markdown]
+        exclude: ^\.venv/
       - id: tests
         name: tests
         entry: uv run pytest -q

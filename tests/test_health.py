@@ -1,6 +1,6 @@
-"""SPEC-008 — staleness + ungoverned-hotspot tests.
+"""SPEC-00000000000000000000000008 — staleness + ungoverned-hotspot tests.
 
-Uses a tmp git-repo fixture in the same style as SPEC-006's
+Uses a tmp git-repo fixture in the same style as SPEC-00000000000000000000000006's
 `TestSyncCommitsFromGit`.
 """
 
@@ -11,15 +11,12 @@ import subprocess
 import time
 from pathlib import Path
 
-import pytest
-
 from decree.commands.health import (
     health,
     stale_decisions,
     ungoverned_hotspots,
 )
 from decree.index_db import IndexDB, default_db_path
-
 
 # ── Git fixture helpers (mirrors tests/test_index_db.py) ────
 
@@ -77,19 +74,20 @@ def _bootstrap_repo(repo: Path, spec_governs: list[str]) -> None:
 
     governs_yaml = "\n".join(f"  - {p}" for p in spec_governs)
     spec_body = f"""---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-10
 governs:
 {governs_yaml}
 ---
 
-# SPEC-001 test
+# SPEC-00000000000000000000000001 test
 
 ## Overview
 
 Prose.
 """
-    (repo / "decree" / "spec" / "001-test.md").write_text(spec_body)
+    (repo / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(spec_body)
     # Create governed files (or dirs for trailing-slash entries) so they have
     # a sane initial state and the SPEC's `governs:` paths exist.
     for p in spec_governs:
@@ -125,9 +123,7 @@ def _rebuild_index(repo: Path, monkeypatch) -> IndexDB:
 
 
 class TestStaleDecisions:
-    def test_single_decision_with_churn_is_flagged(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_single_decision_with_churn_is_flagged(self, tmp_path: Path, monkeypatch) -> None:
         _bootstrap_repo(tmp_path, ["src/foo.py"])
         db = _rebuild_index(tmp_path, monkeypatch)
         # Ensure post-SPEC commits land at strictly later timestamps. git uses
@@ -140,14 +136,12 @@ class TestStaleDecisions:
         findings = stale_decisions(db, tmp_path, threshold_commits=10)
         assert len(findings) == 1
         sd = findings[0]
-        assert sd.decision_id == "SPEC-001"
+        assert sd.decision_id == "SPEC-00000000000000000000000001"
         assert sd.churn_count == 15
         assert sd.governed_paths[0][0] == "src/foo.py"
         assert sd.governed_paths[0][1] == 15
 
-    def test_decision_under_threshold_not_flagged(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_decision_under_threshold_not_flagged(self, tmp_path: Path, monkeypatch) -> None:
         _bootstrap_repo(tmp_path, ["src/foo.py"])
         db = _rebuild_index(tmp_path, monkeypatch)
         time.sleep(1.1)
@@ -156,9 +150,7 @@ class TestStaleDecisions:
         findings = stale_decisions(db, tmp_path, threshold_commits=10)
         assert findings == []
 
-    def test_commits_before_decision_dont_count(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_commits_before_decision_dont_count(self, tmp_path: Path, monkeypatch) -> None:
         # Build a repo where src/foo.py was churned 20 times BEFORE the SPEC was added
         _git_init(tmp_path)
         (tmp_path / "decree.toml").write_text(_decree_toml())
@@ -168,41 +160,42 @@ class TestStaleDecisions:
             _commit(tmp_path, "src/foo.py", f"pre{i}\n", f"pre {i}")
         # NOW write the SPEC, which becomes the "last touched" reference.
         time.sleep(1.1)
-        (tmp_path / "decree" / "spec" / "001-test.md").write_text(
+        (tmp_path / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
             """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-10
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 test
+# SPEC-00000000000000000000000001 test
 
 ## Overview
 
 Prose.
 """
         )
-        _commit(tmp_path, "decree/spec/001-test.md", _ := "spec body", "add SPEC")
+        spec_file = "decree/spec/spec-00000000000000000000000001-test.md"
+        _commit(tmp_path, spec_file, _ := "spec body", "add SPEC")
         # The previous _commit clobbers the file; restore it to keep parser happy
-        (tmp_path / "decree" / "spec" / "001-test.md").write_text(
+        (tmp_path / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
             """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-10
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 test
+# SPEC-00000000000000000000000001 test
 
 ## Overview
 
 Prose.
 """
         )
-        subprocess.run(
-            ["git", "-C", str(tmp_path), "add", "decree/spec/001-test.md"], check=True
-        )
+        subprocess.run(["git", "-C", str(tmp_path), "add", spec_file], check=True)
         subprocess.run(
             ["git", "-C", str(tmp_path), "commit", "--amend", "--no-edit"],
             check=True,
@@ -236,30 +229,22 @@ Prose.
 
 
 class TestUngovernedHotspots:
-    def test_high_churn_no_governance_is_flagged(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_high_churn_no_governance_is_flagged(self, tmp_path: Path, monkeypatch) -> None:
         _bootstrap_repo(tmp_path, ["src/governed.py"])
         db = _rebuild_index(tmp_path, monkeypatch)
         # Churn an UNGOVERNED file 15 times
         for i in range(15):
             _commit(tmp_path, "src/legacy.py", f"v{i}\n", f"edit {i}")
-        findings = ungoverned_hotspots(
-            db, tmp_path, threshold_commits=10, threshold_days=30
-        )
+        findings = ungoverned_hotspots(db, tmp_path, threshold_commits=10, threshold_days=30)
         paths = [h.path for h in findings]
         assert "src/legacy.py" in paths
 
-    def test_high_churn_with_governance_not_flagged(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_high_churn_with_governance_not_flagged(self, tmp_path: Path, monkeypatch) -> None:
         _bootstrap_repo(tmp_path, ["src/governed.py"])
         db = _rebuild_index(tmp_path, monkeypatch)
         for i in range(15):
             _commit(tmp_path, "src/governed.py", f"v{i}\n", f"edit {i}")
-        findings = ungoverned_hotspots(
-            db, tmp_path, threshold_commits=10, threshold_days=30
-        )
+        findings = ungoverned_hotspots(db, tmp_path, threshold_commits=10, threshold_days=30)
         paths = [h.path for h in findings]
         assert "src/governed.py" not in paths
 
@@ -269,22 +254,16 @@ class TestUngovernedHotspots:
         db = _rebuild_index(tmp_path, monkeypatch)
         for i in range(15):
             _commit(tmp_path, "src/api/auth.py", f"v{i}\n", f"edit {i}")
-        findings = ungoverned_hotspots(
-            db, tmp_path, threshold_commits=10, threshold_days=30
-        )
+        findings = ungoverned_hotspots(db, tmp_path, threshold_commits=10, threshold_days=30)
         paths = [h.path for h in findings]
         assert "src/api/auth.py" not in paths
 
-    def test_below_threshold_not_flagged(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_below_threshold_not_flagged(self, tmp_path: Path, monkeypatch) -> None:
         _bootstrap_repo(tmp_path, ["src/governed.py"])
         db = _rebuild_index(tmp_path, monkeypatch)
         for i in range(3):
             _commit(tmp_path, "src/quiet.py", f"v{i}\n", f"edit {i}")
-        findings = ungoverned_hotspots(
-            db, tmp_path, threshold_commits=10, threshold_days=30
-        )
+        findings = ungoverned_hotspots(db, tmp_path, threshold_commits=10, threshold_days=30)
         paths = [h.path for h in findings]
         assert "src/quiet.py" not in paths
 
@@ -343,9 +322,7 @@ class TestHealthCLI:
         assert rc == 1
         assert "src/legacy.py" in out
 
-    def test_json_output_is_schema_stable(
-        self, tmp_path: Path, monkeypatch, capsys
-    ) -> None:
+    def test_json_output_is_schema_stable(self, tmp_path: Path, monkeypatch, capsys) -> None:
         _bootstrap_repo(tmp_path, ["src/governed.py"])
         _rebuild_index(tmp_path, monkeypatch)
         for i in range(15):
@@ -371,9 +348,7 @@ class TestHealthCLI:
             "threshold_days",
         }
 
-    def test_no_git_repo_no_ops(
-        self, tmp_path: Path, monkeypatch, capsys
-    ) -> None:
+    def test_no_git_repo_no_ops(self, tmp_path: Path, monkeypatch, capsys) -> None:
         # decree.toml but no git
         (tmp_path / "decree.toml").write_text(_decree_toml())
         monkeypatch.chdir(tmp_path)

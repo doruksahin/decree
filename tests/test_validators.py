@@ -14,9 +14,10 @@ from decree.validators import (
 
 
 def _make_doc(adr_id_num="0001", status="proposed", body="# T\n", **fm_kwargs):
-    meta = DocFrontmatter(status=status, date=date(2026, 4, 2), **fm_kwargs)
+    doc_id = f"ADR-{int(adr_id_num):026d}"
+    meta = DocFrontmatter(id=doc_id, status=status, date=date(2026, 4, 2), **fm_kwargs)
     return DocDocument(
-        path=Path(f"/fake/{adr_id_num}-test.md"),
+        path=Path(f"/fake/{doc_id.lower()}-test.md"),
         meta=meta,
         body=body,
         doc_type=ADR_DEFAULT,
@@ -47,29 +48,34 @@ class TestValidateSections:
 
 class TestCrossFileIntegrity:
     def test_symmetric_supersede_ok(self):
-        old = _make_doc("0001", "superseded", **{"superseded-by": "ADR-0002"})
-        new = _make_doc("0002", "proposed", supersedes="ADR-0001")
+        old = _make_doc("0001", "superseded", **{"superseded-by": "ADR-00000000000000000000000002"})
+        new = _make_doc("0002", "proposed", supersedes="ADR-00000000000000000000000001")
         assert validate_cross_file_integrity([old, new]) == []
 
     def test_asymmetric_supersede_error(self):
-        old = _make_doc("0001", "superseded", **{"superseded-by": "ADR-0002"})
+        old = _make_doc("0001", "superseded", **{"superseded-by": "ADR-00000000000000000000000002"})
         new = _make_doc("0002", "proposed")  # missing supersedes
         errors = validate_cross_file_integrity([old, new])
         assert len(errors) == 1
         assert "CROSS-FILE" in errors[0]
 
     def test_missing_target_error(self):
-        old = _make_doc("0001", "superseded", **{"superseded-by": "ADR-0099"})
+        old = _make_doc("0001", "superseded", **{"superseded-by": "ADR-00000000000000000000000099"})
         errors = validate_cross_file_integrity([old])
         assert any("does not exist" in e for e in errors)
 
 
 class TestValidateGovernsPaths:
-    """SPEC-004: lint reports a clear error per missing governs path."""
+    """SPEC-00000000000000000000000004: lint reports a clear error per missing governs path."""
 
     def _governs_doc(self, tmp_path, governs):
-        meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2), governs=governs)
-        doc_path = tmp_path / "docs" / "adr" / "0001-test.md"
+        meta = DocFrontmatter(
+            id="ADR-00000000000000000000000001",
+            status="proposed",
+            date=date(2026, 4, 2),
+            governs=governs,
+        )
+        doc_path = tmp_path / "docs" / "adr" / "adr-00000000000000000000000001-test.md"
         doc_path.parent.mkdir(parents=True, exist_ok=True)
         return DocDocument(path=doc_path, meta=meta, body="# T\n", doc_type=ADR_DEFAULT)
 
@@ -84,7 +90,7 @@ class TestValidateGovernsPaths:
         errors = validate_governs_paths([doc], tmp_path)
         assert len(errors) == 1
         assert "governs path does not exist: src/missing.py" in errors[0]
-        assert "0001-test.md" in errors[0]
+        assert "adr-00000000000000000000000001-test.md" in errors[0]
 
     def test_symbol_form_validates_path_only(self, tmp_path):
         """`path#symbol`: path must exist; symbol after `#` is preserved but not checked."""
@@ -103,8 +109,8 @@ class TestValidateGovernsPaths:
         assert "#whatever" not in errors[0]
 
     def test_absent_governs_no_errors(self, tmp_path):
-        meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
-        doc_path = tmp_path / "docs" / "adr" / "0001-test.md"
+        meta = DocFrontmatter(id="ADR-00000000000000000000000001", status="proposed", date=date(2026, 4, 2))
+        doc_path = tmp_path / "docs" / "adr" / "adr-00000000000000000000000001-test.md"
         doc_path.parent.mkdir(parents=True)
         doc = DocDocument(path=doc_path, meta=meta, body="# T\n", doc_type=ADR_DEFAULT)
         assert validate_governs_paths([doc], tmp_path) == []

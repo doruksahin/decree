@@ -1,8 +1,8 @@
 """`decree intent-review` — diff-aware governance report.
 
-Implements PRD-003 R8 (SPEC-009). Takes a unified diff (or staged/working-tree
-diff) and produces a structured report on how the changes intersect with the
-governance corpus:
+Implements the diff-aware governance report. Takes a unified diff (or
+staged/working-tree diff) and produces a structured report on how the changes
+intersect with the governance corpus:
 
   - which decisions govern the changed paths (`governing_decisions`)
   - which of those decisions are stale (`stale_governance`)
@@ -11,7 +11,7 @@ governance corpus:
   - what to do about it (`recommended_actions`)
 
 This is the *post-code* intent-review surface. The *pre-code* variant
-(`intent_check(plan, planned_files)`) is PRD-004 R2, not implemented here.
+(`intent_check(plan, planned_files)`) is PRD-01KT22NMRSXYT95XE808VD8EV4 R2, not implemented here.
 
 No new query logic — the library function `intent_review()` composes
 existing helpers from `commands.queries` and `commands.health`.
@@ -32,7 +32,6 @@ from decree.commands.queries import GoverningDecision, why
 from decree.config import load_doc_types
 from decree.index_db import IndexDB, default_db_path
 from decree.log import error, info
-
 
 # ── Public dataclasses ───────────────────────────────────────
 
@@ -64,9 +63,9 @@ class UncheckedAC:
 class Conflict:
     """Two or more decisions structurally claim the same governed path.
 
-    SPEC-014 added the optional ``semantic_verdict`` field, populated only when
+    SPEC-01KT22NMS0KTWGNKB36RR7K0JR added the optional ``semantic_verdict`` field, populated only when
     ``intent_check`` is invoked with ``--judge-conflicts`` and an LLM has been
-    consulted. ``intent_review`` (SPEC-009) leaves it as ``None``.
+    consulted. ``intent_review`` (SPEC-01KT22NMRYRZQ59EC88VJ5R0N6) leaves it as ``None``.
     """
 
     path: str
@@ -113,7 +112,7 @@ def parse_diff(diff: str) -> list[str]:
       - Skips deleted files (`+++ /dev/null`).
       - Dedupes while preserving first-seen order.
 
-    No `unidiff` library dependency by design (SPEC-009 constraint).
+    No `unidiff` library dependency by design (SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 constraint).
     """
     if not diff:
         return []
@@ -163,7 +162,7 @@ def parse_diff(diff: str) -> list[str]:
         seen.setdefault(pending_diff_b, None)
 
     # Remove anything that we know was deleted.
-    return [p for p in seen.keys() if p not in deleted]
+    return [p for p in seen if p not in deleted]
 
 
 # ── Library: intent_review() ────────────────────────────────
@@ -208,7 +207,7 @@ def intent_review(
 ) -> IntentReport:
     """Compose an IntentReport for the given changed paths.
 
-    Stitches together prior-SPEC primitives — no new query logic. See SPEC-009
+    Stitches together prior-SPEC primitives — no new query logic. See SPEC-01KT22NMRYRZQ59EC88VJ5R0N6
     for the per-component contract.
     """
     # Stable ordering, deduped.
@@ -255,9 +254,7 @@ def intent_review(
     # 3. stale_governance — full stale list intersected with governing-decision ids.
     governing_ids = set(govs_by_id.keys())
     all_stale = stale_decisions(db, project_root, threshold_commits)
-    stale_governance = tuple(
-        _stale_decision_to_dict(sd) for sd in all_stale if sd.decision_id in governing_ids
-    )
+    stale_governance = tuple(_stale_decision_to_dict(sd) for sd in all_stale if sd.decision_id in governing_ids)
 
     # 4. conflicts — multiple decisions claim the same changed path.
     conflicts: list[Conflict] = []
@@ -330,10 +327,7 @@ def _build_recommendations(
             Recommendation(
                 action="check_ac",
                 target_id=ac.decision_id,
-                detail=(
-                    f"{ac.decision_id} has an unchecked AC under "
-                    f"'{ac.section_title}': {ac.text}"
-                ),
+                detail=(f"{ac.decision_id} has an unchecked AC under '{ac.section_title}': {ac.text}"),
             )
         )
 
@@ -394,9 +388,7 @@ def report_to_dict(report: IntentReport) -> dict:
         "governing_decisions": [asdict(g) for g in report.governing_decisions],
         "stale_governance": [dict(s) for s in report.stale_governance],
         "unchecked_acceptance_criteria": [asdict(a) for a in report.unchecked_acceptance_criteria],
-        "conflicts": [
-            {"path": c.path, "decision_ids": list(c.decision_ids)} for c in report.conflicts
-        ],
+        "conflicts": [{"path": c.path, "decision_ids": list(c.decision_ids)} for c in report.conflicts],
         "recommended_actions": [asdict(r) for r in report.recommended_actions],
     }
 
@@ -433,9 +425,7 @@ def _read_diff_source(args: argparse.Namespace, project_root: Path) -> tuple[lis
             check=False,
         )
         if result.returncode != 0:
-            raise RuntimeError(
-                f"git diff failed (exit {result.returncode}): {result.stderr.strip()}"
-            )
+            raise RuntimeError(f"git diff failed (exit {result.returncode}): {result.stderr.strip()}")
         return parse_diff(result.stdout), f"git diff {diff_base}...HEAD"
 
     # Default: staged first, then working-tree.
@@ -470,7 +460,8 @@ def _resolve_root(project_arg: str | None) -> Path:
             raise FileNotFoundError(f"{path} has no decree.toml")
         return path
 
-    from decree.config import get_project_root, load_doc_types as _ldt
+    from decree.config import get_project_root
+    from decree.config import load_doc_types as _ldt
 
     get_project_root.cache_clear()
     _ldt.cache_clear()
@@ -487,7 +478,8 @@ def _open_db_or_error(project_arg: str | None) -> tuple[IndexDB | None, Path | N
     import os
 
     os.chdir(root)
-    from decree.config import get_project_root, load_doc_types as _ldt
+    from decree.config import get_project_root
+    from decree.config import load_doc_types as _ldt
 
     get_project_root.cache_clear()
     _ldt.cache_clear()
@@ -519,9 +511,7 @@ def _format_human(report: IntentReport, mode: str) -> str:
     lines.append(f"Governing decisions ({len(report.governing_decisions)}):")
     if report.governing_decisions:
         for g in report.governing_decisions:
-            lines.append(
-                f"  ▸ {g.decision_id}  {g.status}  {g.match_kind}  governs {g.matched_path}"
-            )
+            lines.append(f"  ▸ {g.decision_id}  {g.status}  {g.match_kind}  governs {g.matched_path}")
             lines.append(f"    {g.title}")
     else:
         lines.append("  (none — ungoverned change)")
@@ -530,16 +520,12 @@ def _format_human(report: IntentReport, mode: str) -> str:
     lines.append(f"Stale governance ({len(report.stale_governance)}):")
     if report.stale_governance:
         for s in report.stale_governance:
-            lines.append(
-                f"  ⚠ {s['decision_id']}  churn={s['churn_count']}"
-            )
+            lines.append(f"  ⚠ {s['decision_id']}  churn={s['churn_count']}")
     else:
         lines.append("  (none)")
 
     lines.append("")
-    lines.append(
-        f"Unchecked acceptance criteria ({len(report.unchecked_acceptance_criteria)}):"
-    )
+    lines.append(f"Unchecked acceptance criteria ({len(report.unchecked_acceptance_criteria)}):")
     if report.unchecked_acceptance_criteria:
         for ac in report.unchecked_acceptance_criteria:
             snippet = ac.text if len(ac.text) <= 80 else ac.text[:77] + "..."

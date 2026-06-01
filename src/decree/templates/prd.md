@@ -1,9 +1,10 @@
 ---
+id: __ID__
 status: __INITIAL_STATUS__
 date: __DATE__
 ---
 
-# __PREFIX__-__NUMBER__ __TITLE__
+# __ID__ __TITLE__
 
 ## Problem Statement
 

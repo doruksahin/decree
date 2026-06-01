@@ -1,4 +1,4 @@
-"""SPEC-011 tests — `decree migrate governs` LLM-assisted backfill.
+"""SPEC-00000000000000000000000011 tests — `decree migrate governs` LLM-assisted backfill.
 
 No live LLM API calls. All tests mock `litellm.completion` via
 `unittest.mock.patch`. Mock returns a `SimpleNamespace` shaped like the
@@ -16,7 +16,6 @@ from unittest.mock import patch
 
 import frontmatter
 import pytest
-
 
 # ─── corpus helpers ───────────────────────────────────────────────────────
 
@@ -83,19 +82,29 @@ def _write_corpus(root: Path) -> None:
         (root / "decree" / sub).mkdir(parents=True, exist_ok=True)
 
 
+def _doc_id(prefix: str, name: str) -> str:
+    return f"{prefix}-{int(name.split('-', 1)[0]):026d}"
+
+
+def _filename(prefix: str, name: str) -> str:
+    return f"{_doc_id(prefix, name).lower()}-{name.split('-', 1)[1]}.md"
+
+
 def _spec(root: Path, name: str, *, governs: list[str] | None = None) -> Path:
     """Write a SPEC; if `governs` is None, omit the field entirely."""
     gov_line = ""
     if governs is not None:
         gov_line = "governs:\n" + "".join(f"- {p}\n" for p in governs)
-    path = root / "decree" / "spec" / f"{name}.md"
+    doc_id = _doc_id("SPEC", name)
+    path = root / "decree" / "spec" / _filename("SPEC", name)
     path.write_text(
         f"""---
+id: {doc_id}
 status: draft
 date: 2026-05-10
 {gov_line}---
 
-# SPEC-{name[:3]} title
+# {doc_id} title
 
 ## Overview
 
@@ -134,9 +143,7 @@ def corpus(tmp_path: Path, monkeypatch):
 def _llm_response(payload: dict | str) -> SimpleNamespace:
     """Shape a fake litellm response. Accepts dict (will JSON-dump) or str."""
     content = payload if isinstance(payload, str) else json.dumps(payload)
-    return SimpleNamespace(
-        choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-    )
+    return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
 
 
 def _load_docs(root: Path) -> list:
@@ -151,7 +158,7 @@ def _load_docs(root: Path) -> list:
     try:
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
-        return load_all_types(strict=False)
+        return load_all_types()
     finally:
         os.chdir(cwd)
 
@@ -177,7 +184,7 @@ class TestSuggestGovernsLibrary:
         assert m.call_count == 1
         assert len(results) == 1
         r = results[0]
-        assert r.doc_id == "SPEC-001"
+        assert r.doc_id == "SPEC-00000000000000000000000001"
         assert r.proposed_governs == ("src/decree/foo.py", "src/decree/bar.py")
         assert r.confidence == "high"
         assert r.verified_paths == ("src/decree/foo.py", "src/decree/bar.py")
@@ -246,9 +253,7 @@ class TestSuggestGovernsLibrary:
         from decree.commands.migrate import suggest_governs
 
         docs = _load_docs(corpus)
-        good = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
+        good = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
         side_effect = [RuntimeError("simulated 500"), good]
         with patch("litellm.completion", side_effect=side_effect):
             results = suggest_governs(docs, "x", corpus)
@@ -279,10 +284,7 @@ class TestSuggestGovernsLibrary:
         from decree.commands.migrate import suggest_governs
 
         docs = _load_docs(corpus)
-        fenced = (
-            '```json\n{"governs": ["src/decree/foo.py"], '
-            '"confidence": "high", "rationale": "ok"}\n```'
-        )
+        fenced = '```json\n{"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}\n```'
         fake = _llm_response(fenced)
         with patch("litellm.completion", return_value=fake):
             results = suggest_governs(docs, "x", corpus)
@@ -311,7 +313,7 @@ class TestApplyGoverns:
         results = apply_governs(suggestions, corpus, dry_run=False)
         assert results[0].wrote is True
         # Round-trip parse confirms the field landed.
-        doc_path = corpus / "decree" / "spec" / "001-foo.md"
+        doc_path = corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md"
         loaded = frontmatter.loads(doc_path.read_text())
         assert loaded["governs"] == ["src/decree/foo.py", "src/decree/bar.py"]
         # Body preserved.
@@ -322,9 +324,7 @@ class TestApplyGoverns:
         from decree.commands.migrate import apply_governs, suggest_governs
 
         docs = _load_docs(corpus)
-        original_text = (
-            corpus / "decree" / "spec" / "001-foo.md"
-        ).read_text()
+        original_text = (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text()
         fake = _llm_response(
             {
                 "governs": ["src/decree/foo.py"],
@@ -337,9 +337,7 @@ class TestApplyGoverns:
         results = apply_governs(suggestions, corpus, dry_run=True)
         assert results[0].wrote is False
         assert results[0].skipped_reason == "dry-run"
-        assert (
-            corpus / "decree" / "spec" / "001-foo.md"
-        ).read_text() == original_text
+        assert (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text() == original_text
 
     def test_skips_when_proposed_empty(self, corpus: Path):
         _spec(corpus, "001-foo", governs=["src/decree/foo.py"])
@@ -357,6 +355,9 @@ class TestApplyGoverns:
 
 
 class TestResolveModel:
+    """SPEC-00000000000000000000000015 extended the chain; these tests stub `claude` away so the
+    legacy API-key fallbacks (steps 4/5/6) can be reached."""
+
     def test_args_wins(self, monkeypatch):
         monkeypatch.setenv("DECREE_LLM_MODEL", "env-model")
         monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
@@ -378,6 +379,8 @@ class TestResolveModel:
         monkeypatch.delenv("DECREE_LLM_MODEL", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.setenv("ANTHROPIC_API_KEY", "key")
+        # Stub the SPEC-00000000000000000000000015 step-3 `claude` lookup so this test reaches step 4.
+        monkeypatch.setattr("decree.llm_io.shutil.which", lambda n: None)
         from decree.commands.migrate import resolve_model
 
         ns = argparse.Namespace(model=None)
@@ -387,6 +390,7 @@ class TestResolveModel:
         monkeypatch.delenv("DECREE_LLM_MODEL", raising=False)
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.setenv("OPENAI_API_KEY", "key")
+        monkeypatch.setattr("decree.llm_io.shutil.which", lambda n: None)
         from decree.commands.migrate import resolve_model
 
         ns = argparse.Namespace(model=None)
@@ -396,11 +400,26 @@ class TestResolveModel:
         monkeypatch.delenv("DECREE_LLM_MODEL", raising=False)
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setattr("decree.llm_io.shutil.which", lambda n: None)
         from decree.commands.migrate import resolve_model
 
         ns = argparse.Namespace(model=None)
         with pytest.raises(SystemExit):
             resolve_model(ns)
+
+    def test_claude_on_path_is_new_default(self, monkeypatch):
+        """SPEC-00000000000000000000000015: with `claude` on PATH and no other env, default to claude-code/sonnet."""
+        monkeypatch.delenv("DECREE_LLM_MODEL", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setattr(
+            "decree.llm_io.shutil.which",
+            lambda n: "/usr/local/bin/claude" if n == "claude" else None,
+        )
+        from decree.commands.migrate import resolve_model
+
+        ns = argparse.Namespace(model=None)
+        assert resolve_model(ns) == "claude-code/sonnet"
 
 
 # ─── suggest_governs_run (CLI handler) ────────────────────────────────────
@@ -427,22 +446,18 @@ class TestSuggestGovernsRun:
         _spec(corpus, "002-bar")
         from decree.commands.migrate import suggest_governs_run
 
-        fake = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
+        fake = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
         with patch("litellm.completion", return_value=fake) as m:
-            rc = suggest_governs_run(_args(corpus, only=["SPEC-001"]))
+            rc = suggest_governs_run(_args(corpus, only=["SPEC-00000000000000000000000001"]))
         assert rc == 0
-        # Only one LLM call — for SPEC-001.
+        # Only one LLM call — for SPEC-00000000000000000000000001.
         assert m.call_count == 1
 
     def test_json_output_schema(self, corpus: Path, capsys):
         _spec(corpus, "001-foo")
         from decree.commands.migrate import suggest_governs_run
 
-        fake = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
+        fake = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
         with patch("litellm.completion", return_value=fake):
             rc = suggest_governs_run(_args(corpus, json=True))
         out = capsys.readouterr().out
@@ -469,43 +484,29 @@ class TestSuggestGovernsRun:
         _spec(corpus, "001-foo")
         from decree.commands.migrate import suggest_governs_run
 
-        fake = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
+        fake = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
         with patch("litellm.completion", return_value=fake):
-            rc = suggest_governs_run(
-                _args(corpus, apply=True, yes=True, json=True)
-            )
+            rc = suggest_governs_run(_args(corpus, apply=True, yes=True, json=True))
         assert rc == 0
-        loaded = frontmatter.loads(
-            (corpus / "decree" / "spec" / "001-foo.md").read_text()
-        )
+        loaded = frontmatter.loads((corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text())
         assert loaded["governs"] == ["src/decree/foo.py"]
 
     def test_apply_dry_run_no_write(self, corpus: Path):
         _spec(corpus, "001-foo")
         from decree.commands.migrate import suggest_governs_run
 
-        original = (corpus / "decree" / "spec" / "001-foo.md").read_text()
-        fake = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
+        original = (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text()
+        fake = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
         with patch("litellm.completion", return_value=fake):
-            rc = suggest_governs_run(
-                _args(corpus, apply=True, yes=True, dry_run=True, json=True)
-            )
+            rc = suggest_governs_run(_args(corpus, apply=True, yes=True, dry_run=True, json=True))
         assert rc == 0
-        assert (
-            corpus / "decree" / "spec" / "001-foo.md"
-        ).read_text() == original
+        assert (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text() == original
 
     def test_apply_interactive_yes(self, corpus: Path, monkeypatch):
         _spec(corpus, "001-foo")
         from decree.commands.migrate import suggest_governs_run
 
-        fake = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
+        fake = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
         # Make stdin look like a TTY and inject 'y'.
         monkeypatch.setattr("sys.stdin", io.StringIO("y\n"))
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
@@ -513,54 +514,42 @@ class TestSuggestGovernsRun:
         with patch("litellm.completion", return_value=fake):
             rc = suggest_governs_run(_args(corpus, apply=True))
         assert rc == 0
-        loaded = frontmatter.loads(
-            (corpus / "decree" / "spec" / "001-foo.md").read_text()
-        )
+        loaded = frontmatter.loads((corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text())
         assert loaded["governs"] == ["src/decree/foo.py"]
 
     def test_apply_interactive_no(self, corpus: Path, monkeypatch):
         _spec(corpus, "001-foo")
         from decree.commands.migrate import suggest_governs_run
 
-        fake = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
-        original = (corpus / "decree" / "spec" / "001-foo.md").read_text()
+        fake = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
+        original = (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text()
         monkeypatch.setattr("sys.stdin", io.StringIO("n\n"))
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
         monkeypatch.setattr("builtins.input", lambda *a, **kw: "n")
         with patch("litellm.completion", return_value=fake):
             rc = suggest_governs_run(_args(corpus, apply=True))
         assert rc == 0
-        assert (
-            corpus / "decree" / "spec" / "001-foo.md"
-        ).read_text() == original
+        assert (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text() == original
 
     def test_apply_non_tty_without_yes_refused(self, corpus: Path, monkeypatch):
         _spec(corpus, "001-foo")
         from decree.commands.migrate import suggest_governs_run
 
-        fake = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
-        original = (corpus / "decree" / "spec" / "001-foo.md").read_text()
+        fake = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
+        original = (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text()
         monkeypatch.setattr("sys.stdin.isatty", lambda: False)
         with patch("litellm.completion", return_value=fake):
             rc = suggest_governs_run(_args(corpus, apply=True))
         # Confirmation refused → file untouched. Exit 0 (no LLM/apply errors).
         assert rc == 0
-        assert (
-            corpus / "decree" / "spec" / "001-foo.md"
-        ).read_text() == original
+        assert (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").read_text() == original
 
     def test_partial_failure_returns_one(self, corpus: Path):
         _spec(corpus, "001-foo")
         _spec(corpus, "002-bar")
         from decree.commands.migrate import suggest_governs_run
 
-        good = _llm_response(
-            {"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"}
-        )
+        good = _llm_response({"governs": ["src/decree/foo.py"], "confidence": "high", "rationale": "ok"})
         with patch(
             "litellm.completion",
             side_effect=[RuntimeError("boom"), good],
@@ -593,26 +582,121 @@ class TestIntegration:
                 "rationale": "Both listed under Files touched.",
             }
         )
-        # Two calls expected (SPEC-001 and SPEC-002; SPEC-003 already has governs).
-        with patch(
-            "litellm.completion", side_effect=[good, good]
-        ) as m:
-            rc = suggest_governs_run(
-                _args(corpus, apply=True, yes=True, json=True)
-            )
+        # Two calls expected: SPEC-1 and SPEC-2 need suggestions; SPEC-3 already has governs.
+        with patch("litellm.completion", side_effect=[good, good]) as m:
+            rc = suggest_governs_run(_args(corpus, apply=True, yes=True, json=True))
         assert rc == 0
         assert m.call_count == 2
-        # SPEC-001 and SPEC-002 both written.
+        # SPEC-00000000000000000000000001 and SPEC-00000000000000000000000002 both written.
         for name in ("001-foo", "002-bar"):
-            loaded = frontmatter.loads(
-                (corpus / "decree" / "spec" / f"{name}.md").read_text()
-            )
+            loaded = frontmatter.loads((corpus / "decree" / "spec" / _filename("SPEC", name)).read_text())
             assert loaded["governs"] == [
                 "src/decree/foo.py",
                 "src/decree/bar.py",
             ]
-        # SPEC-003 untouched (single-element).
-        loaded3 = frontmatter.loads(
-            (corpus / "decree" / "spec" / "003-baz.md").read_text()
-        )
+        # SPEC-00000000000000000000000003 untouched (single-element).
+        loaded3 = frontmatter.loads((corpus / "decree" / "spec" / "spec-00000000000000000000000003-baz.md").read_text())
         assert loaded3["governs"] == ["src/decree/foo.py"]
+
+
+class TestSuggestGovernsClaudeCodeRouted:
+    """SPEC-00000000000000000000000015: `suggest_governs` with `model="claude-code/sonnet"` must route
+    through the `claude` CLI subprocess instead of `litellm.completion`."""
+
+    def _claude_payload(self, inner: dict) -> str:
+        return json.dumps(
+            {
+                "type": "result",
+                "result": json.dumps(inner),
+                "total_cost_usd": 0.0,
+                "duration_ms": 12,
+            }
+        )
+
+    def test_routes_via_subprocess(self, corpus: Path, monkeypatch):
+        _spec(corpus, "001-foo")
+        from decree.commands.migrate import suggest_governs
+
+        # Pretend `claude` is on PATH and capture the subprocess call.
+        monkeypatch.setattr(
+            "decree.llm_io.shutil.which",
+            lambda n: "/usr/local/bin/claude" if n == "claude" else None,
+        )
+        captured: dict = {}
+
+        def fake_run(args, **kw):
+            captured["args"] = args
+            captured["env"] = kw["env"]
+            return SimpleNamespace(
+                returncode=0,
+                stdout=self._claude_payload(
+                    {
+                        "governs": ["src/decree/foo.py"],
+                        "confidence": "high",
+                        "rationale": "via claude CLI",
+                    }
+                ),
+                stderr="",
+            )
+
+        monkeypatch.setattr("decree.llm_io.subprocess.run", fake_run)
+
+        # Make sure no litellm is touched.
+        def fail_litellm(**kw):
+            raise AssertionError("litellm.completion must not be called")
+
+        import litellm
+
+        monkeypatch.setattr(litellm, "completion", fail_litellm)
+
+        docs = _load_docs(corpus)
+        results = suggest_governs(docs, "claude-code/sonnet", corpus)
+
+        # Subprocess was invoked.
+        assert captured["args"][0] == "/usr/local/bin/claude"
+        # Subscription-auth path: API keys MUST NOT leak through.
+        assert "ANTHROPIC_API_KEY" not in captured["env"]
+        # The proposal landed correctly.
+        assert len(results) == 1
+        assert results[0].proposed_governs == ("src/decree/foo.py",)
+        assert results[0].confidence == "high"
+        assert results[0].verified_paths == ("src/decree/foo.py",)
+        assert results[0].error is None
+
+    def test_subprocess_error_isolated(self, corpus: Path, monkeypatch):
+        """A non-zero exit from `claude` becomes a per-doc error, not a crash."""
+        _spec(corpus, "001-foo")
+        _spec(corpus, "002-bar")
+        from decree.commands.migrate import suggest_governs
+
+        monkeypatch.setattr(
+            "decree.llm_io.shutil.which",
+            lambda n: "/usr/local/bin/claude" if n == "claude" else None,
+        )
+        call_count = {"n": 0}
+
+        def fake_run(args, **kw):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return SimpleNamespace(returncode=1, stdout="", stderr="boom\nrate limit")
+            return SimpleNamespace(
+                returncode=0,
+                stdout=self._claude_payload(
+                    {
+                        "governs": ["src/decree/foo.py"],
+                        "confidence": "high",
+                        "rationale": "ok",
+                    }
+                ),
+                stderr="",
+            )
+
+        monkeypatch.setattr("decree.llm_io.subprocess.run", fake_run)
+        docs = _load_docs(corpus)
+        results = suggest_governs(docs, "claude-code/sonnet", corpus)
+        errs = [r for r in results if r.error]
+        oks = [r for r in results if not r.error]
+        assert len(errs) == 1
+        assert "ClaudeCodeError" in errs[0].error
+        assert len(oks) == 1
+        assert oks[0].proposed_governs == ("src/decree/foo.py",)

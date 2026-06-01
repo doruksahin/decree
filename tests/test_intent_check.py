@@ -1,7 +1,7 @@
-"""SPEC-014 — intent-check tests.
+"""SPEC-00000000000000000000000014 — intent-check tests.
 
 Mirrors the fixture and corpus patterns from ``tests/test_intent_review.py``
-(SPEC-009). All LLM calls under ``--judge-conflicts`` are mocked via
+(SPEC-00000000000000000000000009). All LLM calls under ``--judge-conflicts`` are mocked via
 ``monkeypatch.setattr(litellm, ...)`` — no live network in CI.
 """
 
@@ -28,7 +28,6 @@ from decree.commands.intent_check import (
 )
 from decree.commands.intent_review import Conflict
 from decree.index_db import IndexDB, default_db_path
-
 
 # ── Fixture helpers (mirrors test_intent_review.py) ─────────
 
@@ -92,36 +91,38 @@ implement = "implemented"
 
 
 def _write_corpus_basic(root: Path, *, spec_status: str = "implemented") -> None:
-    """SPEC-001 governs src/foo.py with one unchecked AC."""
+    """SPEC-00000000000000000000000001 governs src/foo.py with one unchecked AC."""
     (root / "decree.toml").write_text(_decree_toml())
     for sub in ("prd", "adr", "spec"):
         (root / "decree" / sub).mkdir(parents=True)
     (root / "src").mkdir()
     (root / "src" / "foo.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-test.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
         f"""---
+id: SPEC-00000000000000000000000001
 status: {spec_status}
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 Test SPEC
+# SPEC-00000000000000000000000001 Test SPEC
 
 ## Overview
 
@@ -142,45 +143,48 @@ def _write_corpus_two_specs_same_file(root: Path) -> None:
     (root / "src").mkdir()
     (root / "src" / "foo.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-a.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-a.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-01
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 A
+# SPEC-00000000000000000000000001 A
 
 ## Overview
 
 A's perspective: it caches the file's hot path.
 """
     )
-    (root / "decree" / "spec" / "002-b.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000002-b.md").write_text(
         """---
+id: SPEC-00000000000000000000000002
 status: draft
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-002 B
+# SPEC-00000000000000000000000002 B
 
 ## Overview
 
@@ -225,7 +229,7 @@ class TestParseLLMJson:
         assert _parse_llm_json('```json\n{"x": 1}\n```') == {"x": 1}
 
     def test_fenced_block_no_lang(self) -> None:
-        assert _parse_llm_json("```\n{\"x\": 1}\n```") == {"x": 1}
+        assert _parse_llm_json('```\n{"x": 1}\n```') == {"x": 1}
 
 
 class TestPlanArchitectureHeuristic:
@@ -259,9 +263,7 @@ class TestPlanArchitectureHeuristic:
 
 
 class TestIntentCheckLibrary:
-    def test_empty_plan_empty_files(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_empty_plan_empty_files(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
         report = intent_check(db, root, "", [])
         assert isinstance(report, IntentCheckReport)
@@ -272,14 +274,12 @@ class TestIntentCheckLibrary:
         actions = {r.action for r in report.recommended_actions}
         assert "proceed" in actions
 
-    def test_planned_file_with_one_governing_decision(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_planned_file_with_one_governing_decision(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
         report = intent_check(db, root, "Tweak src/foo.py", ["src/foo.py"])
         assert len(report.governing_decisions) == 1
         snap = report.governing_decisions[0]
-        assert snap.decision_id == "SPEC-001"
+        assert snap.decision_id == "SPEC-00000000000000000000000001"
         assert snap.match_kind == "exact"
 
     def test_planned_file_match_in_flight_spec_surfaces_ac_and_update_spec_first(
@@ -302,11 +302,7 @@ class TestIntentCheckLibrary:
         actions = {r.action for r in report.recommended_actions}
         assert "add_governance" in actions
         # detail mentions the path
-        assert any(
-            "src/new.py" in r.detail
-            for r in report.recommended_actions
-            if r.action == "add_governance"
-        )
+        assert any("src/new.py" in r.detail for r in report.recommended_actions if r.action == "add_governance")
 
     def test_plan_with_architecture_keyword_emits_draft_adr_first(
         self, basic_db_and_root: tuple[IndexDB, Path]
@@ -329,28 +325,22 @@ class TestIntentCheckLibrary:
         actions = {r.action for r in report.recommended_actions}
         assert "draft_adr_first" not in actions
 
-    def test_structural_conflict_surfaces_resolve_conflict_first(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_structural_conflict_surfaces_resolve_conflict_first(self, tmp_path: Path, monkeypatch) -> None:
         _write_corpus_two_specs_same_file(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
         report = intent_check(db, tmp_path, "Touch foo", ["src/foo.py"])
         assert len(report.conflicts) == 1
         c = report.conflicts[0]
         assert c.path == "src/foo.py"
-        assert set(c.decision_ids) == {"SPEC-001", "SPEC-002"}
+        assert set(c.decision_ids) == {"SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002"}
         # Structural-only — no semantic verdict without --judge-conflicts.
         assert c.semantic_verdict is None
         actions = {r.action for r in report.recommended_actions}
         assert "resolve_conflict_first" in actions
 
-    def test_dedupes_planned_files(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_dedupes_planned_files(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
-        report = intent_check(
-            db, root, "Plan", ["src/foo.py", "src/foo.py", "src/foo.py"]
-        )
+        report = intent_check(db, root, "Plan", ["src/foo.py", "src/foo.py", "src/foo.py"])
         assert report.planned_files == ("src/foo.py",)
 
 
@@ -365,9 +355,7 @@ def _mock_completion(payload: dict | None, *, raise_exc: Exception | None = None
     """
 
     def _make_response(content: str) -> SimpleNamespace:
-        return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-        )
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
 
     def side_effect(**kwargs):
         if raise_exc is not None:
@@ -378,17 +366,13 @@ def _mock_completion(payload: dict | None, *, raise_exc: Exception | None = None
 
 
 class TestJudgeConflicts:
-    def test_judge_real_conflict(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_judge_real_conflict(self, tmp_path: Path, monkeypatch) -> None:
         _write_corpus_two_specs_same_file(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
 
         import litellm
 
-        mock = _mock_completion(
-            {"is_real_conflict": True, "reasoning": "they disagree on format"}
-        )
+        mock = _mock_completion({"is_real_conflict": True, "reasoning": "they disagree on format"})
         monkeypatch.setattr(litellm, "completion", mock)
 
         report = intent_check(
@@ -406,9 +390,7 @@ class TestJudgeConflicts:
         assert verdict["is_real_conflict"] is True
         assert "disagree" in verdict["reasoning"]
 
-    def test_judge_complementary(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_judge_complementary(self, tmp_path: Path, monkeypatch) -> None:
         _write_corpus_two_specs_same_file(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
 
@@ -435,9 +417,7 @@ class TestJudgeConflicts:
         assert verdict is not None
         assert verdict["is_real_conflict"] is False
 
-    def test_judge_llm_error_falls_back_to_structural(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_judge_llm_error_falls_back_to_structural(self, tmp_path: Path, monkeypatch) -> None:
         _write_corpus_two_specs_same_file(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
 
@@ -465,9 +445,7 @@ class TestJudgeConflicts:
 
 
 class TestWithAbstention:
-    def test_abstention_field_populated_when_no_governance(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_abstention_field_populated_when_no_governance(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
         # An ungoverned path; with_abstention=True should attempt to populate
         # the abstention dict (may be None when there's no calibration JSON
@@ -513,9 +491,7 @@ def _commit(repo: Path, file_path: str, body: str, message: str) -> None:
 
 
 class TestStaleGovernance:
-    def test_stale_governance_surfaced(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_stale_governance_surfaced(self, tmp_path: Path, monkeypatch) -> None:
         _git_init(tmp_path)
         _write_corpus_basic(tmp_path)
         _git(tmp_path, "add", "-A")
@@ -526,24 +502,18 @@ class TestStaleGovernance:
         for i in range(15):
             _commit(tmp_path, "src/foo.py", f"v{i}\n", f"edit {i}")
 
-        report = intent_check(
-            db, tmp_path, "Touch src/foo.py", ["src/foo.py"], threshold_commits=10
-        )
+        report = intent_check(db, tmp_path, "Touch src/foo.py", ["src/foo.py"], threshold_commits=10)
         stale_ids = {s["decision_id"] for s in report.stale_governance}
-        assert "SPEC-001" in stale_ids
-        update_recs = [
-            r for r in report.recommended_actions if r.action == "update_decision"
-        ]
-        assert any(r.target_id == "SPEC-001" for r in update_recs)
+        assert "SPEC-00000000000000000000000001" in stale_ids
+        update_recs = [r for r in report.recommended_actions if r.action == "update_decision"]
+        assert any(r.target_id == "SPEC-00000000000000000000000001" for r in update_recs)
 
 
 # ── JSON shape ──────────────────────────────────────────────
 
 
 class TestReportToDict:
-    def test_shape_is_stable(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_shape_is_stable(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
         report = intent_check(db, root, "Plan", ["src/foo.py"])
         payload = report_to_dict(report)
@@ -562,9 +532,7 @@ class TestReportToDict:
         roundtrip = json.loads(s)
         assert roundtrip == payload
 
-    def test_conflict_includes_semantic_verdict_field(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_conflict_includes_semantic_verdict_field(self, tmp_path: Path, monkeypatch) -> None:
         _write_corpus_two_specs_same_file(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
         report = intent_check(db, tmp_path, "Plan", ["src/foo.py"])
@@ -594,9 +562,7 @@ def _make_args(**kw) -> argparse.Namespace:
 
 
 class TestIntentCheckCLI:
-    def test_clean_run_exit_0(
-        self, basic_db_and_root: tuple[IndexDB, Path], capsys
-    ) -> None:
+    def test_clean_run_exit_0(self, basic_db_and_root: tuple[IndexDB, Path], capsys) -> None:
         _db, root = basic_db_and_root
         args = _make_args(
             plan="Touch src/foo.py",
@@ -607,11 +573,9 @@ class TestIntentCheckCLI:
         out = capsys.readouterr().out
         assert rc == 0
         assert "src/foo.py" in out
-        assert "SPEC-001" in out
+        assert "SPEC-00000000000000000000000001" in out
 
-    def test_conflict_exit_1(
-        self, tmp_path: Path, monkeypatch, capsys
-    ) -> None:
+    def test_conflict_exit_1(self, tmp_path: Path, monkeypatch, capsys) -> None:
         _write_corpus_two_specs_same_file(tmp_path)
         _rebuild_index(tmp_path, monkeypatch)
         args = _make_args(
@@ -633,6 +597,8 @@ class TestIntentCheckCLI:
         # Strip every API-key env var so resolve_model raises SystemExit(2).
         for var in ("DECREE_LLM_MODEL", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
             monkeypatch.delenv(var, raising=False)
+        # SPEC-00000000000000000000000015: stub the new `claude` step so we still hit the exit-2 path.
+        monkeypatch.setattr("decree.llm_io.shutil.which", lambda n: None)
         args = _make_args(
             plan="Touch foo",
             files=["src/foo.py"],
@@ -670,9 +636,7 @@ class TestIntentCheckCLI:
         }
         assert rc == 0
 
-    def test_missing_index_exit_1(
-        self, tmp_path: Path, capsys
-    ) -> None:
+    def test_missing_index_exit_1(self, tmp_path: Path, capsys) -> None:
         # decree.toml present but no index built.
         _write_corpus_basic(tmp_path)
         args = _make_args(
@@ -689,9 +653,7 @@ class TestIntentCheckCLI:
 
 
 class TestRecommendationDeterminism:
-    def test_same_inputs_yield_same_recommendations(
-        self, in_flight_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_same_inputs_yield_same_recommendations(self, in_flight_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = in_flight_db_and_root
         a = intent_check(db, root, "Plan X", ["src/foo.py"])
         b = intent_check(db, root, "Plan X", ["src/foo.py"])
@@ -707,16 +669,16 @@ class TestJudgeConflictHelper:
     def test_parses_well_formed_response(self, monkeypatch) -> None:
         import litellm
 
-        mock = _mock_completion(
-            {"is_real_conflict": True, "reasoning": "they disagree"}
-        )
+        mock = _mock_completion({"is_real_conflict": True, "reasoning": "they disagree"})
         monkeypatch.setattr(litellm, "completion", mock)
-        c = Conflict(path="src/foo.py", decision_ids=("SPEC-001", "SPEC-002"))
+        c = Conflict(
+            path="src/foo.py", decision_ids=("SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002")
+        )
         result = _judge_conflict(
             "Plan",
             c,
-            {"decision_id": "SPEC-001", "title": "A", "body": "body A"},
-            {"decision_id": "SPEC-002", "title": "B", "body": "body B"},
+            {"decision_id": "SPEC-00000000000000000000000001", "title": "A", "body": "body A"},
+            {"decision_id": "SPEC-00000000000000000000000002", "title": "B", "body": "body B"},
             "mock-model",
         )
         assert result == {"is_real_conflict": True, "reasoning": "they disagree"}
@@ -727,12 +689,14 @@ class TestJudgeConflictHelper:
         # Mock returns a payload missing the required key.
         mock = _mock_completion({"reasoning": "missing the verdict bool"})
         monkeypatch.setattr(litellm, "completion", mock)
-        c = Conflict(path="src/foo.py", decision_ids=("SPEC-001", "SPEC-002"))
+        c = Conflict(
+            path="src/foo.py", decision_ids=("SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002")
+        )
         result = _judge_conflict(
             "Plan",
             c,
-            {"decision_id": "SPEC-001", "title": "A", "body": "body A"},
-            {"decision_id": "SPEC-002", "title": "B", "body": "body B"},
+            {"decision_id": "SPEC-00000000000000000000000001", "title": "A", "body": "body A"},
+            {"decision_id": "SPEC-00000000000000000000000002", "title": "B", "body": "body B"},
             "mock-model",
         )
         assert result is None
@@ -742,12 +706,14 @@ class TestJudgeConflictHelper:
 
         mock = _mock_completion(None, raise_exc=RuntimeError("api error"))
         monkeypatch.setattr(litellm, "completion", mock)
-        c = Conflict(path="src/foo.py", decision_ids=("SPEC-001", "SPEC-002"))
+        c = Conflict(
+            path="src/foo.py", decision_ids=("SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002")
+        )
         result = _judge_conflict(
             "Plan",
             c,
-            {"decision_id": "SPEC-001", "title": "A", "body": "body A"},
-            {"decision_id": "SPEC-002", "title": "B", "body": "body B"},
+            {"decision_id": "SPEC-00000000000000000000000001", "title": "A", "body": "body A"},
+            {"decision_id": "SPEC-00000000000000000000000002", "title": "B", "body": "body B"},
             "mock-model",
         )
         assert result is None

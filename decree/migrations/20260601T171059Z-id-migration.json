@@ -1,0 +1,156 @@
+{
+  "documents": [
+    {
+      "new_id": "PRD-01KT22NMRR63TXR7NX5XYRG5FK",
+      "old_id": "PRD-001",
+      "old_path": "decree/prd/001-c4-architecture-support.md",
+      "type": "prd"
+    },
+    {
+      "new_id": "PRD-01KT22NMRR0BX7KBF0F0N5ER6Z",
+      "old_id": "PRD-002",
+      "old_path": "decree/prd/002-ddd-cli-command-and-proofshot-integration.md",
+      "type": "prd"
+    },
+    {
+      "new_id": "PRD-01KT22NMRS4QGHSFDBZ858PP1T",
+      "old_id": "PRD-003",
+      "old_path": "decree/prd/003-queryable-decision-provenance-graph.md",
+      "type": "prd"
+    },
+    {
+      "new_id": "PRD-01KT22NMRSXYT95XE808VD8EV4",
+      "old_id": "PRD-004",
+      "old_path": "decree/prd/004-state-of-the-art-decision-reasoning.md",
+      "type": "prd"
+    },
+    {
+      "new_id": "PRD-01KT22NMRTAF9581AXC53EHQTW",
+      "old_id": "PRD-005",
+      "old_path": "decree/prd/005-real-corpus-validation-against-jira-task-to-md.md",
+      "type": "prd"
+    },
+    {
+      "new_id": "PRD-01KT22NMRTFTWFFARAN0PVEETA",
+      "old_id": "PRD-006",
+      "old_path": "decree/prd/006-parallel-safe-document-identity-and-scoped-progress.md",
+      "type": "prd"
+    },
+    {
+      "new_id": "ADR-01KT22NMRV7GMAXKWSBEEN68KE",
+      "old_id": "ADR-0001",
+      "old_path": "decree/adr/0001-coupled-c4-module-vs-plugin-architecture.md",
+      "type": "adr"
+    },
+    {
+      "new_id": "ADR-01KT22NMRV9CP14X5982JJH161",
+      "old_id": "ADR-0002",
+      "old_path": "decree/adr/0002-index-first-architecture-for-decree-queries.md",
+      "type": "adr"
+    },
+    {
+      "new_id": "ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ",
+      "old_id": "ADR-0003",
+      "old_path": "decree/adr/0003-use-distributed-frontmatter-ids-for-parallel-work.md",
+      "type": "adr"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRWENYKC3MGRA50M7GE",
+      "old_id": "SPEC-001",
+      "old_path": "decree/spec/001-c4-validation-and-diagram-generation.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRW79Y92MKZT807B2J1",
+      "old_id": "SPEC-002",
+      "old_path": "decree/spec/002-ddd-cli-completion-report-and-stop-hook.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRX176PCT00SKJ9G2AQ",
+      "old_id": "SPEC-003",
+      "old_path": "decree/spec/003-sqlite-provenance-index-schema-and-sync.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRXFWNE61NSETKATHBA",
+      "old_id": "SPEC-004",
+      "old_path": "decree/spec/004-governs-field-frontmatter-and-lint-validation.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRXWCS5TK5VC1FT6JER",
+      "old_id": "SPEC-005",
+      "old_path": "decree/spec/005-decree-why-and-decree-refs-governed-file-and-reverse-queries.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRY8YK9RP4323KX4RQG",
+      "old_id": "SPEC-006",
+      "old_path": "decree/spec/006-git-trailers-and-decree-commit-wrapper.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRYJ4482K92AX9GJTMA",
+      "old_id": "SPEC-007",
+      "old_path": "decree/spec/007-mcp-server-decree-why-and-decree-refs-tools.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRYNFYM7EN80WS2HD6F",
+      "old_id": "SPEC-008",
+      "old_path": "decree/spec/008-coherence-gates-staleness-and-ungoverned-hotspots.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRYRZQ59EC88VJ5R0N6",
+      "old_id": "SPEC-009",
+      "old_path": "decree/spec/009-decree-intent-review-diff-aware-governance-report.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR",
+      "old_id": "SPEC-010",
+      "old_path": "decree/spec/010-decree-migrate-audit-coherence-dry-run-gate-impact-report.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S",
+      "old_id": "SPEC-011",
+      "old_path": "decree/spec/011-decree-migrate-governs-llm-assisted-backfill.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMRZXE5C42F6Z0ZY559A",
+      "old_id": "SPEC-012",
+      "old_path": "decree/spec/012-evaluation-harness-labeled-query-set-and-retrieval-metrics.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMS0VWCTYPFPHP8M8V36",
+      "old_id": "SPEC-013",
+      "old_path": "decree/spec/013-calibrated-abstention-conformal-confidence-gates.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMS0KTWGNKB36RR7K0JR",
+      "old_id": "SPEC-014",
+      "old_path": "decree/spec/014-decree-intent-check-pre-pr-planning-phase-governance.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMS0BN1F5B01HEFK87W0",
+      "old_id": "SPEC-015",
+      "old_path": "decree/spec/015-claude-code-cli-llm-provider-subprocess-based-routing.md",
+      "type": "spec"
+    },
+    {
+      "new_id": "SPEC-01KT22NMS0D19VMD8VPK4D2MNX",
+      "old_id": "SPEC-016",
+      "old_path": "decree/spec/016-parallel-safe-document-identity-and-scoped-progress.md",
+      "type": "spec"
+    }
+  ],
+  "generated_at": "2026-06-01T17:10:59+00:00",
+  "schema": "decree-id-migration-v1"
+}

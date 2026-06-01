@@ -1,16 +1,17 @@
-"""SPEC-012 retrieval-method plugin interface + the v1 KeywordBaseline.
+"""SPEC-01KT22NMRZXE5C42F6Z0ZY559A retrieval-method plugin interface + the v1 KeywordBaseline.
 
 A retrieval method takes a (db, query, k) triple and returns an ordered
 list of decision_ids. v1 ships one method — `keyword-v1` — which wraps the
-existing PRD-003 keyword stack (`commands.queries.why()` for file_path
+existing PRD-01KT22NMRS4QGHSFDBZ858PP1T keyword stack (`commands.queries.why()` for file_path
 queries, raw `decisions_fts` MATCH for concept queries).
 
-Plugin registry: module-level `METHODS` dict. SPEC-013+ register new methods
+Plugin registry: module-level `METHODS` dict. SPEC-01KT22NMS0VWCTYPFPHP8M8V36+ register new methods
 by mutating this dict (or via Python entry-points in a future iteration).
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from decree.commands.queries import why
@@ -34,29 +35,26 @@ class RetrievalMethod(Protocol):
 
 
 class KeywordBaseline:
-    """PRD-003 v1 keyword stack, packaged as a retrieval method.
+    """PRD-01KT22NMRS4QGHSFDBZ858PP1T v1 keyword stack, packaged as a retrieval method.
 
     - file_path queries → reuse `commands.queries.why()` (governs lookup).
     - concept   queries → raw `decisions_fts MATCH` over title+body.
 
-    Failures are isolated per-query: any DB-side exception is caught and an
-    empty list is returned so the overall harness can keep going.
+    DB and query failures are not swallowed here. ``run_evaluation`` records
+    method errors explicitly so broken retrieval does not look like low recall.
     """
 
     name: str = "keyword-v1"
     description: str = (
-        "PRD-003 baseline: `decree why` for file_path queries, "
+        "PRD-01KT22NMRS4QGHSFDBZ858PP1T baseline: `decree why` for file_path queries, "
         "`decisions_fts MATCH` (FTS5 porter unicode61) for concept queries."
     )
 
     def query(self, db: IndexDB, query: Query, *, k: int = 10) -> list[str]:
-        try:
-            if query.kind == "file_path":
-                return [m.decision_id for m in why(db, query.query, limit=k)]
-            if query.kind == "concept":
-                return self._fts_query(db, query.query, k=k)
-        except Exception:  # noqa: BLE001 — per-query isolation per SPEC
-            return []
+        if query.kind == "file_path":
+            return [m.decision_id for m in why(db, query.query, limit=k)]
+        if query.kind == "concept":
+            return self._fts_query(db, query.query, k=k)
         return []
 
     @staticmethod
@@ -83,21 +81,16 @@ class KeywordBaseline:
         # union of postings.
         expr = " OR ".join(f'"{t}"' for t in tokens)
         conn = db.db.conn  # type: ignore[attr-defined]
-        sql = (
-            "SELECT id FROM decisions_fts "
-            "WHERE decisions_fts MATCH ? "
-            "ORDER BY bm25(decisions_fts) "
-            "LIMIT ?"
-        )
+        sql = "SELECT id FROM decisions_fts WHERE decisions_fts MATCH ? ORDER BY bm25(decisions_fts) LIMIT ?"
         rows = conn.execute(sql, (expr, k)).fetchall()
         return [r[0] for r in rows]
 
 
-# ── KeywordCalibrated (SPEC-013) ────────────────────────────
+# ── KeywordCalibrated (SPEC-01KT22NMS0VWCTYPFPHP8M8V36) ────────────────────────────
 
 
 class KeywordCalibrated:
-    """SPEC-013 — KeywordBaseline + confidence gates + calibrated threshold.
+    """SPEC-01KT22NMS0VWCTYPFPHP8M8V36 — KeywordBaseline + confidence gates + calibrated threshold.
 
     Behavior:
       1. Run ``keyword-v1`` for top-K candidates.
@@ -106,15 +99,13 @@ class KeywordCalibrated:
          human-readable reason on the instance.
       4. Otherwise return the baseline's candidates unchanged.
 
-    Calibration is loaded from ``eval/calibrations/<method-name>.json`` at
-    instantiation. If the file is missing, ``threshold=0.0`` (no abstention)
-    and a note is set on the instance — this lets the harness run before
-    ``--calibrate`` has been invoked.
+    Calibration is required. Missing or malformed calibration raises when the
+    method is queried, and the evaluation runner records that as a method error.
     """
 
     name: str = "keyword-v1-calibrated"
     description: str = (
-        "SPEC-013 calibrated layer atop keyword-v1: 7-gate composite "
+        "SPEC-01KT22NMS0VWCTYPFPHP8M8V36 calibrated layer atop keyword-v1: 7-gate composite "
         "confidence with a conformal threshold from eval/calibrations/."
     )
 
@@ -124,14 +115,13 @@ class KeywordCalibrated:
         calibration_path: object | None = None,
         baseline: KeywordBaseline | None = None,
     ) -> None:
-        from pathlib import Path  # local import — keep module import cheap
-
         self._baseline = baseline or KeywordBaseline()
         self._abstention_reason: str | None = None
         self._last_signals: list[object] = []
         self._last_composite: float = 0.0
         self._last_would_return: list[str] = []
         self._calibration = None
+        self._calibration_path: Path | None = None
 
         # Resolve the calibration path. Default: <project>/eval/calibrations/<name>.json.
         if calibration_path is None:
@@ -140,27 +130,38 @@ class KeywordCalibrated:
 
                 root = get_project_root()
                 calibration_path = root / "eval" / "calibrations" / f"{self.name.replace('-calibrated', '')}.json"
-            except Exception:  # noqa: BLE001 — fall back to no-calibration mode
+            except Exception:
                 calibration_path = None
 
         if calibration_path is not None:
-            from pathlib import Path as _Path
+            self._calibration_path = Path(calibration_path)
 
-            cp = _Path(calibration_path) if not isinstance(calibration_path, _Path) else calibration_path
-            if cp.exists():
-                from decree.eval.calibration import read_calibration
+    def _require_calibration(self):
+        if self._calibration is not None:
+            return self._calibration
+        if self._calibration_path is None:
+            raise FileNotFoundError(
+                "calibration path could not be resolved; run `decree retrieval-eval --calibrate` "
+                "or pass a calibration path"
+            )
+        if not self._calibration_path.exists():
+            raise FileNotFoundError(
+                f"calibration not found: {self._calibration_path}. Run `decree retrieval-eval --calibrate` first."
+            )
+        from decree.eval.calibration import read_calibration
 
-                self._calibration = read_calibration(cp)
+        self._calibration = read_calibration(self._calibration_path)
+        return self._calibration
 
     # ── Accessors ─────────────────────────────────────────
 
     @property
     def threshold(self) -> float:
-        return float(self._calibration.threshold) if self._calibration else 0.0
+        return float(self._require_calibration().threshold)
 
     @property
     def gate_weights(self) -> dict[str, float]:
-        return dict(self._calibration.gate_weights) if self._calibration else {}
+        return dict(self._require_calibration().gate_weights)
 
     def last_abstention_reason(self) -> str | None:
         return self._abstention_reason
@@ -179,8 +180,10 @@ class KeywordCalibrated:
 
     # ── Plug-in interface ─────────────────────────────────
 
-    def query(self, db: "IndexDB", query: Query, *, k: int = 10) -> list[str]:
-        from decree.eval.gates import compute_signals, composite, enrich_rows
+    def query(self, db: IndexDB, query: Query, *, k: int = 10) -> list[str]:
+        from decree.eval.gates import composite, compute_signals, enrich_rows
+
+        calibration = self._require_calibration()
 
         # Reset per-call state.
         self._abstention_reason = None
@@ -195,7 +198,7 @@ class KeywordCalibrated:
 
         rows = enrich_rows(db, candidates)
         signals = compute_signals(query, rows, db)
-        weights = self.gate_weights or None
+        weights = dict(calibration.gate_weights) or None
         comp = composite(signals, weights=weights)
 
         # Cache diagnostics regardless of accept/reject.
@@ -203,17 +206,14 @@ class KeywordCalibrated:
         self._last_composite = comp
         self._last_would_return = list(candidates)
 
-        tau = self.threshold
+        tau = float(calibration.threshold)
         if comp < tau:
             # Find the weakest gates for the abstention hint.
             ranked = sorted(signals, key=lambda s: s.score)
             top_failures = ranked[:3]
-            failure_str = ", ".join(
-                f"{s.name}={s.score:.2f}" for s in top_failures
-            )
+            failure_str = ", ".join(f"{s.name}={s.score:.2f}" for s in top_failures)
             self._abstention_reason = (
-                f"composite confidence {comp:.2f} below threshold {tau:.2f} "
-                f"(weakest: {failure_str})"
+                f"composite confidence {comp:.2f} below threshold {tau:.2f} (weakest: {failure_str})"
             )
             return []
         return candidates
@@ -234,9 +234,6 @@ def register(method: RetrievalMethod) -> RetrievalMethod:
 register(KeywordBaseline())
 
 
-# Register the SPEC-013 calibrated method. Loads calibration JSON lazily;
-# absence is non-fatal (threshold defaults to 0 → no abstention).
-try:
-    register(KeywordCalibrated())
-except Exception:  # noqa: BLE001 — never block import on calibration issues
-    pass
+# Register the SPEC-01KT22NMS0VWCTYPFPHP8M8V36 calibrated method. Calibration
+# loads lazily and raises as an explicit method error when missing or malformed.
+register(KeywordCalibrated())

@@ -69,7 +69,7 @@ def load_doc_types():
 
 
 def find_doc_type(doc_id: str):
-    """Look up the DocType for a given document ID (e.g., 'ADR-0001' → adr type)."""
+    """Look up the DocType for a given document ID (e.g., 'ADR-01KT22NMRV7GMAXKWSBEEN68KE' → adr type)."""
     for dt in load_doc_types():
         if dt.ref_re.match(doc_id):
             return dt
@@ -99,7 +99,6 @@ def _build_doc_type(name: str, cfg: dict):
     return DocType(
         name=name,
         prefix=cfg["prefix"],
-        digits=cfg.get("digits", 4),
         dir=cfg.get("dir", f"docs/{name}"),
         initial_status=cfg.get("initial_status", statuses[0]),
         statuses=statuses,
@@ -112,6 +111,7 @@ def _build_doc_type(name: str, cfg: dict):
         template=cfg.get("template"),
         c4=_parse_c4_config(cfg),
         coherence=_parse_coherence_config(name, cfg),
+        legacy_digits=cfg.get("digits", 4),
     )
 
 
@@ -124,7 +124,7 @@ def _parse_c4_config(cfg: dict):
 
     return C4Config(
         enabled=True,
-        id_field=c4_raw.get("id_field", "id"),
+        id_field=c4_raw.get("id_field", "c4_id"),
         levels=tuple(c4_raw.get("levels", ("system", "container", "component"))),
     )
 
@@ -135,12 +135,12 @@ def _parse_field_requirements(cfg: dict) -> dict[str, tuple[str, ...]]:
     return {k: tuple(v) for k, v in raw.items()}
 
 
-# ── SPEC-008 coherence config ─────────────────────────────
+# ── SPEC-01KT22NMRYNFYM7EN80WS2HD6F coherence config ─────────────────────────────
 
 
 @dataclasses.dataclass(frozen=True)
 class CoherenceConfig:
-    """Per-type opt-in coherence gates (SPEC-008).
+    """Per-type opt-in coherence gates (SPEC-01KT22NMRYNFYM7EN80WS2HD6F).
 
     All gates default to False. Set in decree.toml under
     `[types.<name>.coherence]`. Unknown keys are rejected at load time.
@@ -177,9 +177,7 @@ def _parse_coherence_config(type_name: str, cfg: dict) -> CoherenceConfig | None
     if raw is None:
         return None
     if not isinstance(raw, dict):
-        raise ValueError(
-            f"Type '{type_name}': [types.{type_name}.coherence] must be a table, got {type(raw).__name__}"
-        )
+        raise ValueError(f"Type '{type_name}': [types.{type_name}.coherence] must be a table, got {type(raw).__name__}")
     unknown = set(raw.keys()) - _COHERENCE_KEYS
     if unknown:
         raise ValueError(
@@ -200,7 +198,7 @@ def _parse_coherence_config(type_name: str, cfg: dict) -> CoherenceConfig | None
 def _parse_coherence_exceptions(type_name: str, cfg: dict) -> dict[str, frozenset[str]]:
     """Parse `[types.<name>.coherence_exceptions]` into a {gate: frozenset(doc_id)} map.
 
-    SPEC-010: each gate-name key maps to a list of doc IDs to skip when that
+    SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR: each gate-name key maps to a list of doc IDs to skip when that
     gate runs. Used both by the live gate (skip listed docs) and by the audit
     (still report, but flag as "deferred via exception").
 
@@ -212,8 +210,7 @@ def _parse_coherence_exceptions(type_name: str, cfg: dict) -> dict[str, frozense
         return {}
     if not isinstance(raw, dict):
         raise ValueError(
-            f"Type '{type_name}': [types.{type_name}.coherence_exceptions] must be a table, "
-            f"got {type(raw).__name__}"
+            f"Type '{type_name}': [types.{type_name}.coherence_exceptions] must be a table, got {type(raw).__name__}"
         )
     out: dict[str, frozenset[str]] = {}
     for gate_name, ids in raw.items():
@@ -237,13 +234,10 @@ def load_coherence_exceptions() -> dict[str, dict[str, frozenset[str]]]:
     with open(decree_toml, "rb") as f:
         data = tomllib.load(f)
     types_config = data.get("types", {})
-    return {
-        name: _parse_coherence_exceptions(name, cfg)
-        for name, cfg in types_config.items()
-    }
+    return {name: _parse_coherence_exceptions(name, cfg) for name, cfg in types_config.items()}
 
 
-# ── SPEC-008 health config (global [health] block) ────────
+# ── SPEC-01KT22NMRYNFYM7EN80WS2HD6F health config (global [health] block) ────────
 
 
 @dataclasses.dataclass(frozen=True)
@@ -274,10 +268,7 @@ def load_health_config() -> HealthConfig:
         raise ValueError(f"[health] must be a table, got {type(raw).__name__}")
     unknown = set(raw.keys()) - _HEALTH_KEYS
     if unknown:
-        raise ValueError(
-            f"Unknown keys in [health]: {sorted(unknown)}. "
-            f"Allowed: {sorted(_HEALTH_KEYS)}"
-        )
+        raise ValueError(f"Unknown keys in [health]: {sorted(unknown)}. Allowed: {sorted(_HEALTH_KEYS)}")
     return HealthConfig(
         threshold_commits=int(raw.get("threshold_commits", 10)),
         threshold_days=int(raw.get("threshold_days", 30)),

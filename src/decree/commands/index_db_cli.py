@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 from decree.index_db import IndexDB, default_db_path
-from decree.log import error, info, success
+from decree.log import error, info, success, warn
 
 
 def _resolve_root(project_arg: str | None) -> Path:
@@ -26,7 +26,6 @@ def _resolve_root(project_arg: str | None) -> Path:
             raise FileNotFoundError(f"{path} has no decree.toml")
         return path
 
-    import os
     # Make sure caches reflect any cwd change
     from decree.config import get_project_root, load_doc_types
 
@@ -64,6 +63,12 @@ def rebuild_run(args: argparse.Namespace) -> int:
         f"acs={stats.acceptance_criteria}  commits={stats.commits}",
     )
     info("index", f"git_sync_ms={stats.git_sync_ms}")
+    if stats.invalid_git_trailers:
+        warn(
+            "index",
+            f"ignored {stats.invalid_git_trailers} invalid git trailer(s); rewrite those "
+            "commit messages or re-run with canonical IDs going forward",
+        )
     success(f"index rebuilt in {stats.duration_ms}ms")
     return 0
 
@@ -88,7 +93,7 @@ def status_run(args: argparse.Namespace) -> int:
     print(f"DB path:         {status.db_path}")
     print(f"Schema version:  {status.schema_version}")
     print(f"Last rebuilt at: {status.last_rebuilt_at}")
-    print(f"Row counts:")
+    print("Row counts:")
     for table, count in status.row_counts.items():
         print(f"  {table:<24} {count}")
     return 0

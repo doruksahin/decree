@@ -70,7 +70,7 @@ def validate_cross_type_references(docs: list) -> list[str]:
 
 
 def validate_governs_paths(docs: list, project_root: Path) -> list[str]:
-    """Per SPEC-004: for each doc's `governs:` list, verify each path part exists in the
+    """Per SPEC-01KT22NMRXFWNE61NSETKATHBA: for each doc's `governs:` list, verify each path part exists in the
     working tree at `project_root`. The symbol part (after `#`) is preserved but NOT
     validated in v1 — symbol-level resolution is deferred to v2 (tree-sitter / LSP).
 
@@ -93,28 +93,24 @@ def validate_governs_paths(docs: list, project_root: Path) -> list[str]:
     return errors
 
 
-
 def validate_terminal_status_progress(
     docs: list,
     doc_types_by_name: dict,
     exceptions: dict[str, frozenset[str]] | None = None,
 ) -> list[str]:
-    """SPEC-008 Gate 1: terminal-status docs must have 100% primary AC progress.
+    """SPEC-01KT22NMRYNFYM7EN80WS2HD6F Gate 1: terminal-status docs must have 100% primary AC progress.
 
     For each doc whose type has `coherence.terminal_status_progress = true` and whose
-    status is a terminal-success state, parse primary vs. deferred ACs (via SPEC-002's
-    `_parse_checkboxes_by_section`) and emit an error if primary is not all done.
+    status is a terminal-success state, parse primary vs. deferred ACs and emit an
+    error if primary is not all done.
 
     Returns one error string per offending doc.
 
-    SPEC-010: `exceptions` maps type-name -> frozenset of doc_ids to skip for
+    SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR: `exceptions` maps type-name -> frozenset of doc_ids to skip for
     this gate. Listed docs are dropped before validation (no error emitted).
     """
-    from decree.commands.report import (
-        DEFAULT_DEFERRED_SECTION_PATTERNS,
-        _parse_checkboxes_by_section,
-        is_terminal_success,
-    )
+    from decree.checklists import DEFAULT_DEFERRED_SECTION_PATTERNS, parse_checkboxes_by_section
+    from decree.commands.report import is_terminal_success
 
     errors: list[str] = []
     exc = exceptions or {}
@@ -130,16 +126,12 @@ def validate_terminal_status_progress(
         if doc.doc_id in exc.get(dt.name, frozenset()):
             continue
         patterns = tuple(coh.deferred_sections) or DEFAULT_DEFERRED_SECTION_PATTERNS
-        parsed = _parse_checkboxes_by_section(doc.body, patterns)
+        parsed = parse_checkboxes_by_section(doc.body, patterns)
         total = parsed.primary_total
         done = parsed.primary_done
         if total == 0 or done == total:
             continue
-        pct = int(round(done / total * 100)) if total else 0
-        try:
-            rel = doc.path.relative_to(doc.path.parents[len(doc.path.parents) - 1])
-        except ValueError:
-            rel = doc.path
+        pct = round(done / total * 100) if total else 0
         # Use a short relative-to-cwd-style path; the lint loop already builds those
         # in its outer scope, but validators don't have project_root here. Print the
         # filename + parents — same shape as existing validators.
@@ -159,7 +151,7 @@ def validate_unreferenced_active(
     doc_types_by_name: dict,
     exceptions: dict[str, frozenset[str]] | None = None,
 ) -> list[str]:
-    """SPEC-008 Gate 3: active-status docs with no inbound references after N days.
+    """SPEC-01KT22NMRYNFYM7EN80WS2HD6F Gate 3: active-status docs with no inbound references after N days.
 
     For each doc whose type has `coherence.unreferenced_active = true`:
       - if status is in `active_statuses` (default: the type's `approved`/`accepted`
@@ -168,7 +160,7 @@ def validate_unreferenced_active(
       - frontmatter date is more than `unreferenced_after_days` ago,
     emit an error.
 
-    SPEC-010: `exceptions` maps type-name -> frozenset of doc_ids to skip for
+    SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR: `exceptions` maps type-name -> frozenset of doc_ids to skip for
     this gate. Listed docs are dropped before validation (no error emitted).
     """
     from datetime import date as _date

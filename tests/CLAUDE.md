@@ -40,7 +40,7 @@ uv run pytest -k supersede    # by keyword
 Large fixture library modeling a realistic multi-type project ("Team Billing" for a SaaS company). Provides pre-built document sets for:
 
 - Happy path with PRD → ADR → SPEC chain
-- Supersede chains (ADR-0002 superseded by ADR-0003)
+- Supersede chains (ADR-00000000000000000000000002 superseded by ADR-00000000000000000000000003)
 - Circular references (co-dependent SPECs)
 - Dangling references, stale references, self-references
 - Multi-type cross-references

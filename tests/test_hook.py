@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from decree.commands.hook import (
     HOOK_MARKER,
-    _find_decree_entries,
-    _load_settings,
-    _save_settings,
     hook_status,
     install_claude_hook,
-    uninstall_claude_hook,
     run,
+    uninstall_claude_hook,
 )
 
 
@@ -66,13 +65,11 @@ class TestInstall:
         # User pre-existing settings with their own Stop hook
         settings_path = project / ".claude" / "settings.json"
         settings_path.parent.mkdir(parents=True)
-        settings_path.write_text(json.dumps({
-            "hooks": {
-                "Stop": [
-                    {"matcher": "", "hooks": [{"type": "command", "command": "echo user-thing"}]}
-                ]
-            }
-        }))
+        settings_path.write_text(
+            json.dumps(
+                {"hooks": {"Stop": [{"matcher": "", "hooks": [{"type": "command", "command": "echo user-thing"}]}]}}
+            )
+        )
         install_claude_hook(project)
         data = json.loads(settings_path.read_text())
         # Both entries present, user's untouched
@@ -108,13 +105,11 @@ class TestUninstall:
         # Install user entry + decree entry
         settings_path = project / ".claude" / "settings.json"
         settings_path.parent.mkdir(parents=True)
-        settings_path.write_text(json.dumps({
-            "hooks": {
-                "Stop": [
-                    {"matcher": "", "hooks": [{"type": "command", "command": "echo user-thing"}]}
-                ]
-            }
-        }))
+        settings_path.write_text(
+            json.dumps(
+                {"hooks": {"Stop": [{"matcher": "", "hooks": [{"type": "command", "command": "echo user-thing"}]}]}}
+            )
+        )
         install_claude_hook(project)
         # Sanity: both entries
         data = json.loads(settings_path.read_text())
@@ -136,9 +131,11 @@ class TestUninstall:
         # Settings exist but no decree entries
         settings_path = project / ".claude" / "settings.json"
         settings_path.parent.mkdir(parents=True)
-        settings_path.write_text(json.dumps({"hooks": {"Stop": [
-            {"matcher": "", "hooks": [{"type": "command", "command": "echo user-thing"}]}
-        ]}}))
+        settings_path.write_text(
+            json.dumps(
+                {"hooks": {"Stop": [{"matcher": "", "hooks": [{"type": "command", "command": "echo user-thing"}]}]}}
+            )
+        )
         removed = uninstall_claude_hook(project)
         assert removed == 0
         # User entry still there
@@ -202,3 +199,30 @@ class TestRun:
         args = argparse.Namespace(action="install", type="claude-stop")
         rc = run(args)
         assert rc == 1
+
+
+class TestStopHookScript:
+    def test_debug_reports_no_project_skip_reason(self, tmp_path: Path):
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        fake_decree = fake_bin / "decree"
+        fake_decree.write_text('#!/usr/bin/env bash\nif [[ "$1" == "find-root" ]]; then\n  exit 1\nfi\nexit 99\n')
+        fake_decree.chmod(0o755)
+
+        env = dict(os.environ)
+        env["PATH"] = f"{fake_bin}{os.pathsep}{env.get('PATH', '')}"
+        env["DECREE_HOOK_DEBUG"] = "1"
+        env["HOME"] = str(tmp_path / "home")
+
+        script = Path(__file__).resolve().parents[1] / "scripts" / "hooks" / "decree-ddd-stop.sh"
+        result = subprocess.run(
+            [str(script)],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode == 0
+        assert "no decree.toml found upward from cwd" in result.stderr

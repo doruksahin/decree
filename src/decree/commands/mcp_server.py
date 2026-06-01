@@ -1,8 +1,8 @@
 """`decree mcp serve` — MCP (Model Context Protocol) server exposing decree's
 query API as agent-callable tools.
 
-This is the thin protocol layer described by SPEC-007. It wraps the library
-functions shipped in SPEC-005 (`commands.queries.why` / `commands.queries.refs`)
+This is the thin protocol layer described by SPEC-01KT22NMRYJ4482K92AX9GJTMA. It wraps the library
+functions shipped in SPEC-01KT22NMRXWCS5TK5VC1FT6JER (`commands.queries.why` / `commands.queries.refs`)
 behind FastMCP's stdio transport. No new query logic lives here — only:
 
   1. project-root resolution (mirrors `commands.queries._resolve_root`),
@@ -11,7 +11,7 @@ behind FastMCP's stdio transport. No new query logic lives here — only:
      identical schema,
   4. **the LLM-facing docstrings**, which are the actual product of this SPEC.
 
-Each tool docstring follows the 5-section structure mandated by SPEC-007:
+Each tool docstring follows the 5-section structure mandated by SPEC-01KT22NMRYJ4482K92AX9GJTMA:
 summary / Args / Returns / When to call / When not to call.
 
 Future SPECs (008 staleness/health, 009 intent_review) will add more
@@ -92,15 +92,16 @@ def _index_missing_response() -> dict:
     }
 
 
-def _stale_warning(db: IndexDB, root: Path) -> str | None:
-    """Return a one-line drift warning if the index is stale, else None."""
+def _stale_index_response(db: IndexDB, root: Path) -> dict | None:
+    """Return a structured error if the index is stale, else None."""
     findings = db.verify(root)
     real_drift = [f for f in findings if f.kind != "index_missing"]
     if real_drift:
-        return (
-            f"index is stale ({len(real_drift)} drift findings); "
-            "run `decree index rebuild` for current results"
-        )
+        return {
+            "error": "index stale",
+            "drift_findings": len(real_drift),
+            "hint": "Run `decree index rebuild` before querying.",
+        }
     return None
 
 
@@ -122,7 +123,7 @@ def why(path: str, with_abstention: bool = False) -> dict:
             (e.g. `src/foo.py#MyClass`); the symbol is preserved on each result
             row but does not affect ranking in v1. Absolute paths and paths
             with leading `./` are accepted but normalized.
-        with_abstention: If True (default False), route through the SPEC-013
+        with_abstention: If True (default False), route through the SPEC-01KT22NMS0VWCTYPFPHP8M8V36
             calibrated retrieval method (`keyword-v1-calibrated`). When the
             composite confidence gate falls below its calibrated threshold,
             the response includes `abstained: True` plus a `signals` map and
@@ -137,7 +138,7 @@ def why(path: str, with_abstention: bool = False) -> dict:
               "match_count": int,                # number of governing decisions
               "matches": [
                 {
-                  "decision_id": str,            # e.g. "SPEC-007"
+                  "decision_id": str,            # e.g. "SPEC-01KT22NMRYJ4482K92AX9GJTMA"
                   "type": str,                   # "prd" | "adr" | "spec"
                   "status": str,                 # "implemented", "accepted", ...
                   "date": str,                   # ISO date from frontmatter
@@ -158,7 +159,7 @@ def why(path: str, with_abstention: bool = False) -> dict:
               "composite_score": float,
               "threshold": float,
               "signals": {"dominance": 1.0, "coverage": 0.1, ...},
-              "would_have_returned": ["SPEC-099", ...],
+              "would_have_returned": ["SPEC-01KT22NMRYJ4482K92AX9GJTMA", ...],
               "abstention_reason": str,
             }
 
@@ -166,8 +167,9 @@ def why(path: str, with_abstention: bool = False) -> dict:
         currently governs the path. Do NOT confabulate a match; abstention is
         the right behavior when the index says nothing.
 
-        On a stale index a `"warning"` key is included with a one-line drift
-        notice. On a missing index the response is
+        On a stale index the response is
+        `{"error": "index stale", "hint": "Run `decree index rebuild`"}`.
+        On a missing index the response is
         `{"error": "index not found", "hint": "Run `decree index rebuild`"}`.
 
     When to call:
@@ -191,7 +193,9 @@ def why(path: str, with_abstention: bool = False) -> dict:
     if not status.exists:
         return _index_missing_response()
 
-    warning = _stale_warning(db, root)
+    stale = _stale_index_response(db, root)
+    if stale is not None:
+        return stale
     matches = _why_lib(db, path)
 
     payload: dict = {
@@ -214,11 +218,16 @@ def why(path: str, with_abstention: bool = False) -> dict:
     if with_abstention:
         from decree.commands.queries import _calibrated_assess
 
-        abstention = _calibrated_assess(db, kind="file_path", text=path)
+        try:
+            abstention = _calibrated_assess(db, kind="file_path", text=path)
+        except Exception as e:
+            return {
+                "error": "calibrated abstention unavailable",
+                "detail": str(e),
+                "hint": "Run `decree retrieval-eval --calibrate` before using with_abstention.",
+            }
         if abstention is not None:
             payload.update(abstention)
-    if warning is not None:
-        payload["warning"] = warning
     return payload
 
 
@@ -233,10 +242,9 @@ def refs(decision_id: str, with_abstention: bool = False) -> dict:
 
     Args:
         decision_id: The decision identifier, exactly as it appears in
-            frontmatter and filenames (e.g. `SPEC-007`, `PRD-003`, `ADR-0002`).
-            Case-sensitive; the canonical form is uppercase prefix +
-            zero-padded number per the project's `decree.toml`.
-        with_abstention: If True (default False), first run the SPEC-013
+            frontmatter and filenames, for example `SPEC-01KT22NMRYJ4482K92AX9GJTMA`.
+            Case-sensitive; the canonical form is uppercase `TYPE-ULID`.
+        with_abstention: If True (default False), first run the SPEC-01KT22NMS0VWCTYPFPHP8M8V36
             calibrated retrieval method against the decision id as a concept
             query. If the composite confidence falls below the calibrated
             threshold, the response returns an abstention shape instead of
@@ -263,7 +271,8 @@ def refs(decision_id: str, with_abstention: bool = False) -> dict:
         `{"error": "unknown decision id", "decision_id": "..."}`.
         On a missing index the response is
         `{"error": "index not found", "hint": "Run `decree index rebuild`"}`.
-        On a stale index a `"warning"` key is added to the success payload.
+        On a stale index the response is
+        `{"error": "index stale", "hint": "Run `decree index rebuild`"}`.
 
         When ``with_abstention=True`` and the calibrator vetoes the answer,
         the dict has the abstention shape ``{"decision_id": str,
@@ -292,16 +301,23 @@ def refs(decision_id: str, with_abstention: bool = False) -> dict:
     if not status.exists:
         return _index_missing_response()
 
-    warning = _stale_warning(db, root)
+    stale = _stale_index_response(db, root)
+    if stale is not None:
+        return stale
 
     if with_abstention:
         from decree.commands.queries import _calibrated_assess
 
-        abstention = _calibrated_assess(db, kind="concept", text=decision_id)
+        try:
+            abstention = _calibrated_assess(db, kind="concept", text=decision_id)
+        except Exception as e:
+            return {
+                "error": "calibrated abstention unavailable",
+                "detail": str(e),
+                "hint": "Run `decree retrieval-eval --calibrate` before using with_abstention.",
+            }
         if abstention is not None and abstention.get("abstained"):
             payload: dict = {"decision_id": decision_id, **abstention}
-            if warning is not None:
-                payload["warning"] = warning
             return payload
 
     report = _refs_lib(db, decision_id)
@@ -320,8 +336,6 @@ def refs(decision_id: str, with_abstention: bool = False) -> dict:
         "governs": [asdict(g) for g in report.governs],
         "commits": [asdict(c) for c in report.commits],
     }
-    if warning is not None:
-        payload["warning"] = warning
     return payload
 
 
@@ -351,7 +365,7 @@ def stale(threshold_commits: int = 10) -> dict:
             {
               "stale_decisions": [
                 {
-                  "decision_id": str,            # e.g. "SPEC-091"
+                  "decision_id": str,            # e.g. "SPEC-01KT22NMRYNFYM7EN80WS2HD6F"
                   "type": str,                   # "prd" | "adr" | "spec"
                   "last_touched_ts": int,        # unix seconds, -1 if unknown
                   "churn_count": int,            # total commits across governed paths
@@ -383,7 +397,8 @@ def stale(threshold_commits: int = 10) -> dict:
           and is O(decisions x governs). Cache the result if needed.
         - On a non-git project — staleness needs commit history.
     """
-    from decree.commands.health import _is_git_repo, stale_decisions as _stale_lib
+    from decree.commands.health import _is_git_repo
+    from decree.commands.health import stale_decisions as _stale_lib
 
     db, root = _get_db()
     status = db.status()
@@ -403,9 +418,7 @@ def stale(threshold_commits: int = 10) -> dict:
                 "type": sd.type,
                 "last_touched_ts": sd.last_touched_ts,
                 "churn_count": sd.churn_count,
-                "governed_paths": [
-                    {"path": p, "count": c} for (p, c) in sd.governed_paths
-                ],
+                "governed_paths": [{"path": p, "count": c} for (p, c) in sd.governed_paths],
             }
             for sd in findings
         ],
@@ -417,7 +430,7 @@ def stale(threshold_commits: int = 10) -> dict:
 def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
     """Return the full coherence health report: stale decisions + ungoverned hotspots.
 
-    Combines two PRD-003 R7 signals into one response:
+    Combines two PRD-01KT22NMRS4QGHSFDBZ858PP1T R7 signals into one response:
 
       1. **Stale decisions** — same as `stale`: decisions whose
          `governs:` paths have churned by >`threshold_commits` commits
@@ -475,7 +488,8 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
         - As a substitute for `lint` — health surfaces *coherence*
           signals, not malformed documents.
     """
-    from decree.commands.health import _is_git_repo, health as _health_lib
+    from decree.commands.health import _is_git_repo
+    from decree.commands.health import health as _health_lib
 
     db, root = _get_db()
     status = db.status()
@@ -495,9 +509,7 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
                 "type": sd.type,
                 "last_touched_ts": sd.last_touched_ts,
                 "churn_count": sd.churn_count,
-                "governed_paths": [
-                    {"path": p, "count": c} for (p, c) in sd.governed_paths
-                ],
+                "governed_paths": [{"path": p, "count": c} for (p, c) in sd.governed_paths],
             }
             for sd in report.stale_decisions
         ],
@@ -515,9 +527,7 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
 
 
 @mcp.tool()
-def intent_review(
-    diff: str | None = None, changed_paths: list[str] | None = None
-) -> dict:
+def intent_review(diff: str | None = None, changed_paths: list[str] | None = None) -> dict:
     """Diff-aware governance report — what decisions does this change affect?
 
     Given a unified diff (or an explicit list of changed paths), return a
@@ -585,10 +595,12 @@ def intent_review(
           nothing useful.
         - On test-only diffs — `governs:` is source-file scoped.
         - For pre-PR planning intent ("I plan to do X") — that's a
-          different tool (`intent_check`, PRD-004 R2; not yet implemented).
+          different tool (`intent_check`, PRD-01KT22NMRSXYT95XE808VD8EV4 R2; not yet implemented).
     """
     from decree.commands.intent_review import (
         intent_review as _intent_review_lib,
+    )
+    from decree.commands.intent_review import (
         parse_diff,
         report_to_dict,
     )
@@ -598,7 +610,9 @@ def intent_review(
     if not status.exists:
         return _index_missing_response()
 
-    warning = _stale_warning(db, root)
+    stale = _stale_index_response(db, root)
+    if stale is not None:
+        return stale
 
     if changed_paths is not None:
         paths = list(changed_paths)
@@ -609,10 +623,7 @@ def intent_review(
 
     report = _intent_review_lib(db, root, paths)
     payload = report_to_dict(report)
-    if warning is not None:
-        payload["warning"] = warning
     return payload
-
 
 
 @mcp.tool()
@@ -629,7 +640,7 @@ def intent_check(
     returns the governance map *now*, so you can resolve conflicts and
     update stale decisions before any line of implementation lands.
 
-    This is the planning-phase counterpart of `intent_review` (SPEC-009).
+    This is the planning-phase counterpart of `intent_review` (SPEC-01KT22NMRYRZQ59EC88VJ5R0N6).
     `intent_review` runs against a diff; `intent_check` runs against a
     plan + planned file list.
 
@@ -642,7 +653,7 @@ def intent_check(
             modify. Required, must be non-empty in practice (an empty list
             collapses to a `proceed` recommendation).
         with_abstention: If True (default False), route the governance
-            lookups through SPEC-013's calibrated retrieval method. When
+            lookups through SPEC-01KT22NMS0VWCTYPFPHP8M8V36's calibrated retrieval method. When
             all paths return empty governance the response includes an
             `abstention` block with signals and threshold so the caller
             can see *why* the calibrator deflected.
@@ -650,12 +661,14 @@ def intent_check(
             conflict run an LLM judge to decide whether the conflict is
             *real* (decisions disagree about behavior) or *complementary*
             (decisions cover different aspects of the same file). Adds
-            ~3–5s latency per conflict and requires an LLM API key
-            (resolution chain: `DECREE_LLM_MODEL` env, then
-            `ANTHROPIC_API_KEY` → claude-3-5-sonnet-latest, then
-            `OPENAI_API_KEY` → gpt-4o-mini). When no key is resolvable the
-            response includes a `judge_error` field and conflicts are
-            returned structural-only.
+            provider latency per conflict and uses the same explicit model
+            resolution chain as the CLI: `DECREE_LLM_MODEL`, then `claude`
+            on PATH -> `claude-code/sonnet`, then `ANTHROPIC_API_KEY` ->
+            `claude-3-5-sonnet-latest`, then `OPENAI_API_KEY` ->
+            `gpt-4o-mini`. `claude-code/...` routes through the local Claude
+            Code CLI; other model strings route through litellm. When no
+            provider is resolvable the response includes a `judge_error`
+            field and conflicts are returned structural-only.
 
     Returns:
         A dict with the same shape as `decree intent-check --json`:
@@ -702,7 +715,8 @@ def intent_check(
         Empty arrays are valid responses (abstention; do not confabulate).
         On a missing index the response is
         `{"error": "index not found", "hint": "Run `decree index rebuild`"}`.
-        On a stale index a `"warning"` key is added to the success payload.
+        On a stale index the response is
+        `{"error": "index stale", "hint": "Run `decree index rebuild`"}`.
 
     When to call:
         - At the *start* of an implementation task, before writing any
@@ -716,12 +730,14 @@ def intent_check(
     When not to call:
         - For trivial refactors or documentation-only changes (the
           ceremony exceeds the value).
-        - *After* code is written — that's `intent_review` (SPEC-009),
+        - *After* code is written — that's `intent_review` (SPEC-01KT22NMRYRZQ59EC88VJ5R0N6),
           not this. The two tools complement each other.
         - For exploratory code not intended to be merged.
     """
     from decree.commands.intent_check import (
         intent_check as _intent_check_lib,
+    )
+    from decree.commands.intent_check import (
         report_to_dict,
     )
 
@@ -730,7 +746,9 @@ def intent_check(
     if not status.exists:
         return _index_missing_response()
 
-    warning = _stale_warning(db, root)
+    stale = _stale_index_response(db, root)
+    if stale is not None:
+        return stale
 
     # Resolve a model for judging conflicts; if unavailable we fall back to
     # structural-only and surface a hint so the caller can fix it.
@@ -742,9 +760,7 @@ def intent_check(
 
             model = resolve_model(argparse.Namespace(model=None))
         except SystemExit as e:
-            judge_error = (
-                f"--judge-conflicts requested but no LLM model resolvable: {e}"
-            )
+            judge_error = f"--judge-conflicts requested but no LLM model resolvable: {e}"
 
     report = _intent_check_lib(
         db,
@@ -756,8 +772,6 @@ def intent_check(
         model=model,
     )
     payload = report_to_dict(report)
-    if warning is not None:
-        payload["warning"] = warning
     if judge_error is not None:
         payload["judge_error"] = judge_error
     return payload
@@ -789,8 +803,7 @@ def mcp_serve_run(args: argparse.Namespace) -> int:
     if not status.exists:
         info(
             "mcp",
-            "index not found; tools will return error responses until "
-            "`decree index rebuild` is run",
+            "index not found; tools will return error responses until `decree index rebuild` is run",
         )
 
     mcp.run()

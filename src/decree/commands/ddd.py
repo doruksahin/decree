@@ -11,21 +11,19 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
-from decree.log import error, info
+from decree.checklists import count_primary_checkboxes, parse_checkboxes_by_section
+from decree.commands.report import load_report_config
+from decree.log import error
 from decree.parser import load_all_types
-
-_CHECKBOX_RE = re.compile(r"^[\s]*[-*]\s+\[([ xX])\]", re.MULTILINE)
-
 
 # ── Phase enum ────────────────────────────────────────────────
 
 
-class Phase(str, Enum):
+class Phase(StrEnum):
     """Lifecycle phases, ordered by check priority (first-match-wins, highest-urgency-first)."""
 
     # Highest urgency first: in-flight implementation work outranks new ideation.
@@ -51,6 +49,8 @@ class DocSummary:
     title: str
     progress_done: int = 0
     progress_total: int = 0
+    deferred_done: int = 0
+    deferred_total: int = 0
     references: tuple[str, ...] = ()
 
     @property
@@ -73,8 +73,8 @@ class Chain:
 class Suggestion:
     """A recommended next action."""
 
-    action: str           # machine-readable verb (e.g., "create_prd", "complete_spec")
-    description: str      # human-readable sentence
+    action: str  # machine-readable verb (e.g., "create_prd", "complete_spec")
+    description: str  # human-readable sentence
     target_id: str | None = None
     extra: dict = field(default_factory=dict)
 
@@ -89,11 +89,12 @@ class Health:
 class DDDAssessment:
     phase: Phase
     project_path: Path
-    documents: dict[str, int]                  # {"prd": 4, "adr": 2, "spec": 1}
-    progress: dict[str, int]                   # {"completed": 32, "total": 54, "percent": 59}
+    scope: str
+    documents: dict[str, int]  # {"prd": 4, "adr": 2, "spec": 1}
+    progress: dict[str, int]  # {"completed": 32, "total": 54, "percent": 59}
     chains: tuple[Chain, ...]
-    orphan_adrs: tuple[DocSummary, ...]        # ADRs not in any PRD chain
-    orphan_specs: tuple[DocSummary, ...]       # SPECs not in any PRD chain
+    orphan_adrs: tuple[DocSummary, ...]  # ADRs not in any PRD chain
+    orphan_specs: tuple[DocSummary, ...]  # SPECs not in any PRD chain
     suggested_actions: tuple[Suggestion, ...]
     health: Health
 
@@ -102,30 +103,33 @@ class DDDAssessment:
 
 
 def _count_checkboxes(body: str) -> tuple[int, int]:
-    """Count (done, total) markdown checkboxes — same logic as commands.progress."""
-    matches = _CHECKBOX_RE.findall(body)
-    total = len(matches)
-    done = sum(1 for m in matches if m in ("x", "X"))
-    return done, total
+    """Count completed/total primary checkboxes — same logic as commands.progress."""
+    return count_primary_checkboxes(body)
 
 
-def _summarize(doc) -> DocSummary:
-    done, total = _count_checkboxes(doc.body)
+def _summarize(doc, root: Path) -> DocSummary:
+    type_name = doc.doc_type.name if doc.doc_type else "adr"
+    cfg = load_report_config(root, type_name)
+    parsed = parse_checkboxes_by_section(doc.body, cfg.deferred_section_patterns)
     refs: tuple[str, ...] = ()
     if doc.meta.references:
         refs = tuple(doc.meta.references)
     return DocSummary(
         id=doc.doc_id,
-        type=doc.doc_type.name if doc.doc_type else "adr",
+        type=type_name,
         status=doc.meta.status,
         title=doc.title,
-        progress_done=done,
-        progress_total=total,
+        progress_done=parsed.primary_done,
+        progress_total=parsed.primary_total,
+        deferred_done=parsed.deferred_done,
+        deferred_total=parsed.deferred_total,
         references=refs,
     )
 
 
-def _build_chains(summaries: list[DocSummary]) -> tuple[tuple[Chain, ...], tuple[DocSummary, ...], tuple[DocSummary, ...]]:
+def _build_chains(
+    summaries: list[DocSummary],
+) -> tuple[tuple[Chain, ...], tuple[DocSummary, ...], tuple[DocSummary, ...]]:
     """Group ADRs/SPECs under the PRD they reference. Returns (chains, orphan_adrs, orphan_specs)."""
     prds = [s for s in summaries if s.type == "prd"]
     adrs = [s for s in summaries if s.type == "adr"]
@@ -140,15 +144,11 @@ def _build_chains(summaries: list[DocSummary]) -> tuple[tuple[Chain, ...], tuple
         # No PRDs — all ADRs and SPECs are orphans
         return (), tuple(adrs), tuple(specs + other)
 
-    prd_ids = {p.id for p in prds}
     for prd in prds:
         prd_adrs = tuple(a for a in adrs if prd.id in a.references)
         adr_ids = {a.id for a in prd_adrs}
         # SPECs in this chain: either reference the PRD directly OR reference one of its ADRs.
-        prd_specs = tuple(
-            s for s in specs
-            if prd.id in s.references or any(aid in s.references for aid in adr_ids)
-        )
+        prd_specs = tuple(s for s in specs if prd.id in s.references or any(aid in s.references for aid in adr_ids))
         chains_list.append(Chain(prd=prd, adrs=prd_adrs, specs=prd_specs))
 
     # Collect anything not in any chain
@@ -166,12 +166,18 @@ def _build_chains(summaries: list[DocSummary]) -> tuple[tuple[Chain, ...], tuple
 def _detect_phase_for_chain(chain: Chain) -> tuple[Phase, Suggestion] | None:
     """Detect the highest-urgency phase for a single chain. Returns None if chain is fully done."""
     # Phase 4: any SPEC in 1-99% progress → IMPLEMENTATION
-    in_flight_specs = [s for s in chain.specs if s.status not in ("implemented",) and s.progress_percent is not None and 0 < s.progress_percent < 100]
+    in_flight_specs = [
+        s
+        for s in chain.specs
+        if s.status not in ("implemented",) and s.progress_percent is not None and 0 < s.progress_percent < 100
+    ]
     if in_flight_specs:
         s = in_flight_specs[0]
         return Phase.IMPLEMENTATION, Suggestion(
             action="continue_spec",
-            description=f"Continue implementing {s.id} ({s.progress_done}/{s.progress_total} ACs done, {s.progress_percent}%)",
+            description=(
+                f"Continue implementing {s.id} ({s.progress_done}/{s.progress_total} ACs done, {s.progress_percent}%)"
+            ),
             target_id=s.id,
             extra={"remaining": s.progress_total - s.progress_done},
         )
@@ -188,7 +194,9 @@ def _detect_phase_for_chain(chain: Chain) -> tuple[Phase, Suggestion] | None:
         )
 
     # Phase 3: any SPEC with 0% progress → PLANNING
-    zero_specs = [s for s in chain.specs if s.progress_total > 0 and s.progress_done == 0 and s.status not in ("implemented",)]
+    zero_specs = [
+        s for s in chain.specs if s.progress_total > 0 and s.progress_done == 0 and s.status not in ("implemented",)
+    ]
     if zero_specs:
         s = zero_specs[0]
         return Phase.PLANNING, Suggestion(
@@ -205,7 +213,7 @@ def _detect_phase_for_chain(chain: Chain) -> tuple[Phase, Suggestion] | None:
                 action="create_spec",
                 description=f"Create a SPEC referencing {adr.id} (and {chain.prd.id if chain.prd else 'the PRD'})",
                 target_id=adr.id,
-                extra={"command": f'decree new spec "<title>"'},
+                extra={"command": 'decree new spec "<title>"'},
             )
 
     # Phase 1: PRD exists, no ADR references it → ARCHITECTURE_DECISIONS
@@ -214,7 +222,7 @@ def _detect_phase_for_chain(chain: Chain) -> tuple[Phase, Suggestion] | None:
             action="create_adr",
             description=f"Create an ADR referencing {chain.prd.id}",
             target_id=chain.prd.id,
-            extra={"command": f'decree new adr "<title>"'},
+            extra={"command": 'decree new adr "<title>"'},
         )
 
     return None
@@ -277,12 +285,12 @@ def _detect_phase(assessment_data: dict, chains: tuple[Chain, ...]) -> tuple[Pha
 
 def _check_health() -> Health:
     """Run lint and stale-state checks; return aggregate counts."""
-    from decree.commands.lint import run as lint_run
-
     # Lint runs to stdout; capture exit code by running it.
     # We swallow output here — caller can run `decree lint` directly for details.
     import contextlib
     import io
+
+    from decree.commands.lint import run as lint_run
 
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
@@ -295,14 +303,23 @@ def _check_health() -> Health:
 # ── Public API ────────────────────────────────────────────────
 
 
-def assess(project_path: Path | None = None) -> DDDAssessment:
+def assess(
+    project_path: Path | None = None,
+    *,
+    doc_id: str | None = None,
+    chain_id: str | None = None,
+    governs_path: str | None = None,
+    changed_base: str | None = None,
+) -> DDDAssessment:
     """Run the full DDD assessment on the project at `project_path` (or cwd)."""
     if project_path is not None:
         # Set cwd so decree's existing utilities resolve the right project
         import os
+
         os.chdir(project_path)
         # Clear cached project root + doc types since cwd changed
         from decree.config import get_project_root, load_doc_types
+
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
 
@@ -315,6 +332,7 @@ def assess(project_path: Path | None = None) -> DDDAssessment:
         return DDDAssessment(
             phase=Phase.IDEATION,
             project_path=project_path or Path.cwd(),
+            scope="all documents",
             documents={},
             progress={"completed": 0, "total": 0, "percent": 0},
             chains=(),
@@ -329,13 +347,52 @@ def assess(project_path: Path | None = None) -> DDDAssessment:
             health=Health(lint_errors=0, stale_docs=0),
         )
 
-    docs = load_all_types(strict=False)
-    summaries = [_summarize(d) for d in docs]
+    from decree.identity import require_doc_id
+
+    docs = load_all_types()
+    scope = "all documents"
+    if doc_id:
+        doc_id = require_doc_id(doc_id)
+        docs = [d for d in docs if d.doc_id == doc_id]
+        if not docs:
+            raise ValueError(f"document not found: {doc_id}")
+        scope = f"doc {doc_id}"
+    elif chain_id:
+        from decree.commands.progress import _connected_doc_ids
+
+        chain_id = require_doc_id(chain_id)
+        ids = _connected_doc_ids(docs, chain_id)
+        if not ids:
+            raise ValueError(f"chain root not found: {chain_id}")
+        docs = [d for d in docs if d.doc_id in ids]
+        scope = f"chain {chain_id}"
+    elif governs_path:
+        from decree.commands.progress import _doc_governs_path
+
+        docs = [d for d in docs if _doc_governs_path(d, governs_path)]
+        scope = f"governs {governs_path}"
+    elif changed_base:
+        from decree.commands.progress import _changed_paths
+
+        changed_paths = _changed_paths(changed_base)
+        scoped = []
+        for doc in docs:
+            try:
+                rel = str(doc.path.relative_to(root))
+            except ValueError:
+                rel = str(doc.path)
+            if rel in changed_paths:
+                scoped.append(doc)
+        docs = scoped
+        scope = f"changed docs since {changed_base}"
+    summaries = [_summarize(d, root) for d in docs]
 
     # Aggregate progress
     completed = sum(s.progress_done for s in summaries)
     total = sum(s.progress_total for s in summaries)
     percent = round(completed / total * 100) if total > 0 else 0
+    deferred_completed = sum(s.deferred_done for s in summaries)
+    deferred_total = sum(s.deferred_total for s in summaries)
 
     # Doc counts by type
     doc_counts: dict[str, int] = {}
@@ -346,7 +403,10 @@ def assess(project_path: Path | None = None) -> DDDAssessment:
     chains, orphan_adrs, orphan_specs = _build_chains(summaries)
 
     # Detect phase
-    phase, suggestions = _detect_phase({"doc_count": len(docs)}, chains)
+    chains_for_phase = chains
+    if not chains_for_phase and orphan_specs:
+        chains_for_phase = (Chain(prd=None, specs=orphan_specs),)
+    phase, suggestions = _detect_phase({"doc_count": len(docs)}, chains_for_phase)
 
     # Health
     health = _check_health()
@@ -354,8 +414,15 @@ def assess(project_path: Path | None = None) -> DDDAssessment:
     return DDDAssessment(
         phase=phase,
         project_path=root,
+        scope=scope,
         documents=doc_counts,
-        progress={"completed": completed, "total": total, "percent": percent},
+        progress={
+            "completed": completed,
+            "total": total,
+            "percent": percent,
+            "deferred_completed": deferred_completed,
+            "deferred_total": deferred_total,
+        },
         chains=chains,
         orphan_adrs=orphan_adrs,
         orphan_specs=orphan_specs,
@@ -382,18 +449,28 @@ def format_human(assessment: DDDAssessment, *, quiet: bool = False) -> str:
     """Format the assessment as human-readable text."""
     lines: list[str] = []
     label = _PHASE_LABELS[assessment.phase]
-    doc_summary = ", ".join(f"{n} {t.upper()}{'s' if n != 1 else ''}" for t, n in sorted(assessment.documents.items())) or "no documents"
+    doc_summary = (
+        ", ".join(f"{n} {t.upper()}{'s' if n != 1 else ''}" for t, n in sorted(assessment.documents.items()))
+        or "no documents"
+    )
     pct = assessment.progress["percent"]
 
     lines.append(f"DDD Assessment: {assessment.project_path}")
+    lines.append(f"Scope: {assessment.scope}")
     lines.append("")
     lines.append(f"  Phase: {label}")
     lines.append(f"  Documents: {doc_summary}")
-    lines.append(f"  Progress: {pct}% ({assessment.progress['completed']}/{assessment.progress['total']})")
+    lines.append(f"  Progress: {pct}% primary ({assessment.progress['completed']}/{assessment.progress['total']})")
+    if assessment.progress.get("deferred_total", 0) > 0:
+        lines.append(
+            "  Deferred: "
+            f"{assessment.progress['deferred_completed']}/{assessment.progress['deferred_total']} "
+            "items separated from primary progress"
+        )
     if assessment.health.lint_errors:
         lines.append(f"  Health: ⚠ {assessment.health.lint_errors} lint errors")
     else:
-        lines.append(f"  Health: ✓ lint clean")
+        lines.append("  Health: ✓ lint clean")
     lines.append("")
 
     if not quiet and assessment.chains:
@@ -429,13 +506,13 @@ def _dataclass_to_dict(obj):
 
     if is_dataclass(obj) and not isinstance(obj, type):
         return {f.name: _dataclass_to_dict(getattr(obj, f.name)) for f in fields(obj)}
-    if isinstance(obj, (list, tuple)):
+    if isinstance(obj, list | tuple):
         return [_dataclass_to_dict(x) for x in obj]
     if isinstance(obj, dict):
         return {k: _dataclass_to_dict(v) for k, v in obj.items()}
     if isinstance(obj, Path):
         return str(obj)
-    if isinstance(obj, Enum):
+    if isinstance(obj, StrEnum):
         return obj.value
     return obj
 
@@ -452,8 +529,18 @@ def format_json(assessment: DDDAssessment) -> str:
 def run(args: argparse.Namespace) -> int:
     project_path = Path(args.project).resolve() if args.project else None
     try:
-        assessment = assess(project_path=project_path)
-    except Exception as e:  # noqa: BLE001
+        changed_base = getattr(args, "base", None) if getattr(args, "changed", False) else None
+        if getattr(args, "changed", False) and not changed_base:
+            error("ddd", "--changed requires --base REF")
+            return 1
+        assessment = assess(
+            project_path=project_path,
+            doc_id=getattr(args, "doc", None),
+            chain_id=getattr(args, "chain", None),
+            governs_path=getattr(args, "governs", None),
+            changed_base=changed_base,
+        )
+    except Exception as e:
         error("ddd", f"assessment failed: {e}")
         return 1
 

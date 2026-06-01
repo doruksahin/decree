@@ -3,6 +3,8 @@
 import re
 from dataclasses import dataclass, field
 
+from decree.identity import ULID_PATTERN
+
 
 @dataclass(frozen=True)
 class DocType:
@@ -10,7 +12,6 @@ class DocType:
 
     name: str
     prefix: str
-    digits: int
     dir: str  # relative to project root
     initial_status: str
     statuses: tuple[str, ...]
@@ -23,14 +24,15 @@ class DocType:
     template: str | None = None  # relative path to custom template, or None for built-in
     c4: object | None = None  # C4Config instance when C4 is enabled, None otherwise
     coherence: object | None = None  # CoherenceConfig instance when configured, None otherwise
+    legacy_digits: int = 4  # used only by `decree migrate ids` for old numeric corpora
 
     @property
     def ref_re(self) -> re.Pattern:
-        return re.compile(rf"^{re.escape(self.prefix)}-\d{{{self.digits}}}$")
+        return re.compile(rf"^{re.escape(self.prefix)}-{ULID_PATTERN}$")
 
     @property
     def filename_re(self) -> re.Pattern:
-        return re.compile(rf"^(\d{{{self.digits}}})-.+\.md$")
+        return re.compile(rf"^{re.escape(self.prefix.lower())}-{ULID_PATTERN.lower()}-.+\.md$")
 
     @property
     def terminal_statuses(self) -> frozenset[str]:
@@ -40,17 +42,10 @@ class DocType:
     # "implemented" is terminal (no transitions) but healthy to reference.
     # "rejected", "superseded", "deprecated" are terminal AND dead.
 
-    def format_id(self, number: int) -> str:
-        return f"{self.prefix}-{number:0{self.digits}d}"
-
-    def parse_number(self, doc_id: str) -> int:
-        return int(doc_id.split("-", 1)[1])
-
 
 ADR_DEFAULT = DocType(
     name="adr",
     prefix="ADR",
-    digits=4,
     dir="docs/adr",
     initial_status="proposed",
     statuses=("proposed", "accepted", "rejected", "deprecated", "superseded"),
@@ -92,4 +87,5 @@ ADR_DEFAULT = DocType(
         "Pros and Cons of the Options": "Detailed per-option pros/cons as H3 subsections.",
         "More Information": "Links to related ADRs, external references, meeting notes.",
     },
+    legacy_digits=4,
 )

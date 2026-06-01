@@ -107,7 +107,7 @@ def run(args: argparse.Namespace | None = None) -> int:
         if not type_dir.exists():
             continue
 
-        docs = load_all(strict=False, doc_type=dt)
+        docs = load_all(doc_type=dt)
         info(prefix, f"loaded {len(docs)} {dt.name.upper()} documents")
 
         if not docs:

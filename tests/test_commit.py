@@ -1,4 +1,4 @@
-"""Tests for `decree commit` — git-trailer wrapper (SPEC-006)."""
+"""Tests for `decree commit` — git-trailer wrapper (SPEC-00000000000000000000000006)."""
 
 from __future__ import annotations
 
@@ -9,14 +9,12 @@ from pathlib import Path
 import pytest
 
 from decree.commands.commit import (
-    InferenceCandidate,
     apply_trailers,
     build_trailers_arg,
     commit_run,
     infer_active_spec,
 )
 from decree.index_db import IndexDB, default_db_path
-
 
 # ── Fixtures ───────────────────────────────────────────────
 
@@ -90,13 +88,13 @@ def _write_spec(
     primary_acs: list[tuple[str, bool]] | None = None,
 ) -> None:
     """Write a SPEC file. primary_acs = [(text, done), ...]"""
-    num = spec_id.split("-")[1]
     governs_yaml = "\n".join(f"  - {p}" for p in governs)
     ac_block = ""
     if primary_acs:
         ac_lines = "\n".join(f"- [{'x' if done else ' '}] {text}" for text, done in primary_acs)
         ac_block = f"\n## Acceptance Criteria\n\n{ac_lines}\n"
     content = f"""---
+id: {spec_id}
 status: {status}
 date: 2026-05-12
 governs:
@@ -107,10 +105,10 @@ governs:
 
 ## Overview
 
-Some prose.
+    Some prose.
 {ac_block}
 """
-    (project / "decree" / "spec" / f"{num}-test.md").write_text(content)
+    (project / "decree" / "spec" / f"{spec_id.lower()}-test.md").write_text(content)
 
 
 def _index(project: Path) -> IndexDB:
@@ -161,26 +159,32 @@ class TestBuildTrailersArg:
         assert build_trailers_arg([], [], []) == []
 
     def test_implements_single(self):
-        assert build_trailers_arg(["SPEC-005"], None, None) == [
+        assert build_trailers_arg(["SPEC-00000000000000000000000005"], None, None) == [
             "--trailer",
-            "Implements: SPEC-005",
+            "Implements: SPEC-00000000000000000000000005",
         ]
 
     def test_implements_multi(self):
-        out = build_trailers_arg(["SPEC-005", "SPEC-006"], None, None)
+        out = build_trailers_arg(["SPEC-00000000000000000000000005", "SPEC-00000000000000000000000006"], None, None)
         assert out == [
             "--trailer",
-            "Implements: SPEC-005",
+            "Implements: SPEC-00000000000000000000000005",
             "--trailer",
-            "Implements: SPEC-006",
+            "Implements: SPEC-00000000000000000000000006",
         ]
 
     def test_all_three_kinds(self):
-        out = build_trailers_arg(["SPEC-005"], ["ADR-0002"], ["SPEC-001"])
+        out = build_trailers_arg(
+            ["SPEC-00000000000000000000000005"], ["ADR-00000000000000000000000002"], ["SPEC-00000000000000000000000001"]
+        )
         assert "--trailer" in out
-        assert "Implements: SPEC-005" in out
-        assert "Refs: ADR-0002" in out
-        assert "Fixes: SPEC-001" in out
+        assert "Implements: SPEC-00000000000000000000000005" in out
+        assert "Refs: ADR-00000000000000000000000002" in out
+        assert "Fixes: SPEC-00000000000000000000000001" in out
+
+    def test_rejects_legacy_numeric_id(self):
+        with pytest.raises(ValueError, match="TYPE-ULID"):
+            build_trailers_arg(["SPEC-006"], None, None)
 
 
 # ── apply_trailers (via real git interpret-trailers) ────────
@@ -189,9 +193,9 @@ class TestBuildTrailersArg:
 class TestApplyTrailers:
     def test_appends_implements(self, git_project: Path):
         msg = "feat: add foo\n\nSome body text."
-        trailers = build_trailers_arg(["SPEC-005"], None, None)
+        trailers = build_trailers_arg(["SPEC-00000000000000000000000005"], None, None)
         out = apply_trailers(git_project, msg, trailers)
-        assert "Implements: SPEC-005" in out
+        assert "Implements: SPEC-00000000000000000000000005" in out
         assert "feat: add foo" in out
 
     def test_no_trailers_unchanged(self, git_project: Path):
@@ -200,10 +204,12 @@ class TestApplyTrailers:
 
     def test_multi_implements_produces_two_lines(self, git_project: Path):
         msg = "feat: add foo"
-        trailers = build_trailers_arg(["SPEC-005", "SPEC-006"], None, None)
+        trailers = build_trailers_arg(
+            ["SPEC-00000000000000000000000005", "SPEC-00000000000000000000000006"], None, None
+        )
         out = apply_trailers(git_project, msg, trailers)
-        assert "Implements: SPEC-005" in out
-        assert "Implements: SPEC-006" in out
+        assert "Implements: SPEC-00000000000000000000000005" in out
+        assert "Implements: SPEC-00000000000000000000000006" in out
 
 
 # ── infer_active_spec ───────────────────────────────────────
@@ -211,30 +217,30 @@ class TestApplyTrailers:
 
 class TestInferActiveSpec:
     def test_unique_winner(self, git_project: Path):
-        _write_spec(git_project, "SPEC-001", "draft", ["src/foo.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "draft", ["src/foo.py"])
         db = _index(git_project)
         result = infer_active_spec(db, ["src/foo.py"])
-        assert result == "SPEC-001"
+        assert result == "SPEC-00000000000000000000000001"
 
     def test_directory_prefix_match(self, git_project: Path):
-        _write_spec(git_project, "SPEC-001", "draft", ["src/foo/"])
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "draft", ["src/foo/"])
         db = _index(git_project)
         result = infer_active_spec(db, ["src/foo/bar.py"])
-        assert result == "SPEC-001"
+        assert result == "SPEC-00000000000000000000000001"
 
     def test_no_match_returns_none(self, git_project: Path):
-        _write_spec(git_project, "SPEC-001", "draft", ["src/foo.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "draft", ["src/foo.py"])
         db = _index(git_project)
         result = infer_active_spec(db, ["unrelated/path.py"])
         assert result is None
 
     def test_empty_staged_returns_none(self, git_project: Path):
-        _write_spec(git_project, "SPEC-001", "draft", ["src/foo.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "draft", ["src/foo.py"])
         db = _index(git_project)
         assert infer_active_spec(db, []) is None
 
     def test_terminal_status_excluded(self, git_project: Path):
-        _write_spec(git_project, "SPEC-001", "implemented", ["src/foo.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "implemented", ["src/foo.py"])
         db = _index(git_project)
         # `implemented` is terminal-success → priority 0, filtered out.
         result = infer_active_spec(db, ["src/foo.py"])
@@ -243,34 +249,34 @@ class TestInferActiveSpec:
     def test_tiebreak_by_unchecked_acs(self, git_project: Path):
         _write_spec(
             git_project,
-            "SPEC-001",
+            "SPEC-00000000000000000000000001",
             "draft",
             ["src/foo.py"],
             primary_acs=[("ac1", True), ("ac2", True)],
         )
         _write_spec(
             git_project,
-            "SPEC-002",
+            "SPEC-00000000000000000000000002",
             "draft",
             ["src/foo.py"],
             primary_acs=[("ac1", False), ("ac2", False), ("ac3", False)],
         )
         db = _index(git_project)
-        # SPEC-002 has more unchecked → wins.
+        # SPEC-00000000000000000000000002 has more unchecked → wins.
         result = infer_active_spec(db, ["src/foo.py"])
-        assert result == "SPEC-002"
+        assert result == "SPEC-00000000000000000000000002"
 
     def test_ambiguous_returns_candidate_list(self, git_project: Path):
         _write_spec(
             git_project,
-            "SPEC-001",
+            "SPEC-00000000000000000000000001",
             "draft",
             ["src/foo.py"],
             primary_acs=[("ac1", False)],
         )
         _write_spec(
             git_project,
-            "SPEC-002",
+            "SPEC-00000000000000000000000002",
             "draft",
             ["src/foo.py"],
             primary_acs=[("ac1", False)],
@@ -279,7 +285,7 @@ class TestInferActiveSpec:
         result = infer_active_spec(db, ["src/foo.py"])
         assert isinstance(result, list)
         ids = {c.decision_id for c in result}
-        assert ids == {"SPEC-001", "SPEC-002"}
+        assert ids == {"SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002"}
 
 
 # ── commit_run integration ─────────────────────────────────
@@ -297,49 +303,59 @@ class TestCommitRun:
 
     def test_explicit_implements_lands_trailer(self, git_project: Path):
         self._stage(git_project, "src/foo.py", "print(1)\n")
-        args = _namespace(git_project, message="feat: add foo", implements=["SPEC-005"])
+        args = _namespace(git_project, message="feat: add foo", implements=["SPEC-00000000000000000000000005"])
         rc = commit_run(args)
         assert rc == 0
-        assert "Implements: SPEC-005" in self._last_commit_message(git_project)
+        assert "Implements: SPEC-00000000000000000000000005" in self._last_commit_message(git_project)
+
+    def test_invalid_implements_exits_before_git_commit(self, git_project: Path, capsys):
+        self._stage(git_project, "src/foo.py", "print(1)\n")
+        args = _namespace(git_project, message="feat: add foo", implements=["SPEC-006"])
+
+        rc = commit_run(args)
+
+        assert rc == 1
+        assert "TYPE-ULID" in capsys.readouterr().err
 
     def test_multi_implements(self, git_project: Path):
         self._stage(git_project, "src/foo.py", "print(1)\n")
         args = _namespace(
             git_project,
             message="feat: add foo",
-            implements=["SPEC-005", "SPEC-006"],
+            implements=["SPEC-00000000000000000000000005", "SPEC-00000000000000000000000006"],
         )
         rc = commit_run(args)
         assert rc == 0
         body = self._last_commit_message(git_project)
-        assert "Implements: SPEC-005" in body
-        assert "Implements: SPEC-006" in body
+        assert "Implements: SPEC-00000000000000000000000005" in body
+        assert "Implements: SPEC-00000000000000000000000006" in body
 
     def test_refs_and_fixes(self, git_project: Path):
         self._stage(git_project, "src/foo.py", "print(1)\n")
         args = _namespace(
             git_project,
             message="feat: add foo",
-            refs=["ADR-0002"],
-            fixes=["SPEC-001"],
+            refs=["ADR-00000000000000000000000002"],
+            fixes=["SPEC-00000000000000000000000001"],
+            no_infer=True,
         )
         rc = commit_run(args)
         assert rc == 0
         body = self._last_commit_message(git_project)
-        assert "Refs: ADR-0002" in body
-        assert "Fixes: SPEC-001" in body
+        assert "Refs: ADR-00000000000000000000000002" in body
+        assert "Fixes: SPEC-00000000000000000000000001" in body
 
     def test_inference_unique_winner(self, git_project: Path):
-        _write_spec(git_project, "SPEC-005", "draft", ["src/foo.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000005", "draft", ["src/foo.py"])
         _index(git_project)  # build index from frontmatter
         self._stage(git_project, "src/foo.py", "print(1)\n")
         args = _namespace(git_project, message="feat: add foo")
         rc = commit_run(args)
         assert rc == 0
-        assert "Implements: SPEC-005" in self._last_commit_message(git_project)
+        assert "Implements: SPEC-00000000000000000000000005" in self._last_commit_message(git_project)
 
     def test_no_infer_skips_inference(self, git_project: Path):
-        _write_spec(git_project, "SPEC-005", "draft", ["src/foo.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000005", "draft", ["src/foo.py"])
         _index(git_project)
         self._stage(git_project, "src/foo.py", "print(1)\n")
         args = _namespace(git_project, message="feat: add foo", no_infer=True)
@@ -347,17 +363,26 @@ class TestCommitRun:
         assert rc == 0
         assert "Implements:" not in self._last_commit_message(git_project)
 
+    def test_missing_index_requires_explicit_choice(self, git_project: Path, capsys):
+        self._stage(git_project, "src/foo.py", "print(1)\n")
+        args = _namespace(git_project, message="feat: add foo")
+
+        rc = commit_run(args)
+
+        assert rc == 1
+        assert "index not built" in capsys.readouterr().err
+
     def test_ambiguous_inference_exits_1(self, git_project: Path, capsys):
         _write_spec(
             git_project,
-            "SPEC-001",
+            "SPEC-00000000000000000000000001",
             "draft",
             ["src/foo.py"],
             primary_acs=[("ac", False)],
         )
         _write_spec(
             git_project,
-            "SPEC-002",
+            "SPEC-00000000000000000000000002",
             "draft",
             ["src/foo.py"],
             primary_acs=[("ac", False)],
@@ -369,7 +394,7 @@ class TestCommitRun:
         assert rc == 1
         out = capsys.readouterr().out
         assert "Ambiguous" in out
-        assert "SPEC-001" in out and "SPEC-002" in out
+        assert "SPEC-00000000000000000000000001" in out and "SPEC-00000000000000000000000002" in out
 
     def test_empty_staged_set_refuses(self, git_project: Path, capsys):
         args = _namespace(git_project, message="feat: empty")
@@ -391,14 +416,14 @@ class TestCommitRun:
         assert "amended" in self._last_commit_message(git_project)
 
     def test_post_commit_index_sync(self, git_project: Path):
-        _write_spec(git_project, "SPEC-005", "draft", ["src/foo.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000005", "draft", ["src/foo.py"])
         _index(git_project)
         self._stage(git_project, "src/foo.py", "print(1)\n")
-        commit_run(_namespace(git_project, message="feat: foo", implements=["SPEC-005"]))
+        commit_run(_namespace(git_project, message="feat: foo", implements=["SPEC-00000000000000000000000005"]))
         db = IndexDB(default_db_path(git_project))
         rows = list(
             db.db.conn.execute(  # type: ignore[attr-defined]
-                "SELECT decision_id, trailer_kind FROM commits WHERE decision_id = 'SPEC-005'"
+                "SELECT decision_id, trailer_kind FROM commits WHERE decision_id = 'SPEC-00000000000000000000000005'"
             )
         )
         assert rows

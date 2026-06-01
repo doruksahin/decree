@@ -125,7 +125,7 @@ Execution order if doing in one week: **1 → 2 → 3 → 4 → 5 → 6**
 
 - **Staleness lint**: SPEC `implemented` with no commit trailer linking to it → lint error. ADR `accepted` with no referencing SPEC after N days → lint warning.
 - **`decree index --json` as agent-facing artifact**: not a human summary but a structured, stable-schema document an agent queries before modifying a file.
-- **Git trailers on implementation commits** (`Implements: SPEC-126`): structural link that survives rebase, surfaceable via `git log --grep`, validatable in pre-commit. Prose body references drift; git trailers don't.
+- **Git trailers on implementation commits** (`Implements: SPEC-<ULID>`): structural link that survives rebase, surfaceable via `git log --grep`, validatable in pre-commit. Prose body references drift; git trailers don't.
 
 ---
 
@@ -139,4 +139,4 @@ Execution order if doing in one week: **1 → 2 → 3 → 4 → 5 → 6**
 
 4. **Staleness threshold**: what makes an ADR stale? Age since last git-touching-governed-file? Age since status was set? Both?
 
-5. **entire.io's git-trailer approach**: is `Implements: SPEC-NNN` in commit messages enough, or does this need a `decree commit` command that auto-adds the trailer?
+5. **entire.io's git-trailer approach**: is `Implements: SPEC-<ULID>` in commit messages enough, or does this need a `decree commit` command that auto-adds the trailer?

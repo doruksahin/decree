@@ -3,7 +3,6 @@
 [types.prd]
 dir = "decree/prd"
 prefix = "PRD"
-digits = 3
 initial_status = "draft"
 statuses = ["draft", "review", "approved", "implemented", "archived"]
 warn_on_reference = ["archived"]
@@ -25,7 +24,6 @@ archive = "archived"
 [types.adr]
 dir = "decree/adr"
 prefix = "ADR"
-digits = 4
 initial_status = "proposed"
 statuses = ["proposed", "accepted", "rejected", "deprecated", "superseded"]
 warn_on_reference = ["rejected", "deprecated", "superseded"]
@@ -50,7 +48,6 @@ superseded = ["superseded-by"]
 [types.spec]
 dir = "decree/spec"
 prefix = "SPEC"
-digits = 3
 initial_status = "draft"
 statuses = ["draft", "review", "approved", "implemented"]
 warn_on_reference = []

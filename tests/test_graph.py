@@ -14,11 +14,23 @@ def adr_project(project_dir, monkeypatch):
     """Project with two ADRs — one superseding the other."""
     monkeypatch.chdir(project_dir)
     d = project_dir / "docs" / "adr"
-    (d / "0001-first.md").write_text(
-        "---\nstatus: superseded\ndate: 2026-04-01\nsuperseded-by: ADR-0002\n---\n\n# ADR-0001 First Decision\n"
+    (d / "adr-00000000000000000000000001-first.md").write_text(
+        "---\n"
+        "id: ADR-00000000000000000000000001\n"
+        "status: superseded\n"
+        "date: 2026-04-01\n"
+        "superseded-by: ADR-00000000000000000000000002\n"
+        "---\n\n"
+        "# ADR-00000000000000000000000001 First Decision\n"
     )
-    (d / "0002-second.md").write_text(
-        "---\nstatus: accepted\ndate: 2026-04-02\nsupersedes: ADR-0001\n---\n\n# ADR-0002 Second Decision\n"
+    (d / "adr-00000000000000000000000002-second.md").write_text(
+        "---\n"
+        "id: ADR-00000000000000000000000002\n"
+        "status: accepted\n"
+        "date: 2026-04-02\n"
+        "supersedes: ADR-00000000000000000000000001\n"
+        "---\n\n"
+        "# ADR-00000000000000000000000002 Second Decision\n"
     )
     # Generate index first (includes marker)
     index_run(argparse.Namespace())
@@ -30,7 +42,14 @@ def single_adr_project(project_dir, monkeypatch):
     """Project with a single ADR — no supersede relationships."""
     monkeypatch.chdir(project_dir)
     d = project_dir / "docs" / "adr"
-    (d / "0001-first.md").write_text("---\nstatus: accepted\ndate: 2026-04-01\n---\n\n# ADR-0001 First Decision\n")
+    (d / "adr-00000000000000000000000001-first.md").write_text(
+        "---\n"
+        "id: ADR-00000000000000000000000001\n"
+        "status: accepted\n"
+        "date: 2026-04-01\n"
+        "---\n\n"
+        "# ADR-00000000000000000000000001 First Decision\n"
+    )
     index_run(argparse.Namespace())
     return d
 
@@ -47,8 +66,8 @@ class TestGraphCommand:
         assert run(argparse.Namespace()) == 0
         content = (adr_project / "index.md").read_text()
         header = content[: content.index(GRAPH_MARKER)]
-        assert "ADR-0001" in header
-        assert "ADR-0002" in header
+        assert "ADR-00000000000000000000000001" in header
+        assert "ADR-00000000000000000000000002" in header
         assert "| ADR |" in header
 
     def test_supersede_chain_generated(self, adr_project):
@@ -71,8 +90,8 @@ class TestGraphCommand:
     def test_timeline_includes_docs(self, adr_project):
         assert run(argparse.Namespace()) == 0
         content = (adr_project / "index.md").read_text()
-        assert "ADR-0001" in content
-        assert "ADR-0002" in content
+        assert "ADR-00000000000000000000000001" in content
+        assert "ADR-00000000000000000000000002" in content
         assert "2026-04-01" in content
 
     def test_idempotent(self, adr_project):
@@ -89,7 +108,14 @@ class TestGraphWithoutMarker:
         """graph auto-runs index if the marker is missing from index.md."""
         monkeypatch.chdir(project_dir)
         d = project_dir / "docs" / "adr"
-        (d / "0001-first.md").write_text("---\nstatus: accepted\ndate: 2026-04-01\n---\n\n# ADR-0001 First Decision\n")
+        (d / "adr-00000000000000000000000001-first.md").write_text(
+            "---\n"
+            "id: ADR-00000000000000000000000001\n"
+            "status: accepted\n"
+            "date: 2026-04-01\n"
+            "---\n\n"
+            "# ADR-00000000000000000000000001 First Decision\n"
+        )
         # Write an index WITHOUT the marker (simulating old/manual index)
         (d / "index.md").write_text("# ADRs\n\nSome hand-written content.\n")
         assert run(argparse.Namespace()) == 0
@@ -101,7 +127,14 @@ class TestGraphWithoutMarker:
         """graph fails if index.md doesn't exist and there are docs."""
         monkeypatch.chdir(project_dir)
         d = project_dir / "docs" / "adr"
-        (d / "0001-first.md").write_text("---\nstatus: accepted\ndate: 2026-04-01\n---\n\n# ADR-0001 First Decision\n")
+        (d / "adr-00000000000000000000000001-first.md").write_text(
+            "---\n"
+            "id: ADR-00000000000000000000000001\n"
+            "status: accepted\n"
+            "date: 2026-04-01\n"
+            "---\n\n"
+            "# ADR-00000000000000000000000001 First Decision\n"
+        )
         # No index.md at all
         assert run(argparse.Namespace()) == 1
 

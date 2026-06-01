@@ -2,7 +2,7 @@
 
 Sources read: https://entire.io, https://entire.io/company, https://entire.io/vision,
 https://entire.io/blog/hello-entire-world, https://entire.io/blog/the-entire-cli-how-it-works-and-where-its-headed,
-https://docs.entire.io, https://entire.io/news/former-github-ceo-thomas-dohmke-raises-60-million-seed-round,
+https://docs.entire.io/overview, https://entire.io/news/former-github-ceo-thomas-dohmke-raises-60-million-seed-round,
 https://dev.to/huoru/we-have-code-review-we-need-intent-review-1i38
 
 ---

@@ -1,4 +1,4 @@
-"""`decree retrieval-eval` — labeled-query retrieval-quality command (SPEC-012).
+"""`decree retrieval-eval` — labeled-query retrieval-quality command (SPEC-01KT22NMRZXE5C42F6Z0ZY559A).
 
 Wires the eval/ package into the CLI:
 
@@ -73,7 +73,7 @@ def _calibrate_run(
                 project_root=root,
                 db=db,
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             error("retrieval-eval", f"calibration failed for {method.name}: {e}")
             exit_code = 1
             continue
@@ -108,14 +108,12 @@ def eval_run(args: argparse.Namespace) -> int:
 
     try:
         query_set = load_query_set(queries_path)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         error("retrieval-eval", f"failed to load {queries_path}: {e}")
         return 2
 
-    info(
-        "retrieval-eval",
-        f"loaded {len(query_set.queries)} queries from {queries_path.relative_to(root) if queries_path.is_relative_to(root) else queries_path}",
-    )
+    display_queries_path = queries_path.relative_to(root) if queries_path.is_relative_to(root) else queries_path
+    info("retrieval-eval", f"loaded {len(query_set.queries)} queries from {display_queries_path}")
 
     # ── Resolve methods ─────────────────────────────────
     try:
@@ -128,7 +126,7 @@ def eval_run(args: argparse.Namespace) -> int:
         error("retrieval-eval", "no methods registered")
         return 2
 
-    # ── SPEC-013 calibration mode ────────────────────────
+    # ── SPEC-01KT22NMS0VWCTYPFPHP8M8V36 calibration mode ────────────────────────
     if getattr(args, "calibrate", False):
         return _calibrate_run(
             db=db,
@@ -175,9 +173,7 @@ def eval_run(args: argparse.Namespace) -> int:
 
     # ── Freeze baseline ──────────────────────────────────
     if args.freeze:
-        target = next(
-            (mr for mr in report.methods if mr.method_name == baseline_name), None
-        )
+        target = next((mr for mr in report.methods if mr.method_name == baseline_name), None)
         if target is None:
             error(
                 "retrieval-eval",
@@ -191,9 +187,8 @@ def eval_run(args: argparse.Namespace) -> int:
             )
             return 1
         freeze_baseline(target, baseline_path)
-        success(
-            f"[retrieval-eval] froze baseline {baseline_name!r} → {baseline_path.relative_to(root) if baseline_path.is_relative_to(root) else baseline_path}",
-        )
+        display_baseline_path = baseline_path.relative_to(root) if baseline_path.is_relative_to(root) else baseline_path
+        success(f"[retrieval-eval] froze baseline {baseline_name!r} → {display_baseline_path}")
 
     # ── Print summary table to stdout ────────────────────
     _print_summary(report)

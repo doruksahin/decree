@@ -6,10 +6,9 @@ from pathlib import Path
 
 from slugify import slugify
 
-from decree.commands import index
 from decree.config import DATE_FORMAT, SLUG_MAX_LENGTH, load_doc_types
+from decree.identity import filename_for_doc_id, generate_doc_id
 from decree.log import error, info, success
-from decree.parser import next_number
 from decree.template import render_template
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -56,31 +55,33 @@ def run(args: argparse.Namespace) -> int:
         error(prefix, f"Unknown document type: '{doc_type_name}'")
         return 1
 
-    number = next_number(doc_type)
+    doc_id = generate_doc_id(doc_type.prefix)
     slug = slugify(title, max_length=SLUG_MAX_LENGTH, word_boundary=True)
     today = date.today().strftime(DATE_FORMAT)
 
-    info(prefix, f"type: {doc_type.name}, next number: {doc_type.format_id(number)}")
+    info(prefix, f"type: {doc_type.name}, id: {doc_id}")
     info(prefix, f"slug: {slug}")
 
     template_path = _get_template_path(doc_type)
     info(prefix, f"template: {template_path}")
 
     raw = template_path.read_text()
-    content = render_template(raw, number, title, slug, today, doc_type=doc_type)
+    content = render_template(raw, doc_id, title, slug, today, doc_type=doc_type)
 
     from decree.config import get_project_root
 
     type_dir = get_project_root() / doc_type.dir
     type_dir.mkdir(parents=True, exist_ok=True)
 
-    digits = doc_type.digits
-    filepath = type_dir / f"{number:0{digits}d}-{slug}.md"
-    filepath.write_text(content)
+    filepath = type_dir / filename_for_doc_id(doc_id, slug)
+    try:
+        with filepath.open("x") as f:
+            f.write(content)
+    except FileExistsError:
+        error(prefix, f"refusing to overwrite existing document: {filepath}")
+        return 1
     info(prefix, f"wrote {filepath}")
 
-    index.run(None)
-
     print(filepath)  # stdout: machine-readable path
-    success(f"created {doc_type.format_id(number)}")
+    success(f"created {doc_id}")
     return 0

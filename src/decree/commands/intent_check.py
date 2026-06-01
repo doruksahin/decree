@@ -1,26 +1,26 @@
 """`decree intent-check` — pre-PR planning-phase governance report.
 
-Implements PRD-004 R2 (SPEC-014). The post-code counterpart, ``decree
-intent-review`` (SPEC-009), takes a diff and asks "what does this change
+Implements PRD-01KT22NMRSXYT95XE808VD8EV4 R2 (SPEC-01KT22NMS0KTWGNKB36RR7K0JR). The post-code counterpart, ``decree
+intent-review`` (SPEC-01KT22NMRYRZQ59EC88VJ5R0N6), takes a diff and asks "what does this change
 intersect with?". This module is the *planning-phase* counterpart: a caller
 says "I'm going to build X and touch these files", and we return the
 governance map *before* any code is written.
 
 The implementation is mostly composition of existing helpers — same trick
-SPEC-009 used:
+SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 used:
 
-  * ``commands.queries.why`` (SPEC-005) for governance lookup.
-  * ``commands.queries._calibrated_assess`` (SPEC-013) for optional
+  * ``commands.queries.why`` (SPEC-01KT22NMRXWCS5TK5VC1FT6JER) for governance lookup.
+  * ``commands.queries._calibrated_assess`` (SPEC-01KT22NMS0VWCTYPFPHP8M8V36) for optional
     calibrated abstention when no governance is found and the caller
     passed ``--with-abstention``.
-  * ``commands.health.stale_decisions`` (SPEC-008) for stale intersection.
-  * Acceptance-criteria SQL identical to SPEC-009's.
-  * ``litellm`` (already in deps via SPEC-011) for the optional structural-
+  * ``commands.health.stale_decisions`` (SPEC-01KT22NMRYNFYM7EN80WS2HD6F) for stale intersection.
+  * Acceptance-criteria SQL identical to SPEC-01KT22NMRYRZQ59EC88VJ5R0N6's.
+  * ``litellm`` (already in deps via SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S) for the optional structural-
     conflict semantic judge.
 
-The dataclasses are reused from SPEC-009 wherever the shape is the same.
+The dataclasses are reused from SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 wherever the shape is the same.
 ``IntentCheckReport`` is the new top-level container; ``Conflict`` from
-SPEC-009 was extended in-place with an optional ``semantic_verdict`` field.
+SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 was extended in-place with an optional ``semantic_verdict`` field.
 """
 
 from __future__ import annotations
@@ -45,7 +45,6 @@ from decree.config import load_doc_types
 from decree.index_db import IndexDB, default_db_path
 from decree.log import error, info
 
-
 # ── Public dataclass ────────────────────────────────────────
 
 
@@ -53,12 +52,12 @@ from decree.log import error, info
 class IntentCheckReport:
     """Top-level pre-code governance report.
 
-    Mirrors SPEC-009's ``IntentReport`` shape with planning-phase deltas:
+    Mirrors SPEC-01KT22NMRYRZQ59EC88VJ5R0N6's ``IntentReport`` shape with planning-phase deltas:
     ``planned_files`` instead of ``changed_paths``, ``plan`` surfaced for
     semantic context, ``abstention`` populated when the calibrated method
-    vetoes (SPEC-013), and the ``recommended_actions`` verbs expanded to
+    vetoes (SPEC-01KT22NMS0VWCTYPFPHP8M8V36), and the ``recommended_actions`` verbs expanded to
     pre-code phase (``draft_adr_first``, ``update_spec_first``,
-    ``resolve_conflict_first``, ``proceed``) plus the SPEC-009 reuse set.
+    ``resolve_conflict_first``, ``proceed``) plus the SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 reuse set.
     """
 
     plan: str
@@ -109,15 +108,11 @@ def _fetch_decision_for_judge(db: IndexDB, decision_id: str) -> dict | None:
     Title lives in ``decisions``. The judge needs both.
     """
     conn = db.db.conn  # type: ignore[attr-defined]
-    row = conn.execute(
-        "SELECT id, title FROM decisions WHERE id = ?", (decision_id,)
-    ).fetchone()
+    row = conn.execute("SELECT id, title FROM decisions WHERE id = ?", (decision_id,)).fetchone()
     if row is None:
         return None
     did, title = row
-    body_row = conn.execute(
-        "SELECT body FROM decisions_fts WHERE id = ?", (decision_id,)
-    ).fetchone()
+    body_row = conn.execute("SELECT body FROM decisions_fts WHERE id = ?", (decision_id,)).fetchone()
     body = body_row[0] if body_row is not None else ""
     return {"decision_id": did, "title": title or "", "body": body or ""}
 
@@ -129,29 +124,24 @@ def _judge_conflict(
     doc_b: dict,
     model: str,
 ) -> dict | None:
-    """Call litellm to decide whether a structural conflict is real.
+    """Call the LLM to decide whether a structural conflict is real.
 
     Returns ``{"is_real_conflict": bool, "reasoning": str}`` on success and
     ``None`` on any failure (network, parse, provider). The caller is
     expected to leave ``Conflict.semantic_verdict = None`` in that case;
     the conflict still surfaces in the report.
-    """
-    import litellm  # local import — keep the litellm dep out of the cold path
 
+    Routes through :func:`decree.llm_io.complete` per SPEC-01KT22NMS0BN1F5B01HEFK87W0 so the
+    ``claude-code/`` model namespace is supported transparently.
+    """
+    from decree.llm_io import complete
     from decree.migrate_prompts import build_conflict_judge_prompt
 
     prompt = build_conflict_judge_prompt(plan, conflict.path, doc_a, doc_b)
     try:
-        response = litellm.completion(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            response_format={"type": "json_object"},
-            timeout=30,
-        )
-        content = response.choices[0].message.content
+        content = complete(prompt, model, timeout=30)
         payload = _parse_llm_json(content)
-    except Exception:  # noqa: BLE001 — per-conflict isolation by design
+    except Exception:
         return None
 
     if not isinstance(payload, dict):
@@ -187,9 +177,9 @@ def intent_check(
 ) -> IntentCheckReport:
     """Compose an ``IntentCheckReport`` for a plan and planned files.
 
-    Stitches the same prior-SPEC primitives SPEC-009 used, plus optional
-    SPEC-013 calibrated abstention and an LLM-judged semantic verdict on
-    structural conflicts. See SPEC-014 for the per-component contract.
+    Stitches the same prior-SPEC primitives SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 used, plus optional
+    SPEC-01KT22NMS0VWCTYPFPHP8M8V36 calibrated abstention and an LLM-judged semantic verdict on
+    structural conflicts. See SPEC-01KT22NMS0KTWGNKB36RR7K0JR for the per-component contract.
     """
     # 0. Normalize planned_files: stable order, deduped.
     seen: dict[str, None] = {}
@@ -208,7 +198,7 @@ def intent_check(
                 govs_by_id[m.decision_id] = _governing_snapshot_from(m)
     governing_decisions = tuple(govs_by_id.values())
 
-    # 2. unchecked_acceptance_criteria — same SQL as SPEC-009.
+    # 2. unchecked_acceptance_criteria — same SQL as SPEC-01KT22NMRYRZQ59EC88VJ5R0N6.
     conn = db.db.conn  # type: ignore[attr-defined]
     unchecked: list[UncheckedAC] = []
     for snap in governing_decisions:
@@ -235,11 +225,7 @@ def intent_check(
     # 3. stale_governance — full stale list ∩ governing-decision ids.
     governing_ids = set(govs_by_id.keys())
     all_stale = stale_decisions(db, project_root, threshold_commits)
-    stale_governance = tuple(
-        _stale_decision_to_dict(sd)
-        for sd in all_stale
-        if sd.decision_id in governing_ids
-    )
+    stale_governance = tuple(_stale_decision_to_dict(sd) for sd in all_stale if sd.decision_id in governing_ids)
 
     # 4. conflicts — multiple decisions claim the same planned path.
     raw_conflicts: list[Conflict] = []
@@ -262,29 +248,28 @@ def intent_check(
     # 5. Optional LLM judge per conflict. Failures are per-conflict and
     #    fall back to structural-only (the conflict still surfaces).
     conflicts: list[Conflict] = list(raw_conflicts)
-    if judge_conflicts and raw_conflicts:
+    if judge_conflicts and raw_conflicts and model:
         # Caller is responsible for validating that a model can be resolved
         # *before* invoking intent_check; if model is None we skip judging.
-        if model:
-            judged: list[Conflict] = []
-            for c in raw_conflicts:
-                # Only judge the first two ids deterministically; 3+ ids on a
-                # single path is rare and v1 ships pairwise.
-                id_a = c.decision_ids[0]
-                id_b = c.decision_ids[1]
-                doc_a = _fetch_decision_for_judge(db, id_a)
-                doc_b = _fetch_decision_for_judge(db, id_b)
-                verdict: dict | None = None
-                if doc_a is not None and doc_b is not None:
-                    verdict = _judge_conflict(plan, c, doc_a, doc_b, model)
-                judged.append(
-                    Conflict(
-                        path=c.path,
-                        decision_ids=c.decision_ids,
-                        semantic_verdict=verdict,
-                    )
+        judged: list[Conflict] = []
+        for c in raw_conflicts:
+            # Only judge the first two ids deterministically; 3+ ids on a
+            # single path is rare and v1 ships pairwise.
+            id_a = c.decision_ids[0]
+            id_b = c.decision_ids[1]
+            doc_a = _fetch_decision_for_judge(db, id_a)
+            doc_b = _fetch_decision_for_judge(db, id_b)
+            verdict: dict | None = None
+            if doc_a is not None and doc_b is not None:
+                verdict = _judge_conflict(plan, c, doc_a, doc_b, model)
+            judged.append(
+                Conflict(
+                    path=c.path,
+                    decision_ids=c.decision_ids,
+                    semantic_verdict=verdict,
                 )
-            conflicts = judged
+            )
+        conflicts = judged
 
     # 6. abstention — populated when --with-abstention and all governance
     #    lookups returned nothing. We synthesize a single abstention block
@@ -295,7 +280,14 @@ def intent_check(
     abstention: dict | None = None
     if with_abstention and not governing_decisions and paths:
         first_path = paths[0]
-        abstention = _calibrated_assess(db, kind="file_path", text=first_path)
+        try:
+            abstention = _calibrated_assess(db, kind="file_path", text=first_path)
+        except Exception as e:
+            abstention = {
+                "error": "calibrated abstention unavailable",
+                "detail": str(e),
+                "hint": "Run `decree retrieval-eval --calibrate` before using with_abstention.",
+            }
 
     # 7. recommended_actions — deterministic, derived from the above signals.
     recommendations = _build_recommendations(
@@ -332,13 +324,13 @@ def _build_recommendations(
 ) -> list[Recommendation]:
     """Generate pre-code-phase recommendation verbs from collected signals.
 
-    Verbs (SPEC-014 §recommended_actions):
+    Verbs (SPEC-01KT22NMS0KTWGNKB36RR7K0JR §recommended_actions):
       * ``proceed`` — no governance, no conflicts, no stale, no unchecked.
       * ``add_governance`` — one per planned file with no governance.
       * ``draft_adr_first`` — no governance AND plan contains an
         architectural keyword. Emitted in addition to ``add_governance``.
       * ``update_spec_first`` — one per governing SPEC with unchecked ACs.
-      * ``check_ac`` — one per unchecked AC (informational; mirrors SPEC-009).
+      * ``check_ac`` — one per unchecked AC (informational; mirrors SPEC-01KT22NMRYRZQ59EC88VJ5R0N6).
       * ``update_decision`` — one per stale governance entry.
       * ``resolve_conflict_first`` — one per structural conflict.
     """
@@ -423,16 +415,13 @@ def _build_recommendations(
                 )
             )
 
-    # check_ac — one per unchecked AC (informational; reused verb from SPEC-009).
+    # check_ac — one per unchecked AC (informational; reused verb from SPEC-01KT22NMRYRZQ59EC88VJ5R0N6).
     for ac in unchecked:
         recs.append(
             Recommendation(
                 action="check_ac",
                 target_id=ac.decision_id,
-                detail=(
-                    f"{ac.decision_id} has an unchecked AC under "
-                    f"'{ac.section_title}': {ac.text}"
-                ),
+                detail=(f"{ac.decision_id} has an unchecked AC under '{ac.section_title}': {ac.text}"),
             )
         )
 
@@ -455,11 +444,7 @@ def _build_recommendations(
         verdict_hint = ""
         if c.semantic_verdict is not None:
             real = bool(c.semantic_verdict.get("is_real_conflict"))
-            verdict_hint = (
-                " (LLM judged real conflict)"
-                if real
-                else " (LLM judged complementary)"
-            )
+            verdict_hint = " (LLM judged real conflict)" if real else " (LLM judged complementary)"
         recs.append(
             Recommendation(
                 action="resolve_conflict_first",
@@ -485,9 +470,7 @@ def report_to_dict(report: IntentCheckReport) -> dict:
         "planned_files": list(report.planned_files),
         "governing_decisions": [asdict(g) for g in report.governing_decisions],
         "stale_governance": [dict(s) for s in report.stale_governance],
-        "unchecked_acceptance_criteria": [
-            asdict(a) for a in report.unchecked_acceptance_criteria
-        ],
+        "unchecked_acceptance_criteria": [asdict(a) for a in report.unchecked_acceptance_criteria],
         "conflicts": [
             {
                 "path": c.path,
@@ -512,7 +495,8 @@ def _resolve_root(project_arg: str | None) -> Path:
             raise FileNotFoundError(f"{path} has no decree.toml")
         return path
 
-    from decree.config import get_project_root, load_doc_types as _ldt
+    from decree.config import get_project_root
+    from decree.config import load_doc_types as _ldt
 
     get_project_root.cache_clear()
     _ldt.cache_clear()
@@ -529,7 +513,8 @@ def _open_db_or_error(
         return None, None, 1
 
     os.chdir(root)
-    from decree.config import get_project_root, load_doc_types as _ldt
+    from decree.config import get_project_root
+    from decree.config import load_doc_types as _ldt
 
     get_project_root.cache_clear()
     _ldt.cache_clear()
@@ -569,10 +554,7 @@ def _format_human(report: IntentCheckReport) -> str:
     lines.append(f"Governing decisions ({len(report.governing_decisions)}):")
     if report.governing_decisions:
         for g in report.governing_decisions:
-            lines.append(
-                f"  ▸ {g.decision_id}  {g.status}  {g.match_kind}  "
-                f"governs {g.matched_path}"
-            )
+            lines.append(f"  ▸ {g.decision_id}  {g.status}  {g.match_kind}  governs {g.matched_path}")
             lines.append(f"    {g.title}")
     else:
         lines.append("  (none — ungoverned plan)")
@@ -581,23 +563,16 @@ def _format_human(report: IntentCheckReport) -> str:
     lines.append(f"Stale governance ({len(report.stale_governance)}):")
     if report.stale_governance:
         for s in report.stale_governance:
-            lines.append(
-                f"  ⚠ {s['decision_id']}  churn={s['churn_count']}"
-            )
+            lines.append(f"  ⚠ {s['decision_id']}  churn={s['churn_count']}")
     else:
         lines.append("  (none)")
 
     lines.append("")
-    lines.append(
-        f"Unchecked acceptance criteria "
-        f"({len(report.unchecked_acceptance_criteria)}):"
-    )
+    lines.append(f"Unchecked acceptance criteria ({len(report.unchecked_acceptance_criteria)}):")
     if report.unchecked_acceptance_criteria:
         for ac in report.unchecked_acceptance_criteria:
             snippet = ac.text if len(ac.text) <= 80 else ac.text[:77] + "..."
-            lines.append(
-                f"  ☐ {ac.decision_id}  [{ac.section_title}]  {snippet}"
-            )
+            lines.append(f"  ☐ {ac.decision_id}  [{ac.section_title}]  {snippet}")
     else:
         lines.append("  (none)")
 
@@ -630,9 +605,7 @@ def _format_human(report: IntentCheckReport) -> str:
             lines.append(f"  reason: {reason}")
 
     lines.append("")
-    lines.append(
-        f"Recommended actions ({len(report.recommended_actions)}):"
-    )
+    lines.append(f"Recommended actions ({len(report.recommended_actions)}):")
     if report.recommended_actions:
         for r in report.recommended_actions:
             target = f" [{r.target_id}]" if r.target_id else ""
@@ -646,7 +619,7 @@ def _format_human(report: IntentCheckReport) -> str:
 def intent_check_run(args: argparse.Namespace) -> int:
     """`decree intent-check` — pre-PR governance report CLI entry point.
 
-    Exit codes (SPEC-014):
+    Exit codes (SPEC-01KT22NMS0KTWGNKB36RR7K0JR):
       * 0 — no conflicts (real or judged) and no stale governance.
       * 1 — at least one conflict or stale governance entry surfaced.
       * 2 — config error (e.g. ``--judge-conflicts`` without an API key,

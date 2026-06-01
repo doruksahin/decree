@@ -1,6 +1,6 @@
 # Repowise RAG Thesis: Implications for Decision-Record Retrieval
 
-Source: https://www.repowise.dev/blog/concepts/rag-for-code-is-not-embeddings-plus-a-vector-store, https://docs.repowise.dev/mcp/get-why, https://docs.repowise.dev/mcp/get-answer (retrieved 2026-05-12).
+Source: https://www.repowise.dev/blog/concepts/rag-for-code-is-not-embeddings-plus-a-vector-store and Repowise product docs at https://www.repowise.dev/ (retrieved 2026-05-12).
 
 ---
 
@@ -78,6 +78,6 @@ decree today has no retrieval at all. `decree lint` validates; `decree progress`
 
 The Repowise model prescribes a specific remedy: add a `governs:` frontmatter field (a list of file paths and directory globs), build a reverse index (file path → SPEC IDs), and score queries with file-path match bonuses weighted at +5.0 for exact and +3.0 for parent-directory. No embeddings required. The corpus is small enough that a SQLite FTS pass with weighted fields runs in milliseconds. The dominance ratio gate and identifier-citation gate can be implemented in under 50 lines of Python.
 
-The result is a `decree why <path>` command that returns: (1) the governing SPEC(s) with match score, (2) a confidence signal (dominated / tied / no match), and (3) a fallback to body-text search when no `governs:` link exists. This is directly analogous to `get_why` mode 2, adapted to decree's document-centric model rather than Repowise's graph-node model.
+The implemented result is a `decree why <path>` command that returns indexed governing decisions from `governs:` matches. Exact path matches win over prefix matches, and missing coverage is reported as an explicit no-match result rather than falling back to body-text search. This is directly analogous to `get_why` mode 2, adapted to decree's document-centric model rather than Repowise's graph-node model.
 
 The four-signal architecture (structure + history + docs + ownership) is Repowise's full stack. decree does not need the full stack. It needs the decision-retrieval slice: field-weighted keyword scoring with structural bonuses for governed-path matches, gated by a dominance ratio check. That is the extractable lesson.

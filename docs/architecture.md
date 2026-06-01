@@ -6,6 +6,7 @@
 src/decree/
 ├── config.py           ← single source of truth (core defaults + decree.toml loading)
 ├── doctypes.py         ← DocType dataclass — one instance per [types.*] section
+├── identity.py         ← TYPE-ULID generation, validation, and filename construction
 ├── parser.py           ← ONLY module that touches document files on disk
 ├── validators.py       ← per-file and cross-file validation logic
 ├── template.py         ← template rendering with __VARIABLE__ placeholders
@@ -17,8 +18,10 @@ src/decree/
 │   ├── new.py          ← create document from template
 │   ├── status.py       ← enforce lifecycle transitions
 │   ├── lint.py         ← validate all documents (per-file + cross-file)
-│   ├── index.py        ← generate index.md from frontmatter
-│   ├── progress.py     ← progress summary across document types
+│   ├── index.py        ← explicit index.md regeneration
+│   ├── index_db_cli.py ← explicit SQLite index rebuild/status/verify
+│   ├── migrate.py      ← explicit corpus migrations and dry-run audits
+│   ├── progress.py     ← scoped progress summary across document types
 │   └── graph.py        ← dependency/reference graph generation
 ├── templates/
 │   └── madr-v4.md      ← default MADR v4 template
@@ -41,7 +44,7 @@ src/decree/
 
 ### Command interface
 
-Every command module exposes `run(args: Namespace) -> int`. CLI dispatches to them. Commands that need index regeneration call `index.run()` directly.
+Every command module exposes `run(args: Namespace) -> int`. CLI dispatches to them. Generated artifacts are explicit: `decree index rebuild` refreshes the SQLite query cache, `decree index regenerate` refreshes markdown tables, and `decree report regenerate` refreshes report snapshots. Document creation does not silently refresh indexes.
 
 ## Data Flow
 
@@ -71,4 +74,4 @@ decree.toml [types.*]
 
 ## Review History
 
-This design went through 6 rounds of expert review before implementation. The design doc and review log live in the consuming project at `docs/plans/2026-04-02-adr-toolkit-design.md`.
+The early design went through multiple review rounds before implementation. Current behavior is defined by this repository's canonical PRD/ADR/SPEC corpus under `decree/`, not by historical implementation-plan notes.

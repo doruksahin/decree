@@ -1,4 +1,4 @@
-"""SPEC-010 tests — `decree migrate audit-coherence`."""
+"""SPEC-00000000000000000000000010 tests — `decree migrate audit-coherence`."""
 
 from __future__ import annotations
 
@@ -75,14 +75,24 @@ def _write_corpus(root: Path, extra_toml: str = "") -> None:
         (root / "decree" / sub).mkdir(parents=True, exist_ok=True)
 
 
+def _doc_id(prefix: str, name: str) -> str:
+    return f"{prefix}-{int(name.split('-', 1)[0]):026d}"
+
+
+def _filename(prefix: str, name: str) -> str:
+    return f"{_doc_id(prefix, name).lower()}-{name.split('-', 1)[1]}.md"
+
+
 def _spec(root: Path, name: str, status: str, body_acs: str) -> None:
-    (root / "decree" / "spec" / f"{name}.md").write_text(
+    doc_id = _doc_id("SPEC", name)
+    (root / "decree" / "spec" / _filename("SPEC", name)).write_text(
         f"""---
+id: {doc_id}
 status: {status}
 date: 2026-05-10
 ---
 
-# SPEC-{name[:3]} title
+# {doc_id} title
 
 ## Overview
 
@@ -96,13 +106,15 @@ Prose.
 
 
 def _prd(root: Path, name: str, status: str, d: date) -> None:
-    (root / "decree" / "prd" / f"{name}.md").write_text(
+    doc_id = _doc_id("PRD", name)
+    (root / "decree" / "prd" / _filename("PRD", name)).write_text(
         f"""---
+id: {doc_id}
 status: {status}
 date: {d.isoformat()}
 ---
 
-# PRD-{name[:3]} title
+# {doc_id} title
 
 ## Problem Statement
 
@@ -165,7 +177,7 @@ class TestAuditCoherenceLibrary:
         assert report.total == 1
         assert report.by_gate == {"unreferenced_active": 1}
         f = report.findings[0]
-        assert f.doc_id == "PRD-001"
+        assert f.doc_id == "PRD-00000000000000000000000001"
         assert f.gate == "unreferenced_active"
         assert f.severity == "error"
 
@@ -187,8 +199,7 @@ class TestAuditCoherenceLibrary:
         _write_corpus(
             corpus,
             extra_toml=(
-                "\n[types.spec.coherence_exceptions]\n"
-                'terminal_status_progress = ["SPEC-001"]\n'
+                '\n[types.spec.coherence_exceptions]\nterminal_status_progress = ["SPEC-00000000000000000000000001"]\n'
             ),
         )
         _spec(corpus, "001-foo", "implemented", "- [x] one\n- [ ] two\n")
@@ -196,11 +207,11 @@ class TestAuditCoherenceLibrary:
         from decree.commands.migrate import audit_coherence
 
         report = audit_coherence(corpus, gates=["terminal_status_progress"])
-        # Two findings emitted, but only one counts as error (SPEC-002).
-        # SPEC-001 is demoted to severity="info" via the exception.
+        # Two findings emitted, but only one counts as error (SPEC-00000000000000000000000002).
+        # SPEC-00000000000000000000000001 is demoted to severity="info" via the exception.
         sevs_by_id = {f.doc_id: f.severity for f in report.findings}
-        assert sevs_by_id["SPEC-001"] == "info"
-        assert sevs_by_id["SPEC-002"] == "error"
+        assert sevs_by_id["SPEC-00000000000000000000000001"] == "info"
+        assert sevs_by_id["SPEC-00000000000000000000000002"] == "error"
         # Aggregate totals exclude info findings.
         assert report.total == 1
         assert report.by_gate == {"terminal_status_progress": 1}
@@ -272,9 +283,7 @@ class TestAuditCoherenceCLI:
         _prd(corpus, "001-bar", "approved", date.today() - timedelta(days=60))
         from decree.commands.migrate import audit_coherence_run
 
-        rc = audit_coherence_run(
-            _args(corpus, gate=["terminal_status_progress"], json=True)
-        )
+        rc = audit_coherence_run(_args(corpus, gate=["terminal_status_progress"], json=True))
         payload = json.loads(capsys.readouterr().out)
         assert rc == 1
         assert payload["by_gate"].keys() == {"terminal_status_progress"}
@@ -317,7 +326,8 @@ class TestCoherenceExceptionsConfig:
             corpus,
             extra_toml=(
                 "\n[types.spec.coherence_exceptions]\n"
-                'terminal_status_progress = ["SPEC-001", "SPEC-002"]\n'
+                'terminal_status_progress = ["SPEC-00000000000000000000000001", '
+                '"SPEC-00000000000000000000000002"]\n'
             ),
         )
         from decree.config import get_project_root, load_coherence_exceptions, load_doc_types
@@ -325,7 +335,9 @@ class TestCoherenceExceptionsConfig:
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
         exc = load_coherence_exceptions()
-        assert exc["spec"]["terminal_status_progress"] == frozenset({"SPEC-001", "SPEC-002"})
+        assert exc["spec"]["terminal_status_progress"] == frozenset(
+            {"SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002"}
+        )
 
     def test_missing_block_returns_empty(self, corpus: Path):
         from decree.config import get_project_root, load_coherence_exceptions, load_doc_types
@@ -340,10 +352,7 @@ class TestCoherenceExceptionsConfig:
     def test_invalid_block_raises(self, corpus: Path):
         _write_corpus(
             corpus,
-            extra_toml=(
-                "\n[types.spec.coherence_exceptions]\n"
-                "terminal_status_progress = \"not-a-list\"\n"
-            ),
+            extra_toml=('\n[types.spec.coherence_exceptions]\nterminal_status_progress = "not-a-list"\n'),
         )
         from decree.config import get_project_root, load_coherence_exceptions, load_doc_types
 
@@ -353,14 +362,14 @@ class TestCoherenceExceptionsConfig:
             load_coherence_exceptions()
 
     def test_live_lint_skips_exception_listed_docs(self, corpus: Path):
-        # Enable gate AND list SPEC-001 in exceptions → lint passes.
+        # Enable gate AND list SPEC-00000000000000000000000001 in exceptions → lint passes.
         _write_corpus(
             corpus,
             extra_toml=(
                 "\n[types.spec.coherence]\n"
                 "terminal_status_progress = true\n"
                 "\n[types.spec.coherence_exceptions]\n"
-                'terminal_status_progress = ["SPEC-001"]\n'
+                'terminal_status_progress = ["SPEC-00000000000000000000000001"]\n'
             ),
         )
         _spec(corpus, "001-foo", "implemented", "- [x] one\n- [ ] two\n")
@@ -380,7 +389,7 @@ class TestCoherenceExceptionsConfig:
                 "\n[types.spec.coherence]\n"
                 "terminal_status_progress = true\n"
                 "\n[types.spec.coherence_exceptions]\n"
-                'terminal_status_progress = ["SPEC-001"]\n'
+                'terminal_status_progress = ["SPEC-00000000000000000000000001"]\n'
             ),
         )
         _spec(corpus, "001-foo", "implemented", "- [x] one\n- [ ] two\n")

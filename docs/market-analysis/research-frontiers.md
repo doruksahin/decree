@@ -2,7 +2,7 @@
 
 Captured 2026-05-12. Companion to `discussion-notes.md` and the Repowise / entire.io analyses.
 
-This document is **a menu, not a plan**. PRD-003 establishes the baseline (SQLite index + keyword-scored retrieval + governs field + MCP) — what Repowise already shipped. This document captures the *research frontiers* beyond that baseline: directions that would make decree a state-of-the-art educational project on decision-provenance graphs rather than "another ADR tool with SQLite." Each subsection is self-contained and can be elevated to a SPEC under PRD-003, a SPEC under a future PRD-004 ("State-of-the-Art Decision Reasoning"), or its own PRD if the scope warrants it.
+This document is **a menu, not a plan**. PRD-01KT22NMRS4QGHSFDBZ858PP1T establishes the baseline (SQLite index + keyword-scored retrieval + governs field + MCP) — what Repowise already shipped. This document captures the *research frontiers* beyond that baseline: directions that would make decree a state-of-the-art educational project on decision-provenance graphs rather than "another ADR tool with SQLite." Each subsection is self-contained and can be elevated to a SPEC under PRD-01KT22NMRS4QGHSFDBZ858PP1T, a SPEC under a future PRD-01KT22NMRSXYT95XE808VD8EV4 ("State-of-the-Art Decision Reasoning"), or its own PRD if the scope warrants it.
 
 Knowledge cutoff: most cited prior art is current as of early 2026. Where the frontier moves fast (retrieval, GraphRAG), assume the literature has advanced since this was written; verify before committing to a specific technique.
 
@@ -10,20 +10,20 @@ Knowledge cutoff: most cited prior art is current as of early 2026. Where the fr
 
 ## 0. Why these are frontiers and not feature requests
 
-A feature request is "build this." A research frontier is "we don't yet know whether this works, or how well, or where the failure modes are." All five frontiers below have at least one open question that needs experimentation to answer. If decree picks any of them, it should also commit to an evaluation methodology — at minimum a labeled query set, a baseline (PRD-003 v1), and a metric. Without that, "state of the art" collapses into "we built more stuff."
+A feature request is "build this." A research frontier is "we don't yet know whether this works, or how well, or where the failure modes are." All five frontiers below have at least one open question that needs experimentation to answer. If decree picks any of them, it should also commit to an evaluation methodology — at minimum a labeled query set, a baseline (PRD-01KT22NMRS4QGHSFDBZ858PP1T v1), and a metric. Without that, "state of the art" collapses into "we built more stuff."
 
 The Repowise baseline is load-bearing here. Their thesis — "rule-based scoring beats embeddings at ADR-corpus scale" — is a *claim*, not a proven fact at every corpus size or query type. Decree's educational value is partly in re-testing such claims on its own corpus, with its own queries, transparently.
 
 ---
 
-## 1. Baseline: PRD-003 v1 (what we get for free before any of this)
+## 1. Baseline: PRD-01KT22NMRS4QGHSFDBZ858PP1T v1 (what we get for free before any of this)
 
 To understand what each frontier is enhancing or replacing, the v1 baseline is:
 
 - SQLite index with tables for `decisions`, `governs`, `commits`, `refs`.
 - Weighted keyword scoring (Repowise-style: title 3×, rationale 2×, context 1.5×, path-match bonus 5×).
 - File-level `governs:` frontmatter field.
-- Git trailers (`Implements: SPEC-NNN`) as the structural SPEC↔commit link.
+- Git trailers (`Implements: SPEC-<ULID>`) as the structural SPEC↔commit link.
 - MCP server with five task-shaped tools (`why`, `refs`, `stale`, `intent_review`, `health`).
 - Three confidence gates from Repowise (dominance ratio, identifier-citation, hedge-phrase detection).
 - `decree why <path>` falls back from governed-file match to text search.
@@ -62,7 +62,7 @@ Decree's natural communities: decisions that govern overlapping file sets, decis
 
 ### A.3 LLM re-ranking with surfaced reasoning
 
-Top-K from the cheap retriever → LLM judge re-ranks → final ordering. The interesting twist: surface the judge's reasoning *to the user*, not just the ranking. "We surfaced ADR-0042 first because your changed files match its governed paths and it explicitly addresses the auth-token flow in your diff."
+Top-K from the cheap retriever → LLM judge re-ranks → final ordering. The interesting twist: surface the judge's reasoning *to the user*, not just the ranking. "We surfaced ADR-<ULID> first because your changed files match its governed paths and it explicitly addresses the auth-token flow in your diff."
 
 This makes the system *legible*: a developer can see why a decision was retrieved and override if the reasoning is wrong. Repowise has hedge-phrase detection but no surfaced reasoning.
 
@@ -85,7 +85,7 @@ This is the only frontier item that gets *better* with use, not worse. It's also
 This is the meta-frontier. None of A.1–A.4 are credible without a way to measure them. Build:
 
 - A **labeled query set** for decree's corpus: 50-200 queries with ground-truth relevant decisions per query. Either hand-labeled (slow, high quality) or LLM-bootstrapped + human-spot-checked.
-- A **baseline evaluator** that runs PRD-003 v1's keyword retrieval over the query set and reports Recall@K, MRR, NDCG@10.
+- A **baseline evaluator** that runs PRD-01KT22NMRS4QGHSFDBZ858PP1T v1's keyword retrieval over the query set and reports Recall@K, MRR, NDCG@10.
 - A **metric harness** that runs any new retrieval method against the same queries and reports delta vs. baseline, with confidence intervals.
 - A **report generator** (`decree retrieval-eval`) that produces a markdown report for each ablation.
 
@@ -117,7 +117,7 @@ Distinguish decisions that *caused* a piece of code (referenced in the implement
 
 Causal links are higher signal for "why is this code the way it is?". Correlational links are still useful for "what decisions should I be aware of when modifying this?".
 
-**Open question**: how is causality assigned? Trailer-mediated commits are easy (`Implements: SPEC-091` is a causal link). For files predating the SPEC, you need archaeology — `git log -p` + LLM judge to ask "did this commit implement that decision?" This is genuinely hard and could be its own SPEC.
+**Open question**: how is causality assigned? Trailer-mediated commits are easy (`Implements: SPEC-<ULID>` is a causal link). For files predating the SPEC, you need archaeology — `git log -p` + LLM judge to ask "did this commit implement that decision?" This is genuinely hard and could be its own SPEC.
 
 **Use cases**: `decree why-causal <path>` (only causal decisions); `decree why-related <path>` (causal + correlational, current default behavior).
 
@@ -125,7 +125,7 @@ Causal links are higher signal for "why is this code the way it is?". Correlatio
 
 ### B.3 Decision lineage / supersedes lattice
 
-Beyond simple `supersedes`: build a directed acyclic graph (DAG) of decision evolution. "ADR-0042 was deprecated by ADR-0089 which was partially superseded by ADR-0117 for the read path only." Query the lattice: "what's the *live* decision lineage for caching?" returns the current frontier (decisions not yet superseded) plus the relevant deprecations.
+Beyond simple `supersedes`: build a directed acyclic graph (DAG) of decision evolution. "ADR-<ULID> was deprecated by ADR-<ULID> which was partially superseded by ADR-<ULID> for the read path only." Query the lattice: "what's the *live* decision lineage for caching?" returns the current frontier (decisions not yet superseded) plus the relevant deprecations.
 
 Edge types: `supersedes`, `partially-supersedes`, `extends`, `refines`, `deprecates`, `consolidates`. Each edge carries metadata (which aspect was superseded, scope of the supersedence).
 
@@ -209,7 +209,7 @@ When an ADR in repo A contradicts an ADR in repo B (federated decree network), f
 
 ### D.1 LSP server
 
-Decree as a Language Server Protocol server. Any LSP-aware editor (VS Code, Neovim, Helix, Zed, JetBrains IDEs) gets hover tooltips on file paths, function names, and symbols: "this is governed by ADR-0042, SPEC-007 (stale 60 days)." `textDocument/hover`, `textDocument/definition` jumping to the governing decision, `textDocument/codeAction` to "draft an ADR for this symbol."
+Decree as a Language Server Protocol server. Any LSP-aware editor (VS Code, Neovim, Helix, Zed, JetBrains IDEs) gets hover tooltips on file paths, function names, and symbols: "this is governed by ADR-<ULID>, SPEC-01KT22NMRYJ4482K92AX9GJTMA (stale 60 days)." `textDocument/hover`, `textDocument/definition` jumping to the governing decision, `textDocument/codeAction` to "draft an ADR for this symbol."
 
 **Open question**: what's the minimal LSP surface? `hover` + `definition` + `codeLens` covers 80% of value. `completion` for symbol-level governance authoring is interesting but second-order.
 
@@ -225,7 +225,7 @@ Agents subscribe to "files I'm about to modify"; decree pushes governance update
 
 ### D.3 PR review bot
 
-GitHub bot that runs intent-review on every PR, comments with governance impact ("this PR touches files governed by ADR-0042 and SPEC-007; SPEC-007 is stale; here are unchecked acceptance criteria potentially affected by these changes").
+GitHub bot that runs intent-review on every PR, comments with governance impact ("this PR touches files governed by ADR-<ULID> and SPEC-01KT22NMRYJ4482K92AX9GJTMA; SPEC-01KT22NMRYJ4482K92AX9GJTMA is stale; here are unchecked acceptance criteria potentially affected by these changes").
 
 **Open question**: signal-to-noise. Same as B.4 — a high-volume false-positive bot gets muted. Calibrate to comment only when confident.
 
@@ -306,7 +306,7 @@ A.3, C.1, C.3 all use an LLM as a component (re-ranker, draft author, refinement
 
 ### Library leverage stays load-bearing
 
-PRD-003's Dependencies subsection (sqlite-utils, pydriller, mistletoe, networkx, mcp[cli]) covers v1. Each frontier adds:
+PRD-01KT22NMRS4QGHSFDBZ858PP1T's Dependencies subsection (sqlite-utils, pydriller, mistletoe, networkx, mcp[cli]) covers v1. Each frontier adds:
 
 | Frontier | Likely additional dependencies |
 |---|---|
@@ -316,7 +316,7 @@ PRD-003's Dependencies subsection (sqlite-utils, pydriller, mistletoe, networkx,
 | D | `datasette` + custom plugin; `pygls` for the LSP server; `textual` for terminal dashboard |
 | E | `crepes` or similar for conformal prediction; possibly scikit-learn for calibration models |
 
-All are MIT/Apache/BSD as of writing. The "don't reinvent the wheel" discipline from PRD-003 carries forward.
+All are MIT/Apache/BSD as of writing. The "don't reinvent the wheel" discipline from PRD-01KT22NMRS4QGHSFDBZ858PP1T carries forward.
 
 ---
 
@@ -352,7 +352,7 @@ Before picking, three questions worth answering explicitly:
 
 1. **What's the corpus we're optimizing for?** Decree's own dogfood corpus (currently 6 documents) is too small for most retrieval research. A representative corpus — either synthesized or borrowed from a real ADR-heavy open-source project (the C4 model project itself has a public ADR set; CNCF projects often do) — is a prerequisite for credible work in Frontier A. Pick the target corpus now or all later experiments are unfalsifiable.
 
-2. **What's the unit of governance?** File-level (PRD-003 v1), symbol-level (PRD-003 v2 backlog), or function-call-graph level (research-grade)? The choice cascades into every frontier — A's retrieval, B's graph structure, C's auto-proposal granularity, D's LSP hover scope, E's abstention thresholds.
+2. **What's the unit of governance?** File-level (PRD-01KT22NMRS4QGHSFDBZ858PP1T v1), symbol-level (PRD-01KT22NMRS4QGHSFDBZ858PP1T v2 backlog), or function-call-graph level (research-grade)? The choice cascades into every frontier — A's retrieval, B's graph structure, C's auto-proposal granularity, D's LSP hover scope, E's abstention thresholds.
 
 3. **Is decree a tool or a research artifact?** If a tool: usability, stability, docs matter more than novelty. If a research artifact: novelty, evaluation rigor, writeup matter more than ergonomics. The project can be both eventually, but the *current* phase is one or the other. Picking determines which trade-offs to make at every decision point below.
 
@@ -382,7 +382,7 @@ Before picking, three questions worth answering explicitly:
   - Repowise architecture analysis: `docs/market-analysis/repowise/`.
   - entire.io analysis: `docs/market-analysis/entire-io/`.
 - **Tools / libraries**
-  - sqlite-utils: https://sqlite-utils.datasette.io
+  - sqlite-utils: https://sqlite-utils.datasette.io/en/stable/
   - sqlite-vec: https://github.com/asg017/sqlite-vec
   - Datasette: https://datasette.io
   - pygls (LSP framework for Python): https://github.com/openlawlibrary/pygls

@@ -1,4 +1,4 @@
-"""SPEC-013 — confidence gates for calibrated abstention.
+"""SPEC-01KT22NMS0VWCTYPFPHP8M8V36 — confidence gates for calibrated abstention.
 
 Seven gates, each a pure function reading from the IndexDB. Each emits a
 ``GateSignal`` in ``[0, 1]`` where higher = more confident the top hit is
@@ -11,7 +11,7 @@ Gates split into two camps:
 
 * 3 Repowise-replica gates (``dominance``, ``identifier_citation``,
   ``hedge_phrase``).
-* 4 SPEC-013 gates (``status``, ``recency``, ``coverage``, ``authorship``).
+* 4 SPEC-01KT22NMS0VWCTYPFPHP8M8V36 gates (``status``, ``recency``, ``coverage``, ``authorship``).
 
 The interface ``GateFn = Callable[[Query, list[RetrievalRow], IndexDB], GateSignal]``
 is intentionally pin-thin: a gate reads exactly what it needs from the row
@@ -23,13 +23,12 @@ from __future__ import annotations
 import math
 import re
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Callable
 
 from decree.eval.schema import Query
 from decree.index_db import IndexDB
-
 
 # ── Dataclasses ─────────────────────────────────────────────
 
@@ -167,10 +166,10 @@ def enrich_rows(
 
 
 def dominance_gate(query: Query, rows: list[RetrievalRow], db: IndexDB) -> GateSignal:
-    """Top score / second score ratio, saturating at 2× → 1.0.
+    """Top score / second score ratio, saturating at 2x -> 1.0.
 
-    A clean win means the top hit's raw retrieval score is at least 2× the
-    runner-up's. If only one result, we cannot judge dominance → 1.0
+    A clean win means the top hit's raw retrieval score is at least 2x the
+    runner-up's. If only one result, we cannot judge dominance -> 1.0
     (don't penalize a pure exact-match case where there's nothing to compare).
     """
     if len(rows) == 0:
@@ -189,13 +188,11 @@ def dominance_gate(query: Query, rows: list[RetrievalRow], db: IndexDB) -> GateS
     return GateSignal(
         "dominance",
         max(0.0, score),
-        hint=f"top {top:.2f} / second {second:.2f} = {ratio:.2f}×",
+        hint=f"top {top:.2f} / second {second:.2f} = {ratio:.2f}x",
     )
 
 
-def identifier_citation_gate(
-    query: Query, rows: list[RetrievalRow], db: IndexDB
-) -> GateSignal:
+def identifier_citation_gate(query: Query, rows: list[RetrievalRow], db: IndexDB) -> GateSignal:
     """Fraction of query identifiers appearing in the top doc's title or governs paths."""
     if not rows:
         return GateSignal("identifier-citation", 0.0, hint="no candidates")
@@ -412,18 +409,18 @@ def composite(
 
 
 __all__ = [
+    "ALL_GATES",
+    "GateFn",
     "GateSignal",
     "RetrievalRow",
-    "GateFn",
-    "ALL_GATES",
-    "enrich_rows",
-    "compute_signals",
-    "composite",
-    "dominance_gate",
-    "identifier_citation_gate",
-    "hedge_phrase_gate",
-    "status_gate",
-    "recency_gate",
-    "coverage_gate",
     "authorship_gate",
+    "composite",
+    "compute_signals",
+    "coverage_gate",
+    "dominance_gate",
+    "enrich_rows",
+    "hedge_phrase_gate",
+    "identifier_citation_gate",
+    "recency_gate",
+    "status_gate",
 ]

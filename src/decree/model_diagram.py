@@ -163,8 +163,8 @@ digraph decree_model {
             label=<
 <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="4">
   <TR><TD ALIGN="LEFT"><B>Downstream references upstream:</B></TD></TR>
-  <TR><TD ALIGN="LEFT">SPEC.references → [ADR-0001, PRD-001]</TD></TR>
-  <TR><TD ALIGN="LEFT">ADR.references → [PRD-001]</TD></TR>
+  <TR><TD ALIGN="LEFT">SPEC.references → [ADR-&lt;ULID&gt;, PRD-&lt;ULID&gt;]</TD></TR>
+  <TR><TD ALIGN="LEFT">ADR.references → [PRD-&lt;ULID&gt;]</TD></TR>
   <TR><TD ALIGN="LEFT">PRD.references → [] (origin)</TD></TR>
   <TR><TD ALIGN="LEFT"> </TD></TR>
   <TR><TD ALIGN="LEFT"><B>Arrows show dependency direction:</B></TD></TR>
@@ -224,31 +224,31 @@ digraph decree_model {
   </TR>
   <TR>
     <TD>PRD</TD><TD>ADR</TD><TD>1 : N</TD>
-    <TD>PRD-001 → ADR-0001, ADR-0002, ADR-0003</TD>
+    <TD>PRD-&lt;ULID&gt; → ADR-&lt;ULID&gt;, ADR-&lt;ULID&gt;, ADR-&lt;ULID&gt;</TD>
   </TR>
   <TR>
     <TD>PRD</TD><TD>SPEC</TD><TD>1 : N</TD>
-    <TD>PRD-001 → SPEC-001, SPEC-002</TD>
+    <TD>PRD-&lt;ULID&gt; → SPEC-&lt;ULID&gt;, SPEC-&lt;ULID&gt;</TD>
   </TR>
   <TR>
     <TD>ADR</TD><TD>SPEC</TD><TD>1 : N</TD>
-    <TD>ADR-0001 → SPEC-001, SPEC-003</TD>
+    <TD>ADR-&lt;ULID&gt; → SPEC-&lt;ULID&gt;, SPEC-&lt;ULID&gt;</TD>
   </TR>
   <TR>
     <TD>SPEC</TD><TD>Impl</TD><TD>1 : 1</TD>
-    <TD>SPEC-001 → src/storage.py</TD>
+    <TD>SPEC-&lt;ULID&gt; → src/storage.py</TD>
   </TR>
   <TR>
     <TD>ADR</TD><TD>ADR</TD><TD>1 : 1</TD>
-    <TD>ADR-0003 supersedes ADR-0001</TD>
+    <TD>ADR-&lt;ULID&gt; supersedes ADR-&lt;ULID&gt;</TD>
   </TR>
   <TR>
     <TD>PRD</TD><TD>PRD</TD><TD>1 : N</TD>
-    <TD>PRD-001 splits into PRD-002, PRD-003</TD>
+    <TD>PRD-&lt;ULID&gt; splits into PRD-&lt;ULID&gt;, PRD-&lt;ULID&gt;</TD>
   </TR>
   <TR>
     <TD>SPEC</TD><TD>SPEC</TD><TD>N : N</TD>
-    <TD>SPEC-001 ↔ SPEC-002 (co-dependent)</TD>
+    <TD>SPEC-&lt;ULID&gt; ↔ SPEC-&lt;ULID&gt; (co-dependent)</TD>
   </TR>
 </TABLE>
             >

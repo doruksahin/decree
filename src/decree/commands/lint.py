@@ -20,14 +20,14 @@ def run(args: argparse.Namespace | None = None) -> int:
     doc_types = load_doc_types()
     all_docs = []
     errors: list[str] = []
-    info_lines: list[str] = []  # SPEC-008 gate 2: informational, non-error output
+    info_lines: list[str] = []  # SPEC-01KT22NMRYNFYM7EN80WS2HD6F gate 2: informational, non-error output
     total_files = 0
 
     for dt in doc_types:
         type_dir = get_project_root() / dt.dir
         if not type_dir.exists():
             continue
-        paths = sorted(p for p in type_dir.glob("[0-9]*.md") if dt.filename_re.match(p.name))
+        paths = sorted(p for p in type_dir.glob("*.md") if p.name != "index.md")
         total_files += len(paths)
         type_docs = []
 
@@ -56,15 +56,13 @@ def run(args: argparse.Namespace | None = None) -> int:
     cross_type_errors = validate_cross_type_references(all_docs)
     errors.extend(cross_type_errors)
 
-    # governs: path existence (SPEC-004)
+    # governs: path existence (SPEC-01KT22NMRXFWNE61NSETKATHBA)
     governs_errors = validate_governs_paths(all_docs, get_project_root())
     errors.extend(governs_errors)
 
-    # SPEC-008 coherence gates — opt-in per-type
+    # SPEC-01KT22NMRYNFYM7EN80WS2HD6F coherence gates — opt-in per-type
     doc_types_by_name = {dt.name: dt for dt in doc_types}
-    any_coherence_enabled = any(
-        getattr(dt, "coherence", None) is not None for dt in doc_types
-    )
+    any_coherence_enabled = any(getattr(dt, "coherence", None) is not None for dt in doc_types)
     if any_coherence_enabled:
         from decree.config import load_coherence_exceptions
         from decree.validators import (
@@ -72,34 +70,21 @@ def run(args: argparse.Namespace | None = None) -> int:
             validate_unreferenced_active,
         )
 
-        # SPEC-010: per-type, per-gate exception lists honoured by the live gate.
+        # SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR: per-type, per-gate exception lists honoured by the live gate.
         exceptions_by_type = load_coherence_exceptions()
         exc_terminal = {
-            t: exceptions_by_type.get(t, {}).get("terminal_status_progress", frozenset())
-            for t in exceptions_by_type
+            t: exceptions_by_type.get(t, {}).get("terminal_status_progress", frozenset()) for t in exceptions_by_type
         }
         exc_unref = {
-            t: exceptions_by_type.get(t, {}).get("unreferenced_active", frozenset())
-            for t in exceptions_by_type
+            t: exceptions_by_type.get(t, {}).get("unreferenced_active", frozenset()) for t in exceptions_by_type
         }
-        errors.extend(
-            validate_terminal_status_progress(
-                all_docs, doc_types_by_name, exceptions=exc_terminal
-            )
-        )
-        errors.extend(
-            validate_unreferenced_active(
-                all_docs, doc_types_by_name, exceptions=exc_unref
-            )
-        )
+        errors.extend(validate_terminal_status_progress(all_docs, doc_types_by_name, exceptions=exc_terminal))
+        errors.extend(validate_unreferenced_active(all_docs, doc_types_by_name, exceptions=exc_unref))
 
-        # SPEC-008 Gate 2: when both primary and deferred ACs exist, surface the
+        # SPEC-01KT22NMRYNFYM7EN80WS2HD6F Gate 2: when both primary and deferred ACs exist, surface the
         # split as an informational line (not an error). Only for types that have
         # `deferred_sections_separated = true`.
-        from decree.commands.report import (
-            DEFAULT_DEFERRED_SECTION_PATTERNS,
-            _parse_checkboxes_by_section,
-        )
+        from decree.checklists import DEFAULT_DEFERRED_SECTION_PATTERNS, parse_checkboxes_by_section
 
         for doc in all_docs:
             dt = doc_types_by_name.get(doc.doc_type.name) if doc.doc_type else None
@@ -109,7 +94,7 @@ def run(args: argparse.Namespace | None = None) -> int:
             if coh is None or not getattr(coh, "deferred_sections_separated", False):
                 continue
             patterns = tuple(coh.deferred_sections) or DEFAULT_DEFERRED_SECTION_PATTERNS
-            parsed = _parse_checkboxes_by_section(doc.body, patterns)
+            parsed = parse_checkboxes_by_section(doc.body, patterns)
             if parsed.primary_total > 0 and parsed.deferred_total > 0:
                 try:
                     rel_doc = doc.path.relative_to(get_project_root())
@@ -148,7 +133,11 @@ def run(args: argparse.Namespace | None = None) -> int:
                 expected = resolve_report_path(doc, get_project_root(), cfg.location_template)
                 if not expected.exists():
                     rel_doc = doc.path.relative_to(get_project_root())
-                    rel_expected = expected.relative_to(get_project_root()) if expected.is_relative_to(get_project_root()) else expected
+                    rel_expected = (
+                        expected.relative_to(get_project_root())
+                        if expected.is_relative_to(get_project_root())
+                        else expected
+                    )
                     errors.append(f"{rel_doc}: status '{doc.meta.status}' requires completion report at {rel_expected}")
 
     # Emit informational (non-error) output before the errors block.

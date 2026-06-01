@@ -1,9 +1,9 @@
-"""SPEC-012 evaluation runner.
+"""SPEC-01KT22NMRZXE5C42F6Z0ZY559A evaluation runner.
 
 Pulls the whole loop together:
 
     1. Load the QuerySet (already validated).
-    2. For each method × query, call `method.query(db, query, k=max_k)` and
+    2. For each method x query, call `method.query(db, query, k=max_k)` and
        form a TREC-style `run` dict (decision_id → descending score).
     3. Build the qrels dict from each query's `effective_grades()`.
     4. `ir_measures.calc_aggregate` for the headline numbers.
@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import statistics
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -30,9 +30,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from scipy.stats import bootstrap
 
 from decree.eval.methods import METHODS, RetrievalMethod
-from decree.eval.schema import Query, QuerySet
+from decree.eval.schema import QuerySet
 from decree.index_db import IndexDB
-
 
 # ── Data classes ────────────────────────────────────────────
 
@@ -162,7 +161,7 @@ def run_evaluation(
     baseline_name: str | None = "keyword-v1",
     baseline_snapshot: dict[str, Any] | None = None,
 ) -> RunReport:
-    """Run every method × every query and assemble a RunReport."""
+    """Run every method x every query and assemble a RunReport."""
     k_values = sorted(set(k_values or [1, 3, 5, 10]))
     measures = metrics_for_ks(k_values)
     measure_str_to_metric_name = {str(m): str(m) for m in measures}
@@ -181,9 +180,7 @@ def run_evaluation(
 
             # Per-query metric values (needed for bootstrap CIs).
             per_query: dict[str, dict[str, float]] = {qid: {} for qid in scoring_qrels}
-            per_metric_values: dict[str, list[float]] = {
-                str(m): [] for m in measures
-            }
+            per_metric_values: dict[str, list[float]] = {str(m): [] for m in measures}
             for metric_obj in ir_measures.iter_calc(measures, scoring_qrels, scoring_run):
                 key = str(metric_obj.measure)
                 per_metric_values[key].append(float(metric_obj.value))
@@ -217,7 +214,7 @@ def run_evaluation(
                     error=None,
                 )
             )
-        except Exception as e:  # noqa: BLE001 — method failures are isolated
+        except Exception as e:
             method_results.append(
                 MethodResult(
                     method_name=method.name,
@@ -231,9 +228,7 @@ def run_evaluation(
 
     # Ablation table: per-metric delta of each non-baseline method vs baseline.
     ablation: list[dict[str, Any]] = []
-    baseline_result = next(
-        (mr for mr in method_results if mr.method_name == baseline_name), None
-    )
+    baseline_result = next((mr for mr in method_results if mr.method_name == baseline_name), None)
     if baseline_result is not None:
         baseline_by_metric = {s.metric: s for s in baseline_result.stats}
         for mr in method_results:
@@ -250,9 +245,7 @@ def run_evaluation(
                         "mean": s.mean,
                         "baseline_mean": base.mean,
                         "delta": s.mean - base.mean,
-                        "ci_overlaps": not (
-                            s.ci_low > base.ci_high or base.ci_low > s.ci_high
-                        ),
+                        "ci_overlaps": not (s.ci_low > base.ci_high or base.ci_low > s.ci_high),
                     }
                 )
 
@@ -263,7 +256,7 @@ def run_evaluation(
         qrels=qrels,
         k_values=k_values,
         bootstrap_iterations=bootstrap_iterations,
-        generated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
         baseline_name=baseline_name,
         baseline_snapshot=baseline_snapshot,
         ablation=ablation,
@@ -337,7 +330,7 @@ def freeze_baseline(method_result: MethodResult, path: Path) -> None:
     payload = {
         "method_name": method_result.method_name,
         "description": method_result.description,
-        "frozen_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "frozen_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "stats": [asdict(s) for s in method_result.stats],
         "per_query": method_result.per_query,
         "run": method_result.run,
@@ -366,27 +359,24 @@ def select_methods(names: list[str] | None) -> list[RetrievalMethod]:
         else:
             out.append(METHODS[n])
     if missing:
-        raise KeyError(
-            f"unknown method(s): {', '.join(missing)}. "
-            f"Registered: {', '.join(sorted(METHODS))}"
-        )
+        raise KeyError(f"unknown method(s): {', '.join(missing)}. Registered: {', '.join(sorted(METHODS))}")
     return out
 
 
 # Re-export for the helper that ablates a single per-query series.
 __all__ = [
-    "MetricStat",
     "MethodResult",
+    "MetricStat",
     "RunReport",
-    "run_evaluation",
-    "render_markdown",
-    "report_to_json",
-    "freeze_baseline",
-    "read_baseline",
-    "select_methods",
     "build_qrels",
     "build_run",
+    "freeze_baseline",
     "metrics_for_ks",
+    "read_baseline",
+    "render_markdown",
+    "report_to_json",
+    "run_evaluation",
+    "select_methods",
 ]
 
 

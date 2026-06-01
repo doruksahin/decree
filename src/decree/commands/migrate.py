@@ -1,6 +1,6 @@
-"""SPEC-010 — `decree migrate audit-coherence` command.
+"""SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR — `decree migrate audit-coherence` command.
 
-Runs SPEC-008's coherence gates in **preview mode** (force-enabled regardless
+Runs SPEC-01KT22NMRYNFYM7EN80WS2HD6F's coherence gates in **preview mode** (force-enabled regardless
 of decree.toml's per-type opt-in) across the entire corpus and reports per-gate
 violations as `AuditFinding`s. The maintainer's use case: "if I enabled gate X
 globally today, how many docs would lint fail on?".
@@ -18,6 +18,7 @@ import dataclasses
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -29,7 +30,7 @@ except ImportError:  # pragma: no cover -- py3.10
 
 from decree.log import error, fail, info, success
 
-# Gate names recognised by SPEC-010. Keep in sync with SPEC-008 validators.
+# Gate names recognised by audit-coherence. Keep in sync with the live coherence validators.
 KNOWN_GATES: tuple[str, ...] = (
     "terminal_status_progress",
     "unreferenced_active",
@@ -72,7 +73,7 @@ def audit_coherence(
 ) -> AuditReport:
     """Run coherence gates in preview mode against every doc in the corpus.
 
-    Reuses SPEC-008's validators (`validate_terminal_status_progress`,
+    Reuses SPEC-01KT22NMRYNFYM7EN80WS2HD6F's validators (`validate_terminal_status_progress`,
     `validate_unreferenced_active`) but with a synthetic CoherenceConfig that
     force-enables each selected gate, regardless of the doc-type's actual
     coherence block. Per-type exceptions are honoured: listed doc IDs are
@@ -96,29 +97,17 @@ def audit_coherence(
         load_doc_types.cache_clear()
 
         doc_types = load_doc_types()
-        all_docs = load_all_types(strict=False)
+        all_docs = load_all_types()
         exceptions = load_coherence_exceptions()
-        synthetic_types_by_name = _force_enabled_doc_types_by_name(
-            doc_types, selected
-        )
+        synthetic_types_by_name = _force_enabled_doc_types_by_name(doc_types, selected)
 
         findings: list[AuditFinding] = []
         if "terminal_status_progress" in selected:
-            findings.extend(
-                _terminal_status_findings(
-                    all_docs, synthetic_types_by_name, exceptions
-                )
-            )
+            findings.extend(_terminal_status_findings(all_docs, synthetic_types_by_name, exceptions))
         if "unreferenced_active" in selected:
-            findings.extend(
-                _unreferenced_active_findings(
-                    all_docs, synthetic_types_by_name, exceptions
-                )
-            )
+            findings.extend(_unreferenced_active_findings(all_docs, synthetic_types_by_name, exceptions))
         if "status_field_requirements" in selected:
-            findings.extend(
-                _status_field_requirements_findings(all_docs, exceptions)
-            )
+            findings.extend(_status_field_requirements_findings(all_docs, exceptions))
     finally:
         os.chdir(cwd_before)
 
@@ -150,11 +139,8 @@ def _terminal_status_findings(
     types_by_name: dict,
     exceptions: dict[str, dict[str, frozenset[str]]],
 ) -> list[AuditFinding]:
-    from decree.commands.report import (
-        DEFAULT_DEFERRED_SECTION_PATTERNS,
-        _parse_checkboxes_by_section,
-        is_terminal_success,
-    )
+    from decree.checklists import DEFAULT_DEFERRED_SECTION_PATTERNS, parse_checkboxes_by_section
+    from decree.commands.report import is_terminal_success
 
     out: list[AuditFinding] = []
     for doc in all_docs:
@@ -169,24 +155,18 @@ def _terminal_status_findings(
         if not is_terminal_success(dt, doc.meta.status):
             continue
         patterns = tuple(coh.deferred_sections) or DEFAULT_DEFERRED_SECTION_PATTERNS
-        parsed = _parse_checkboxes_by_section(doc.body, patterns)
+        parsed = parse_checkboxes_by_section(doc.body, patterns)
         total = parsed.primary_total
         done = parsed.primary_done
         if total == 0 or done == total:
             continue
-        pct = int(round(done / total * 100)) if total else 0
+        pct = round(done / total * 100) if total else 0
         remaining = total - done
-        message = (
-            f"status '{doc.meta.status}' but primary AC progress is "
-            f"{done}/{total} ({pct}%)"
-        )
+        message = f"status '{doc.meta.status}' but primary AC progress is {done}/{total} ({pct}%)"
         suggested = (
-            f"check {remaining} unchecked AC{'s' if remaining != 1 else ''} "
-            f"or move them under a deferred section"
+            f"check {remaining} unchecked AC{'s' if remaining != 1 else ''} or move them under a deferred section"
         )
-        sev, msg = _maybe_demote_to_info(
-            doc.doc_id, "terminal_status_progress", message, dt.name, exceptions
-        )
+        sev, msg = _maybe_demote_to_info(doc.doc_id, "terminal_status_progress", message, dt.name, exceptions)
         out.append(
             AuditFinding(
                 doc_path=_display_path(doc.path),
@@ -223,11 +203,7 @@ def _unreferenced_active_findings(
         coh = getattr(dt, "coherence", None)
         if coh is None or not getattr(coh, "unreferenced_active", False):
             continue
-        active = (
-            set(coh.active_statuses)
-            if coh.active_statuses
-            else {"approved", "accepted"}
-        )
+        active = set(coh.active_statuses) if coh.active_statuses else {"approved", "accepted"}
         if doc.meta.status not in active:
             continue
         if inbound.get(doc.doc_id, 0) > 0:
@@ -242,13 +218,8 @@ def _unreferenced_active_findings(
             f"status '{doc.meta.status}' for {age_days} days with no referencing "
             f"document (threshold: {coh.unreferenced_after_days} days)"
         )
-        suggested = (
-            "transition status back to draft, add an inbound reference, or "
-            "raise the threshold"
-        )
-        sev, msg = _maybe_demote_to_info(
-            doc.doc_id, "unreferenced_active", message, dt.name, exceptions
-        )
+        suggested = "transition status back to draft, add an inbound reference, or raise the threshold"
+        sev, msg = _maybe_demote_to_info(doc.doc_id, "unreferenced_active", message, dt.name, exceptions)
         out.append(
             AuditFinding(
                 doc_path=_display_path(doc.path),
@@ -278,17 +249,10 @@ def _status_field_requirements_findings(
         if doc.doc_type is None:
             continue
         reqs = doc.doc_type.status_field_requirements.get(doc.meta.status, ())
-        missing = [
-            fld
-            for fld in reqs
-            if getattr(doc.meta, fld.replace("-", "_"), None) is None
-        ]
+        missing = [fld for fld in reqs if getattr(doc.meta, fld.replace("-", "_"), None) is None]
         if not missing:
             continue
-        message = (
-            f"status '{doc.meta.status}' requires field(s) "
-            f"{', '.join(missing)} but they are absent"
-        )
+        message = f"status '{doc.meta.status}' requires field(s) {', '.join(missing)} but they are absent"
         suggested = f"set field(s) {', '.join(missing)} in frontmatter"
         sev, msg = _maybe_demote_to_info(
             doc.doc_id,
@@ -318,9 +282,7 @@ def _select_gates(gates: list[str] | None) -> tuple[str, ...]:
         return KNOWN_GATES
     unknown = [g for g in gates if g not in KNOWN_GATES]
     if unknown:
-        raise ValueError(
-            f"Unknown gate(s): {unknown}. Known: {list(KNOWN_GATES)}"
-        )
+        raise ValueError(f"Unknown gate(s): {unknown}. Known: {list(KNOWN_GATES)}")
     # Preserve caller order while de-duplicating.
     seen: set[str] = set()
     ordered: list[str] = []
@@ -346,23 +308,15 @@ def _force_enabled_doc_types_by_name(doc_types: tuple, selected: tuple[str, ...]
         existing = getattr(dt, "coherence", None)
         merged = CoherenceConfig(
             terminal_status_progress=(
-                "terminal_status_progress" in selected
-                or bool(getattr(existing, "terminal_status_progress", False))
+                "terminal_status_progress" in selected or bool(getattr(existing, "terminal_status_progress", False))
             ),
-            deferred_sections_separated=bool(
-                getattr(existing, "deferred_sections_separated", False)
-            ),
+            deferred_sections_separated=bool(getattr(existing, "deferred_sections_separated", False)),
             unreferenced_active=(
-                "unreferenced_active" in selected
-                or bool(getattr(existing, "unreferenced_active", False))
+                "unreferenced_active" in selected or bool(getattr(existing, "unreferenced_active", False))
             ),
-            unreferenced_after_days=int(
-                getattr(existing, "unreferenced_after_days", 30)
-            ),
+            unreferenced_after_days=int(getattr(existing, "unreferenced_after_days", 30)),
             deferred_sections=tuple(getattr(existing, "deferred_sections", ()) or ()),
-            expected_referrer_types=tuple(
-                getattr(existing, "expected_referrer_types", ()) or ()
-            ),
+            expected_referrer_types=tuple(getattr(existing, "expected_referrer_types", ()) or ()),
             active_statuses=tuple(getattr(existing, "active_statuses", ()) or ()),
         )
         # Build a shallow copy of the doc type with the new coherence block.
@@ -392,7 +346,7 @@ def _display_path(p: Path) -> str:
 
 
 def _doc_type_from_id(doc_id: str) -> str:
-    """Best-effort: extract the type prefix (e.g., 'SPEC' from 'SPEC-007')."""
+    """Best-effort: extract the type prefix (e.g., 'SPEC' from 'SPEC-01KT22NMRYJ4482K92AX9GJTMA')."""
     return doc_id.split("-", 1)[0] if "-" in doc_id else doc_id
 
 
@@ -502,15 +456,12 @@ def _format_human(report: AuditReport) -> str:
 # ─── --fix interactive loop ───────────────────────────────────────────────
 
 
-def _fix_loop(
-    root: Path, report: AuditReport, gates: list[str] | None
-) -> int:
+def _fix_loop(root: Path, report: AuditReport, gates: list[str] | None) -> int:
     """Walk findings one at a time and let the user fix/skip/defer/quit."""
     if not sys.stdin.isatty():
         error(
             "audit-coherence",
-            "--fix requires an interactive TTY. "
-            "For non-interactive use, pass --json.",
+            "--fix requires an interactive TTY. For non-interactive use, pass --json.",
         )
         return 1
 
@@ -558,9 +509,7 @@ def _fix_loop(
             continue
         if choice == "d":
             try:
-                _append_exception(
-                    root, finding.doc_id, finding.gate
-                )
+                _append_exception(root, finding.doc_id, finding.gate)
                 info(
                     "audit-coherence",
                     f"deferred {finding.doc_id} for gate '{finding.gate}'",
@@ -583,9 +532,7 @@ def _fix_loop(
     return 0
 
 
-def _open_editor_and_revalidate(
-    root: Path, finding: AuditFinding, gates: list[str] | None
-) -> bool:
+def _open_editor_and_revalidate(root: Path, finding: AuditFinding, gates: list[str] | None) -> bool:
     """Spawn $EDITOR on the doc, then re-run the audit on that single doc/gate.
 
     Returns True if the finding is resolved (no longer reported), False
@@ -610,11 +557,7 @@ def _open_editor_and_revalidate(
 
     # Re-audit — but only the gate that was flagged, for speed and clarity.
     follow_up = audit_coherence(root, gates=[finding.gate])
-    still_failing = [
-        f
-        for f in follow_up.findings
-        if f.severity == "error" and f.doc_id == finding.doc_id
-    ]
+    still_failing = [f for f in follow_up.findings if f.severity == "error" and f.doc_id == finding.doc_id]
     if still_failing:
         info(
             "audit-coherence",
@@ -630,7 +573,7 @@ def _append_exception(root: Path, doc_id: str, gate: str) -> None:
     Atomic write via a sibling tempfile + os.replace. Preserves any other
     config keys verbatim; if the target table does not exist we append it
     at the end of the file. (Best-effort line-based edit — tomllib is
-    read-only in stdlib, and we don't want a new dependency for SPEC-010.)
+    read-only in stdlib, and we don't want a new dependency for SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR.)
     """
     type_name = _resolve_type_name_for_doc(root, doc_id)
     if type_name is None:
@@ -665,7 +608,7 @@ def _append_exception(root: Path, doc_id: str, gate: str) -> None:
 
     if key_idx is None:
         # Append a new key inside the section.
-        new_lines = lines[: sect_end] + [f'{gate} = ["{doc_id}"]'] + lines[sect_end:]
+        new_lines = [*lines[:sect_end], f'{gate} = ["{doc_id}"]', *lines[sect_end:]]
         _atomic_write(toml_path, "\n".join(new_lines) + ("\n" if text.endswith("\n") else ""))
         return
 
@@ -676,7 +619,7 @@ def _append_exception(root: Path, doc_id: str, gate: str) -> None:
     try:
         existing_list = tomllib.loads(f"v = {rhs}")["v"]
     except Exception as e:
-        raise ValueError(f"cannot parse existing coherence_exceptions list: {e}")
+        raise ValueError(f"cannot parse existing coherence_exceptions list: {e}") from e
     if doc_id in existing_list:
         return  # already present; no-op
     existing_list.append(doc_id)
@@ -735,8 +678,213 @@ def _is_tty_override(stream: io.IOBase | None = None) -> bool:
     return bool(target.isatty()) if hasattr(target, "isatty") else False
 
 
+# ─── SPEC-01KT22NMS0D19VMD8VPK4D2MNX: legacy sequential ID migration ──────────────────────────────
 
-# ─── SPEC-011: governs backfill ────────────────────────────────────────────
+
+@dataclasses.dataclass(frozen=True)
+class LegacyDoc:
+    path: Path
+    type_name: str
+    type_dir: str
+    old_id: str
+    new_id: str
+    slug: str
+
+
+def migrate_ids_run(args: argparse.Namespace) -> int:
+    """`decree migrate ids` — convert filename-derived IDs to frontmatter IDs."""
+    try:
+        root = _resolve_root(getattr(args, "project", None))
+    except FileNotFoundError as e:
+        fail(str(e))
+        return 1
+
+    apply = bool(getattr(args, "apply", False))
+    try:
+        legacy_docs = _plan_id_migration(root)
+    except Exception as e:
+        fail(f"could not plan ID migration: {e}")
+        return 1
+
+    if not legacy_docs:
+        success("migrate ids: no legacy numeric documents found.")
+        return 0
+
+    print(f"migrate ids: {len(legacy_docs)} legacy document(s)")
+    for item in legacy_docs:
+        rel = item.path.relative_to(root)
+        print(f"  {item.old_id} -> {item.new_id}  {rel}")
+
+    if not apply:
+        success("dry-run complete; no files changed.")
+        return 0
+
+    try:
+        mapping_path = _apply_id_migration(root, legacy_docs)
+    except Exception as e:
+        fail(f"ID migration failed: {e}")
+        return 1
+
+    success(f"migrated {len(legacy_docs)} document(s); mapping written to {mapping_path}")
+    return 0
+
+
+def _plan_id_migration(root: Path) -> list[LegacyDoc]:
+    from decree.config import get_project_root, load_doc_types
+    from decree.identity import generate_doc_id
+
+    cwd_before = Path.cwd()
+    os.chdir(root)
+    try:
+        get_project_root.cache_clear()
+        load_doc_types.cache_clear()
+        doc_types = load_doc_types()
+    finally:
+        os.chdir(cwd_before)
+
+    out: list[LegacyDoc] = []
+    for dt in doc_types:
+        type_dir = root / dt.dir
+        if not type_dir.exists():
+            continue
+        for path in sorted(p for p in type_dir.glob("*.md") if p.name != "index.md"):
+            match = _legacy_filename_re(dt).match(path.name)
+            if not match:
+                continue
+            post = _load_frontmatter_raw(path)
+            if post.metadata.get("id"):
+                continue
+            stem_parts = path.stem.split("-", 1)
+            slug = stem_parts[1] if len(stem_parts) == 2 else "document"
+            old_id = _legacy_format_id(dt, int(match.group(1)))
+            out.append(
+                LegacyDoc(
+                    path=path,
+                    type_name=dt.name,
+                    type_dir=dt.dir,
+                    old_id=old_id,
+                    new_id=generate_doc_id(dt.prefix),
+                    slug=slug,
+                )
+            )
+    return out
+
+
+def _legacy_filename_re(doc_type) -> re.Pattern:
+    """Filename matcher used only by `decree migrate ids`."""
+    return re.compile(rf"^(\d{{{doc_type.legacy_digits}}})-.+\.md$")
+
+
+def _legacy_format_id(doc_type, number: int) -> str:
+    """Build an old numeric ID while planning `decree migrate ids`."""
+    return f"{doc_type.prefix}-{number:0{doc_type.legacy_digits}d}"
+
+
+def _apply_id_migration(root: Path, docs: list[LegacyDoc]) -> Path:
+    import frontmatter
+
+    from decree.commands import index as index_cmd
+    from decree.config import get_project_root, load_doc_types
+    from decree.identity import filename_for_doc_id
+
+    id_map = {d.old_id: d.new_id for d in docs}
+    moves: list[tuple[Path, Path]] = []
+
+    for item in docs:
+        post = frontmatter.load(str(item.path))
+        metadata = dict(post.metadata)
+        metadata["id"] = item.new_id
+        _rewrite_metadata_ids(metadata, id_map)
+        body = _rewrite_heading_id(post.content, item.old_id, item.new_id)
+        new_path = item.path.with_name(filename_for_doc_id(item.new_id, item.slug))
+        if new_path.exists():
+            raise FileExistsError(f"target already exists: {new_path}")
+        item.path.write_text(frontmatter.dumps(frontmatter.Post(body, **metadata)).rstrip() + "\n")
+        moves.append((item.path, new_path))
+
+    for old_path, new_path in moves:
+        old_path.rename(new_path)
+
+    _migrate_report_snapshots(root, docs, id_map)
+    mapping_path = _write_id_mapping(root, docs)
+
+    cwd_before = Path.cwd()
+    os.chdir(root)
+    try:
+        get_project_root.cache_clear()
+        load_doc_types.cache_clear()
+        index_cmd.run(None)
+    finally:
+        os.chdir(cwd_before)
+
+    return mapping_path
+
+
+def _load_frontmatter_raw(path: Path):
+    import frontmatter
+
+    return frontmatter.load(str(path))
+
+
+def _rewrite_metadata_ids(metadata: dict, id_map: dict[str, str]) -> None:
+    if isinstance(metadata.get("references"), list):
+        metadata["references"] = [id_map.get(str(ref), str(ref)) for ref in metadata["references"]]
+    for key in ("supersedes", "superseded-by"):
+        value = metadata.get(key)
+        if isinstance(value, str) and value in id_map:
+            metadata[key] = id_map[value]
+
+
+def _rewrite_heading_id(body: str, old_id: str, new_id: str) -> str:
+    prefix = f"# {old_id} "
+    lines = body.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith(prefix):
+            lines[i] = f"# {new_id} {line[len(prefix) :]}"
+            return "\n".join(lines) + ("\n" if body.endswith("\n") else "")
+    return body
+
+
+def _migrate_report_snapshots(root: Path, docs: list[LegacyDoc], id_map: dict[str, str]) -> None:
+    for item in docs:
+        report = root / item.type_dir / "reports" / f"{item.old_id}.md"
+        if not report.exists():
+            continue
+        text = report.read_text()
+        for old_id, new_id in id_map.items():
+            text = text.replace(old_id, new_id)
+        target = report.with_name(f"{item.new_id}.md")
+        if target.exists():
+            raise FileExistsError(f"target report already exists: {target}")
+        report.write_text(text)
+        report.rename(target)
+
+
+def _write_id_mapping(root: Path, docs: list[LegacyDoc]) -> Path:
+    from datetime import UTC, datetime
+
+    migrations_dir = root / "decree" / "migrations"
+    migrations_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    path = migrations_dir / f"{stamp}-id-migration.json"
+    payload = {
+        "schema": "decree-id-migration-v1",
+        "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "documents": [
+            {
+                "type": d.type_name,
+                "old_id": d.old_id,
+                "new_id": d.new_id,
+                "old_path": str(d.path.relative_to(root)),
+            }
+            for d in docs
+        ],
+    }
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    return path
+
+
+# ─── SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S: governs backfill ────────────────────────────────────────────
 
 
 @dataclasses.dataclass(frozen=True)
@@ -811,18 +959,17 @@ def suggest_governs(
          with empty `proposed_governs`, no error. Caller renders as "already
          has governs".
       2. Build a prompt via `build_governs_prompt(doc.body)`.
-      3. Call `litellm.completion(...)` with `temperature=0`,
-         `response_format={"type":"json_object"}`, 60s timeout.
+      3. Call :func:`decree.llm_io.complete` (routes to claude-code or
+         litellm per SPEC-01KT22NMS0BN1F5B01HEFK87W0).
       4. Parse the response. Drop entries that fail the same validation rules
-         enforced by `DocFrontmatter.governs_syntax` + SPEC-004's
+         enforced by `DocFrontmatter.governs_syntax` + SPEC-01KT22NMRXFWNE61NSETKATHBA's
          `validate_governs_paths`.
       5. Split the survivors into `verified_paths` (exist on disk) and
          `unverified_paths` (don't exist — kept but flagged).
-      6. On any exception (litellm error, JSON parse error, network), catch
+      6. On any exception (provider error, JSON parse error, network), catch
          and stash the message on `error`. The batch keeps going.
     """
-    import litellm  # local import — keep the litellm dep out of the cold path
-
+    from decree.llm_io import complete
     from decree.migrate_prompts import build_governs_prompt
 
     results: list[SuggestionResult] = []
@@ -847,16 +994,9 @@ def suggest_governs(
 
         prompt = build_governs_prompt(doc.body or "")
         try:
-            response = litellm.completion(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,
-                response_format={"type": "json_object"},
-                timeout=60,
-            )
-            content = response.choices[0].message.content
+            content = complete(prompt, model, timeout=60)
             payload = _parse_llm_json(content)
-        except Exception as e:  # noqa: BLE001 — per-doc isolation by design
+        except Exception as e:
             results.append(
                 SuggestionResult(
                     doc_id=doc.doc_id,
@@ -908,9 +1048,7 @@ def suggest_governs(
     return results
 
 
-def _suggestion_diff(
-    doc_full_path: Path, suggestion: SuggestionResult
-) -> str:
+def _suggestion_diff(doc_full_path: Path, suggestion: SuggestionResult) -> str:
     """Return a unified diff (as text) for setting `governs:` on the doc.
 
     The diff is built from the current file's frontmatter against a new
@@ -979,11 +1117,7 @@ def apply_governs(
             )
             continue
         if not s.proposed_governs:
-            reason = (
-                "already has governs"
-                if s.current_governs
-                else "LLM proposed no paths"
-            )
+            reason = "already has governs" if s.current_governs else "LLM proposed no paths"
             results.append(
                 ApplyResult(
                     doc_id=s.doc_id,
@@ -1019,7 +1153,7 @@ def apply_governs(
                     wrote=True,
                 )
             )
-        except Exception as e:  # noqa: BLE001 — per-doc isolation
+        except Exception as e:
             results.append(
                 ApplyResult(
                     doc_id=s.doc_id,
@@ -1035,40 +1169,20 @@ def apply_governs(
 
 
 def resolve_model(args: argparse.Namespace) -> str:
-    """Pick an LLM model string from --model, env, or provider defaults.
+    """Pick an LLM model string for ``commands.migrate``.
 
-    Priority:
-      1. `args.model` if non-empty.
-      2. `DECREE_LLM_MODEL` env var.
-      3. `ANTHROPIC_API_KEY` set → `claude-3-5-sonnet-latest`.
-      4. `OPENAI_API_KEY` set → `gpt-4o-mini`.
-      5. Else: SystemExit(2) with a clear error.
-
-    No validation that the model string is well-formed; litellm will surface
-    that at call time with a clear message.
+    Thin wrapper for back-compat — real impl in :mod:`decree.llm_io` per
+    SPEC-01KT22NMS0BN1F5B01HEFK87W0 (the chain now prefers a local ``claude`` CLI over API keys).
     """
-    explicit = getattr(args, "model", None)
-    if explicit:
-        return str(explicit)
-    env_model = os.environ.get("DECREE_LLM_MODEL")
-    if env_model:
-        return env_model
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return "claude-3-5-sonnet-latest"
-    if os.environ.get("OPENAI_API_KEY"):
-        return "gpt-4o-mini"
-    raise SystemExit(
-        "decree migrate governs: no model resolved. Pass --model, set "
-        "DECREE_LLM_MODEL, or export ANTHROPIC_API_KEY / OPENAI_API_KEY."
-    )
+    from decree.llm_io import resolve_model as _resolve
+
+    return _resolve(args)
 
 
 # ─── governs CLI handler ──────────────────────────────────────────────────
 
 
-def _filter_docs_for_suggest(
-    all_docs: list, only: list[str] | None
-) -> list:
+def _filter_docs_for_suggest(all_docs: list, only: list[str] | None) -> list:
     """Apply `--only` filter (case-insensitive on doc_id)."""
     if not only:
         return all_docs
@@ -1083,8 +1197,7 @@ def _confirm_apply(yes: bool) -> bool:
     if not sys.stdin.isatty():
         error(
             "migrate-governs",
-            "stdin is not a TTY; refuse to apply without --yes. "
-            "Re-run with --yes for non-interactive use.",
+            "stdin is not a TTY; refuse to apply without --yes. Re-run with --yes for non-interactive use.",
         )
         return False
     try:
@@ -1118,9 +1231,7 @@ def _apply_to_dict(a: ApplyResult) -> dict:
     }
 
 
-def _format_suggestions_human(
-    suggestions: list[SuggestionResult], project_root: Path
-) -> str:
+def _format_suggestions_human(suggestions: list[SuggestionResult], project_root: Path) -> str:
     """Render suggestions as a sequence of unified-diff hunks.
 
     Each hunk is prefixed with confidence + rationale as `#` comments so a
@@ -1134,15 +1245,11 @@ def _format_suggestions_human(
             out.append("")
             continue
         if s.current_governs and not s.proposed_governs:
-            out.append(
-                f"# {s.doc_id} ({s.doc_path}): already has governs; skipped"
-            )
+            out.append(f"# {s.doc_id} ({s.doc_path}): already has governs; skipped")
             out.append("")
             continue
         if not s.proposed_governs:
-            out.append(
-                f"# {s.doc_id} ({s.doc_path}): LLM proposed no paths"
-            )
+            out.append(f"# {s.doc_id} ({s.doc_path}): LLM proposed no paths")
             if s.rationale:
                 out.append(f"# rationale: {s.rationale}")
             out.append("")
@@ -1152,10 +1259,7 @@ def _format_suggestions_human(
         if s.rationale:
             out.append(f"# rationale: {s.rationale}")
         if s.unverified_paths:
-            out.append(
-                "# unverified paths (don't exist on disk): "
-                + ", ".join(s.unverified_paths)
-            )
+            out.append("# unverified paths (don't exist on disk): " + ", ".join(s.unverified_paths))
         full_path = project_root / s.doc_path
         if not full_path.exists():
             matches = list(project_root.glob(f"**/{Path(s.doc_path).name}"))
@@ -1164,7 +1268,7 @@ def _format_suggestions_human(
         try:
             diff = _suggestion_diff(full_path, s)
             out.append(diff)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             out.append(f"# (could not render diff: {e})")
         out.append("")
     return "\n".join(out)
@@ -1175,7 +1279,7 @@ def suggest_governs_run(args: argparse.Namespace) -> int:
 
     v1 merges suggest + apply into a single handler: --suggest emits the
     diff, --apply (which requires --suggest semantically) then optionally
-    writes it. Exit codes per SPEC-011:
+    writes it. Exit codes per SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S:
       0 — clean run, with or without --apply.
       1 — at least one doc errored, batch continued.
       2 — config error (no API key, no docs).
@@ -1201,18 +1305,14 @@ def suggest_governs_run(args: argparse.Namespace) -> int:
 
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
-        all_docs = load_all_types(strict=False)
+        all_docs = load_all_types()
     finally:
         os.chdir(cwd_before)
 
     only = getattr(args, "only", None) or None
     docs = _filter_docs_for_suggest(all_docs, only)
     if not docs:
-        fail(
-            "no documents matched --only filter"
-            if only
-            else "no documents in corpus"
-        )
+        fail("no documents matched --only filter" if only else "no documents in corpus")
         return 2
 
     suggestions = suggest_governs(docs, model, root)
@@ -1232,30 +1332,22 @@ def suggest_governs_run(args: argparse.Namespace) -> int:
         if do_apply:
             # In JSON mode we never prompt; --yes is required for apply.
             if not yes:
-                fail(
-                    "--apply in --json mode requires --yes (no interactive prompt)"
-                )
+                fail("--apply in --json mode requires --yes (no interactive prompt)")
                 payload["error"] = "apply refused: --yes required in --json mode"
                 print(json.dumps(payload, indent=2, sort_keys=True))
                 return 2
-            apply_results = apply_governs(
-                suggestions, root, dry_run=dry_run
-            )
+            apply_results = apply_governs(suggestions, root, dry_run=dry_run)
             payload["apply"] = [_apply_to_dict(a) for a in apply_results]
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         print(_format_suggestions_human(suggestions, root))
         if do_apply:
-            has_changes = any(
-                s.proposed_governs and not s.error for s in suggestions
-            )
+            has_changes = any(s.proposed_governs and not s.error for s in suggestions)
             if not has_changes:
                 info("migrate-governs", "no changes to apply.")
             else:
                 if _confirm_apply(yes):
-                    apply_results = apply_governs(
-                        suggestions, root, dry_run=dry_run
-                    )
+                    apply_results = apply_governs(suggestions, root, dry_run=dry_run)
                     for r in apply_results:
                         if r.wrote:
                             success(f"wrote {r.doc_id} ({r.doc_path})")
@@ -1288,5 +1380,5 @@ def apply_governs_run(args: argparse.Namespace) -> int:
     subcommand. This exists for symmetry with the SPEC's library-API naming
     so future SPECs can wire it differently if they want.
     """
-    setattr(args, "apply", True)
+    args.apply = True
     return suggest_governs_run(args)

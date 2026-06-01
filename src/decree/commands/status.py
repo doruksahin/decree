@@ -100,7 +100,7 @@ def run(args: argparse.Namespace) -> int:
             report_path = generate_report(doc, get_project_root(), target_status)
             if report_path:
                 info(prefix, f"completion report written to {report_path.name}")
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             error(prefix, f"completion report failed (status transition kept): {e}")
 
     success(f"{doc.doc_id} {target_status}")

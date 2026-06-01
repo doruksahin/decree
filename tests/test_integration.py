@@ -1,14 +1,16 @@
 """End-to-end: the killer combination.
 
-PRD-001 references ADR-0003.
-SPEC-001 references PRD-001.
-ADR-0003 gets superseded by ADR-0004.
+PRD-00000000000000000000000001 references ADR-00000000000000000000000003.
+SPEC-00000000000000000000000001 references PRD-00000000000000000000000001.
+ADR-00000000000000000000000003 gets superseded by ADR-00000000000000000000000004.
 Lint catches the stale reference chain.
 """
 
 import argparse
 
 from decree.commands import lint, new, status
+from decree.config import load_doc_types
+from decree.parser import load
 
 MULTI_TYPE_CONFIG = """\
 [types.adr]
@@ -83,6 +85,17 @@ def _add_references(path, refs):
     path.write_text(frontmatter.dumps(post).rstrip() + "\n")
 
 
+def _new_doc(tmp_path, doc_type, title):
+    type_dir = tmp_path / "docs" / doc_type
+    before = set(type_dir.glob("*.md"))
+    assert new.run(argparse.Namespace(title=title, doc_type=doc_type)) == 0
+    created = sorted(set(type_dir.glob("*.md")) - before)
+    assert len(created) == 1
+    dt = next(t for t in load_doc_types() if t.name == doc_type)
+    doc = load(created[0], doc_type=dt)
+    return created[0], doc.doc_id
+
+
 def test_killer_combination(monkeypatch, tmp_path):
     # 1. Set up multi-type project
     (tmp_path / "decree.toml").write_text(MULTI_TYPE_CONFIG)
@@ -91,30 +104,31 @@ def test_killer_combination(monkeypatch, tmp_path):
     (tmp_path / "docs" / "spec").mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
 
-    # 2. Create ADR-0001, ADR-0002, ADR-0003
+    # 2. Create three ADRs
+    adr_ids = []
     for title in ["Use Redis", "Use PostgreSQL", "Auth via JWT"]:
-        new.run(argparse.Namespace(title=title, doc_type="adr"))
+        _, doc_id = _new_doc(tmp_path, "adr", title)
+        adr_ids.append(doc_id)
+    auth_jwt_id = adr_ids[2]
 
-    # 3. Accept ADR-0003
-    status.run(argparse.Namespace(action="accept", doc_id="ADR-0003", target_id=None))
+    # 3. Accept the JWT ADR
+    assert status.run(argparse.Namespace(action="accept", doc_id=auth_jwt_id, target_id=None)) == 0
 
-    # 4. Create PRD-001 referencing ADR-0003
-    new.run(argparse.Namespace(title="User Authentication", doc_type="prd"))
-    prd_path = tmp_path / "docs" / "prd" / "001-user-authentication.md"
-    _add_references(prd_path, ["ADR-0003"])
+    # 4. Create PRD referencing the JWT ADR
+    prd_path, prd_id = _new_doc(tmp_path, "prd", "User Authentication")
+    _add_references(prd_path, [auth_jwt_id])
 
-    # 5. Create SPEC-001 referencing PRD-001
-    new.run(argparse.Namespace(title="Auth API Design", doc_type="spec"))
-    spec_path = tmp_path / "docs" / "spec" / "001-auth-api-design.md"
-    _add_references(spec_path, ["PRD-001"])
+    # 5. Create SPEC referencing the PRD
+    spec_path, _ = _new_doc(tmp_path, "spec", "Auth API Design")
+    _add_references(spec_path, [prd_id])
 
     # 6. Lint should pass — all references valid
     assert lint.run(None) == 0
 
-    # 7. Create ADR-0004 and supersede ADR-0003
-    new.run(argparse.Namespace(title="Auth via OAuth2", doc_type="adr"))
-    status.run(argparse.Namespace(action="accept", doc_id="ADR-0004", target_id=None))
-    status.run(argparse.Namespace(action="supersede", doc_id="ADR-0003", target_id="ADR-0004"))
+    # 7. Create OAuth2 ADR and supersede the JWT ADR
+    _, oauth_id = _new_doc(tmp_path, "adr", "Auth via OAuth2")
+    assert status.run(argparse.Namespace(action="accept", doc_id=oauth_id, target_id=None)) == 0
+    assert status.run(argparse.Namespace(action="supersede", doc_id=auth_jwt_id, target_id=oauth_id)) == 0
 
-    # 8. Lint should FAIL — PRD-001 references ADR-0003 (superseded)
+    # 8. Lint should FAIL — PRD references the superseded ADR
     assert lint.run(None) == 1

@@ -1,4 +1,4 @@
-"""SPEC-011 — prompt templates for `decree migrate governs`.
+"""SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S — prompt templates for `decree migrate governs`.
 
 One module for prompt strings so future LLM-assisted SPECs (e.g., a judge that
 re-scores existing `governs:` arrays) can reuse them. v1 ships a single
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 # ~6000 tokens at roughly 4 chars/token for English prose. Conservative;
 # leaves room for the framing prompt and the JSON response without busting
-# the typical 8k–200k context windows.
+# the typical 8k-200k context windows.
 BODY_CHAR_BUDGET: int = 24_000
 
 GOVERNS_PROMPT_TEMPLATE: str = """\
@@ -43,8 +43,10 @@ Rules for the output:
   - Use directory paths (ending with `/`) when a document governs a whole subtree.
   - Maximum 12 entries. If more candidates exist, pick the most-load-bearing ones.
 
-Return strictly valid JSON of the form:
-  {{"governs": ["path/one.py", "path/two.py", "path/sub/"], "confidence": "high" | "medium" | "low", "rationale": "one-sentence explanation"}}
+Return strictly valid JSON with this shape:
+  {{"governs": ["path/one.py", "path/two.py", "path/sub/"],
+    "confidence": "high" | "medium" | "low",
+    "rationale": "one-sentence explanation"}}
 
 Document body follows:
 
@@ -66,12 +68,10 @@ def build_governs_prompt(body: str) -> str:
     if len(body) <= BODY_CHAR_BUDGET:
         return GOVERNS_PROMPT_TEMPLATE.format(body=body)
     head = body[:BODY_CHAR_BUDGET]
-    return GOVERNS_PROMPT_TEMPLATE.format(
-        body=head + "\n\n[... document truncated for length ...]"
-    )
+    return GOVERNS_PROMPT_TEMPLATE.format(body=head + "\n\n[... document truncated for length ...]")
 
 
-# ── SPEC-014 — conflict-judge prompt ─────────────────────────
+# ── SPEC-01KT22NMS0KTWGNKB36RR7K0JR — conflict-judge prompt ─────────────────────────
 
 # 2000 chars per body excerpt — keeps the full prompt well under the typical
 # 8k window even when both decisions have long bodies. Plenty of context for
@@ -104,9 +104,7 @@ Return strictly valid JSON of the form:
 """
 
 
-def build_conflict_judge_prompt(
-    plan: str, path: str, doc_a: dict, doc_b: dict
-) -> str:
+def build_conflict_judge_prompt(plan: str, path: str, doc_a: dict, doc_b: dict) -> str:
     """Render ``CONFLICT_JUDGE_PROMPT_TEMPLATE`` for one structural conflict.
 
     Each input dict is expected to carry ``decision_id``, ``title``, and

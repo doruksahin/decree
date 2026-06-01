@@ -1,4 +1,4 @@
-"""SPEC-008 coherence gate tests.
+"""SPEC-00000000000000000000000008 coherence gate tests.
 
 Covers:
   - Gate 1: terminal_status_progress
@@ -19,12 +19,11 @@ from decree.commands.report import (
     _parse_checkboxes_by_section,
 )
 
-
 # ── Gate 2 unit tests (code-fence handling on the parser) ───
 
 
 class TestCodeFenceExclusion:
-    """SPEC-008 Gate 2: checkboxes inside fenced code blocks are illustrations."""
+    """SPEC-00000000000000000000000008 Gate 2: checkboxes inside fenced code blocks are illustrations."""
 
     def test_checkbox_inside_fence_is_ignored(self):
         body = """
@@ -142,6 +141,10 @@ def _write_corpus(root: Path, extra_toml: str = "") -> None:
         (root / "decree" / sub).mkdir(parents=True, exist_ok=True)
 
 
+def _doc_id(prefix: str, name: str) -> str:
+    return f"{prefix}-{int(name.split('-', 1)[0]):026d}"
+
+
 @pytest.fixture
 def corpus(tmp_path: Path, monkeypatch):
     _write_corpus(tmp_path)
@@ -160,13 +163,16 @@ def corpus(tmp_path: Path, monkeypatch):
 
 class TestGate1TerminalStatusProgress:
     def _spec(self, root: Path, name: str, status: str, body_acs: str):
-        (root / "decree" / "spec" / f"{name}.md").write_text(
+        doc_id = _doc_id("SPEC", name)
+        path = root / "decree" / "spec" / f"{doc_id.lower()}-{name.split('-', 1)[1]}.md"
+        path.write_text(
             f"""---
+id: {doc_id}
 status: {status}
 date: 2026-05-10
 ---
 
-# SPEC-{name[:3]} title
+# {doc_id} title
 
 ## Overview
 
@@ -279,13 +285,14 @@ deferred_sections = ["Backlog"]
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
 
-        (corpus / "decree" / "spec" / "001-foo.md").write_text(
+        (corpus / "decree" / "spec" / "spec-00000000000000000000000001-foo.md").write_text(
             """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-10
 ---
 
-# SPEC-001 title
+# SPEC-00000000000000000000000001 title
 
 ## Overview
 
@@ -301,9 +308,10 @@ x
 - [ ] later
 """
         )
-        from decree.commands import lint
         import io
         from contextlib import redirect_stdout
+
+        from decree.commands import lint
 
         buf = io.StringIO()
         with redirect_stdout(buf):
@@ -350,13 +358,14 @@ active_statuses = ["approved"]
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
 
-        (corpus / "decree" / "prd" / "001-foo.md").write_text(
+        (corpus / "decree" / "prd" / "prd-00000000000000000000000001-foo.md").write_text(
             f"""---
+id: PRD-00000000000000000000000001
 status: approved
 date: {old}
 ---
 
-# PRD-001 stalled
+# PRD-00000000000000000000000001 stalled
 
 ## Problem Statement
 
@@ -385,13 +394,14 @@ active_statuses = ["approved"]
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
 
-        (corpus / "decree" / "prd" / "001-foo.md").write_text(
+        (corpus / "decree" / "prd" / "prd-00000000000000000000000001-foo.md").write_text(
             f"""---
+id: PRD-00000000000000000000000001
 status: approved
 date: {recent}
 ---
 
-# PRD-001 recent
+# PRD-00000000000000000000000001 recent
 
 ## Problem Statement
 
@@ -420,27 +430,29 @@ active_statuses = ["approved"]
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
 
-        (corpus / "decree" / "prd" / "001-foo.md").write_text(
+        (corpus / "decree" / "prd" / "prd-00000000000000000000000001-foo.md").write_text(
             f"""---
+id: PRD-00000000000000000000000001
 status: approved
 date: {old}
 ---
 
-# PRD-001 referenced
+# PRD-00000000000000000000000001 referenced
 
 ## Problem Statement
 
 x
 """
         )
-        (corpus / "decree" / "spec" / "001-bar.md").write_text(
+        (corpus / "decree" / "spec" / "spec-00000000000000000000000001-bar.md").write_text(
             """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 ---
 
-# SPEC-001 child
+# SPEC-00000000000000000000000001 child
 
 ## Overview
 
@@ -460,13 +472,14 @@ x
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
 
-        (corpus / "decree" / "prd" / "001-foo.md").write_text(
+        (corpus / "decree" / "prd" / "prd-00000000000000000000000001-foo.md").write_text(
             f"""---
+id: PRD-00000000000000000000000001
 status: approved
 date: {old}
 ---
 
-# PRD-001 ancient
+# PRD-00000000000000000000000001 ancient
 
 ## Problem Statement
 
@@ -495,13 +508,14 @@ class TestGate4StatusFieldRequirements:
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
 
-        (corpus / "decree" / "adr" / "0001-broken.md").write_text(
+        (corpus / "decree" / "adr" / "adr-00000000000000000000000001-broken.md").write_text(
             """---
+id: ADR-00000000000000000000000001
 status: superseded
 date: 2026-05-10
 ---
 
-# ADR-0001 broken
+# ADR-00000000000000000000000001 broken
 
 ## Context and Problem Statement
 

@@ -1,9 +1,10 @@
 ---
+id: __ID__
 status: proposed
 date: __DATE__
 ---
 
-# ADR-__NUMBER__ __TITLE__
+# __ID__ __TITLE__
 
 ## Context and Problem Statement
 

@@ -1,4 +1,4 @@
-# SPEC-012 v1 labeled query set — decree corpus retrieval evaluation
+# SPEC-01KT22NMRZXE5C42F6Z0ZY559A v1 labeled query set — decree corpus retrieval evaluation
 #
 # Schema: see src/decree/eval/schema.py
 #   kind: "file_path" | "concept"
@@ -13,7 +13,7 @@
 corpus: decree
 description: "decree project file-path + concept queries v1"
 created: "2026-05-12"
-author_note: "hand-authored against the decree corpus by the SPEC-012 implementer"
+author_note: "hand-authored against the decree corpus by the SPEC-01KT22NMRZXE5C42F6Z0ZY559A implementer"
 total_queries: 33
 
 queries:
@@ -21,80 +21,80 @@ queries:
   - id: q001
     kind: file_path
     query: "src/decree/index_db.py"
-    relevant: [SPEC-003]
-    note: "SQLite index module — SPEC-003 governs it directly."
+    relevant: [SPEC-01KT22NMRX176PCT00SKJ9G2AQ]
+    note: "SQLite index module — SPEC-01KT22NMRX176PCT00SKJ9G2AQ governs it directly."
 
   - id: q002
     kind: file_path
     query: "src/decree/commands/index_db_cli.py"
-    relevant: [SPEC-003]
-    note: "Index CLI wrapper — governed by SPEC-003."
+    relevant: [SPEC-01KT22NMRX176PCT00SKJ9G2AQ]
+    note: "Index CLI wrapper — governed by SPEC-01KT22NMRX176PCT00SKJ9G2AQ."
 
   - id: q003
     kind: file_path
     query: "src/decree/commands/queries.py"
-    relevant: [SPEC-005]
-    note: "Houses `why()` and `refs()` — governed by SPEC-005."
+    relevant: [SPEC-01KT22NMRXWCS5TK5VC1FT6JER]
+    note: "Houses `why()` and `refs()` — governed by SPEC-01KT22NMRXWCS5TK5VC1FT6JER."
 
   - id: q004
     kind: file_path
     query: "src/decree/commands/ddd.py"
-    relevant: [SPEC-002]
-    note: "`decree ddd` command — governed by SPEC-002."
+    relevant: [SPEC-01KT22NMRW79Y92MKZT807B2J1]
+    note: "`decree ddd` command — governed by SPEC-01KT22NMRW79Y92MKZT807B2J1."
 
   - id: q005
     kind: file_path
     query: "src/decree/commands/hook.py"
-    relevant: [SPEC-002]
-    note: "Hook installer — governed by SPEC-002."
+    relevant: [SPEC-01KT22NMRW79Y92MKZT807B2J1]
+    note: "Hook installer — governed by SPEC-01KT22NMRW79Y92MKZT807B2J1."
 
   - id: q006
     kind: file_path
     query: "src/decree/commands/report.py"
-    relevant: [SPEC-002]
-    note: "Completion-report generator — governed by SPEC-002."
+    relevant: [SPEC-01KT22NMRW79Y92MKZT807B2J1]
+    note: "Completion-report generator — governed by SPEC-01KT22NMRW79Y92MKZT807B2J1."
 
   - id: q007
     kind: file_path
     query: "scripts/hooks/decree-ddd-stop.sh"
-    relevant: [SPEC-002]
-    note: "Claude Code stop hook script — governed by SPEC-002."
+    relevant: [SPEC-01KT22NMRW79Y92MKZT807B2J1]
+    note: "Claude Code stop hook script — governed by SPEC-01KT22NMRW79Y92MKZT807B2J1."
 
   - id: q008
     kind: file_path
     query: "src/decree/commands/mcp_server.py"
-    relevant: [SPEC-007]
-    note: "FastMCP server — governed by SPEC-007."
+    relevant: [SPEC-01KT22NMRYJ4482K92AX9GJTMA]
+    note: "FastMCP server — governed by SPEC-01KT22NMRYJ4482K92AX9GJTMA."
 
   - id: q009
     kind: file_path
     query: "src/decree/commands/health.py"
-    relevant: [SPEC-008]
-    note: "`decree health` / `decree stale` — governed by SPEC-008."
+    relevant: [SPEC-01KT22NMRYNFYM7EN80WS2HD6F]
+    note: "`decree health` / `decree stale` — governed by SPEC-01KT22NMRYNFYM7EN80WS2HD6F."
 
   - id: q010
     kind: file_path
     query: "src/decree/commands/intent_review.py"
-    relevant: [SPEC-009]
-    note: "`decree intent-review` — governed by SPEC-009."
+    relevant: [SPEC-01KT22NMRYRZQ59EC88VJ5R0N6]
+    note: "`decree intent-review` — governed by SPEC-01KT22NMRYRZQ59EC88VJ5R0N6."
 
   - id: q011
     kind: file_path
     query: "src/decree/commands/migrate.py"
-    relevant: [SPEC-010, SPEC-011]
-    note: "migrate.py hosts both audit-coherence (SPEC-010) and governs (SPEC-011)."
+    relevant: [SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR, SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S]
+    note: "migrate.py hosts both audit-coherence (SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR) and governs (SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S)."
 
   - id: q012
     kind: file_path
     query: "src/decree/migrate_prompts.py"
-    relevant: [SPEC-011]
-    note: "LLM prompt templates for `decree migrate governs` — governed by SPEC-011."
+    relevant: [SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S]
+    note: "LLM prompt templates for `decree migrate governs` — governed by SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S."
 
   - id: q013
     kind: file_path
     query: "src/decree/commands/commit.py"
     relevant: []
-    note: "ABSTENTION — SPEC-006 governs the commit wrapper but doesn't declare governs:, so the index has no link."
+    note: "ABSTENTION — SPEC-01KT22NMRY8YK9RP4323KX4RQG governs the commit wrapper but doesn't declare governs:, so the index has no link."
 
   - id: q014
     kind: file_path
@@ -106,98 +106,98 @@ queries:
     kind: file_path
     query: "src/decree/c4.py"
     relevant: []
-    note: "ABSTENTION — c4 module exists for SPEC-001 (draft) but no governs link landed."
+    note: "ABSTENTION — c4 module exists for SPEC-01KT22NMRWENYKC3MGRA50M7GE (draft) but no governs link landed."
 
   # ── concept queries (15) ─────────────────────────────────────────
   - id: q016
     kind: concept
     query: "SQLite provenance index schema decisions refs governs commits"
-    relevant: [SPEC-003]
-    note: "Body of SPEC-003 covers the schema in detail."
+    relevant: [SPEC-01KT22NMRX176PCT00SKJ9G2AQ]
+    note: "Body of SPEC-01KT22NMRX176PCT00SKJ9G2AQ covers the schema in detail."
 
   - id: q017
     kind: concept
     query: "governs frontmatter field path validation"
-    relevant: [SPEC-004]
-    note: "SPEC-004 defines the governs field and its validation rules."
+    relevant: [SPEC-01KT22NMRXFWNE61NSETKATHBA]
+    note: "SPEC-01KT22NMRXFWNE61NSETKATHBA defines the governs field and its validation rules."
 
   - id: q018
     kind: concept
     query: "decree why governing decisions file path lookup"
-    relevant: [SPEC-005]
-    note: "SPEC-005 specifies the `decree why` semantics."
+    relevant: [SPEC-01KT22NMRXWCS5TK5VC1FT6JER]
+    note: "SPEC-01KT22NMRXWCS5TK5VC1FT6JER specifies the `decree why` semantics."
 
   - id: q019
     kind: concept
     query: "git interpret-trailers Implements Refs Fixes commit wrapper"
-    relevant: [SPEC-006]
-    note: "SPEC-006 covers structured commit trailers."
+    relevant: [SPEC-01KT22NMRY8YK9RP4323KX4RQG]
+    note: "SPEC-01KT22NMRY8YK9RP4323KX4RQG covers structured commit trailers."
 
   - id: q020
     kind: concept
     query: "Model Context Protocol MCP server stdio tools agents"
-    relevant: [SPEC-007]
-    note: "SPEC-007 covers the MCP server."
+    relevant: [SPEC-01KT22NMRYJ4482K92AX9GJTMA]
+    note: "SPEC-01KT22NMRYJ4482K92AX9GJTMA covers the MCP server."
 
   - id: q021
     kind: concept
     query: "coherence gates staleness ungoverned hotspots churn"
-    relevant: [SPEC-008]
-    note: "SPEC-008 — the health/stale gates."
+    relevant: [SPEC-01KT22NMRYNFYM7EN80WS2HD6F]
+    note: "SPEC-01KT22NMRYNFYM7EN80WS2HD6F — the health/stale gates."
 
   - id: q022
     kind: concept
     query: "intent-review diff-aware governance acceptance criteria"
-    relevant: [SPEC-009]
-    note: "SPEC-009 — diff-aware governance check."
+    relevant: [SPEC-01KT22NMRYRZQ59EC88VJ5R0N6]
+    note: "SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 — diff-aware governance check."
 
   - id: q023
     kind: concept
     query: "migrate audit-coherence dry-run gate impact report"
-    relevant: [SPEC-010]
-    note: "SPEC-010 — coherence-gate audit."
+    relevant: [SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR]
+    note: "SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR — coherence-gate audit."
 
   - id: q024
     kind: concept
     query: "LLM backfill governs frontmatter litellm provider-agnostic"
-    relevant: [SPEC-011]
-    note: "SPEC-011 — LLM-assisted governs backfill via litellm."
+    relevant: [SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S]
+    note: "SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S — LLM-assisted governs backfill via litellm."
 
   - id: q025
     kind: concept
     query: "Claude Code stop hook completion report decree ddd"
-    relevant: [SPEC-002]
-    note: "SPEC-002 — DDD CLI + completion report + stop hook."
+    relevant: [SPEC-01KT22NMRW79Y92MKZT807B2J1]
+    note: "SPEC-01KT22NMRW79Y92MKZT807B2J1 — DDD CLI + completion report + stop hook."
 
   - id: q026
     kind: concept
     query: "C4 architecture diagram validation Mermaid containers components"
-    relevant: [PRD-001, SPEC-001]
-    note: "PRD-001 + SPEC-001 — C4 architecture support."
+    relevant: [PRD-01KT22NMRR63TXR7NX5XYRG5FK, SPEC-01KT22NMRWENYKC3MGRA50M7GE]
+    note: "PRD-01KT22NMRR63TXR7NX5XYRG5FK + SPEC-01KT22NMRWENYKC3MGRA50M7GE — C4 architecture support."
 
   - id: q027
     kind: concept
     query: "queryable decision provenance graph SQLite FTS"
-    relevant: [PRD-003]
-    note: "PRD-003 — the umbrella PRD for the index."
+    relevant: [PRD-01KT22NMRS4QGHSFDBZ858PP1T]
+    note: "PRD-01KT22NMRS4QGHSFDBZ858PP1T — the umbrella PRD for the index."
 
   - id: q028
     kind: concept
     query: "state-of-the-art decision reasoning calibrated abstention evaluation"
-    relevant: [PRD-004]
-    note: "PRD-004 — the SOTA reasoning PRD that motivates SPEC-012."
+    relevant: [PRD-01KT22NMRSXYT95XE808VD8EV4]
+    note: "PRD-01KT22NMRSXYT95XE808VD8EV4 — the SOTA reasoning PRD that motivates SPEC-01KT22NMRZXE5C42F6Z0ZY559A."
 
   - id: q029
     kind: concept
     query: "index-first architecture sqlite-utils rebuild verify"
-    relevant: [ADR-0002]
-    note: "ADR-0002 — index-first design decision."
+    relevant: [ADR-01KT22NMRV9CP14X5982JJH161]
+    note: "ADR-01KT22NMRV9CP14X5982JJH161 — index-first design decision."
 
   - id: q030
     kind: concept
     query: "coupled C4 module versus plugin architecture decree"
-    relevant: [ADR-0001]
-    note: "ADR-0001 — C4 architecture decision."
+    relevant: [ADR-01KT22NMRV7GMAXKWSBEEN68KE]
+    note: "ADR-01KT22NMRV7GMAXKWSBEEN68KE — C4 architecture decision."
 
   # ── extra abstention concept queries (3 total ≥ requirement) ────
   - id: q031

@@ -1,6 +1,6 @@
 """`decree commit` — git commit wrapper that adds structural trailers.
 
-Implements SPEC-006 R1. Wraps `git commit`, inspecting the staged diff,
+Implements SPEC-01KT22NMRY8YK9RP4323KX4RQG R1. Wraps `git commit`, inspecting the staged diff,
 optionally inferring the active SPEC from the `governs:` table, and
 prepending `Implements:` / `Refs:` / `Fixes:` trailers via the canonical
 `git interpret-trailers` plumbing.
@@ -10,21 +10,22 @@ Design notes:
     Both add (`git interpret-trailers --in-place ...`) and parse
     (`git interpret-trailers --parse`) shell out to git itself.
   * Inference is opt-out (`--no-infer`) and overridable
-    (`--implements SPEC-NNN ...`). Ambiguous matches refuse to guess.
+    (`--implements SPEC-<ULID> ...`). Ambiguous matches refuse to guess.
   * Post-commit we trigger `IndexDB.sync_commits_from_git()` so that
-    `decree refs SPEC-NNN` reflects the new commit immediately.
+    `decree refs SPEC-<ULID>` reflects the new commit immediately.
 """
 
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
 from decree.commands.queries import _resolve_root, _status_priority
+from decree.identity import require_doc_id
 from decree.index_db import IndexDB, default_db_path
 from decree.log import error, info, success
 
@@ -43,7 +44,9 @@ class InferenceCandidate:
 # ── git plumbing helpers ────────────────────────────────────
 
 
-def _git(project_root: Path, *args: str, check: bool = False, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+def _git(
+    project_root: Path, *args: str, check: bool = False, input_text: str | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run `git -C <root> <args>` and return the CompletedProcess."""
     return subprocess.run(
         ["git", "-C", str(project_root), *args],
@@ -77,12 +80,20 @@ def build_trailers_arg(
     """
     out: list[str] = []
     for spec_id in implements or []:
-        out.extend(["--trailer", f"Implements: {spec_id}"])
+        out.extend(["--trailer", f"Implements: {require_doc_id(spec_id)}"])
     for ref_id in refs or []:
-        out.extend(["--trailer", f"Refs: {ref_id}"])
+        out.extend(["--trailer", f"Refs: {require_doc_id(ref_id)}"])
     for fix_id in fixes or []:
-        out.extend(["--trailer", f"Fixes: {fix_id}"])
+        out.extend(["--trailer", f"Fixes: {require_doc_id(fix_id)}"])
     return out
+
+
+def _validated_ids(values: list[str] | None, *, flag: str) -> list[str]:
+    """Normalize CLI-supplied document IDs and fail before invoking git."""
+    try:
+        return [require_doc_id(value) for value in values or []]
+    except ValueError as exc:
+        raise ValueError(f"{flag}: {exc}") from exc
 
 
 def apply_trailers(project_root: Path, message: str, trailers: list[str]) -> str:
@@ -127,10 +138,8 @@ def apply_trailers(project_root: Path, message: str, trailers: list[str]) -> str
             raise RuntimeError(f"git interpret-trailers failed: {result.stderr.strip()}")
         return tmp_path.read_text(encoding="utf-8")
     finally:
-        try:
+        with suppress(FileNotFoundError):
             tmp_path.unlink()
-        except FileNotFoundError:
-            pass
 
 
 # ── active-SPEC inference ───────────────────────────────────
@@ -150,7 +159,7 @@ def infer_active_spec(
 
     Matching mirrors `decree why`: exact path match wins over directory
     prefix match. Among the survivors we keep SPECs only (the convention
-    in PRD-003 R4 — `Implements:` binds to SPEC, not PRD/ADR), filter
+    in PRD-01KT22NMRS4QGHSFDBZ858PP1T R4 — `Implements:` binds to SPEC, not PRD/ADR), filter
     out terminal statuses, and tie-break on number of unchecked ACs
     (more unchecked → more "in-flight").
     """
@@ -205,8 +214,7 @@ def infer_active_spec(
             continue
         unchecked_row = next(
             conn.execute(
-                "SELECT COUNT(*) FROM acceptance_criteria "
-                "WHERE decision_id = ? AND done = 0 AND deferred = 0",
+                "SELECT COUNT(*) FROM acceptance_criteria WHERE decision_id = ? AND done = 0 AND deferred = 0",
                 (decision_id,),
             ),
             (0,),
@@ -244,9 +252,7 @@ def _format_candidates(candidates: list[InferenceCandidate]) -> str:
     lines = ["Ambiguous active-SPEC inference — multiple candidates tied:"]
     for c in candidates:
         paths = ", ".join(c.matched_paths) if c.matched_paths else "(no path matches)"
-        lines.append(
-            f"  {c.decision_id}  status={c.status}  unchecked_acs={c.unchecked_acs}  paths=[{paths}]"
-        )
+        lines.append(f"  {c.decision_id}  status={c.status}  unchecked_acs={c.unchecked_acs}  paths=[{paths}]")
     lines.append("Re-run with `--implements <SPEC-ID>` to disambiguate, or `--no-infer` to skip.")
     return "\n".join(lines)
 
@@ -268,6 +274,14 @@ def commit_run(args: argparse.Namespace) -> int:
     )
     if git_check.returncode != 0:
         error("commit", f"not a git repository: {root}")
+        return 1
+
+    try:
+        implements: list[str] = _validated_ids(args.implements, flag="--implements")
+        refs: list[str] = _validated_ids(args.refs, flag="--refs")
+        fixes: list[str] = _validated_ids(args.fixes, flag="--fixes")
+    except ValueError as exc:
+        error("commit", str(exc))
         return 1
 
     # Pass `--amend` through to git directly; no inference, no message
@@ -294,10 +308,6 @@ def commit_run(args: argparse.Namespace) -> int:
         error("commit", "no staged changes (run `git add ...` first)")
         return 1
 
-    implements: list[str] = list(args.implements or [])
-    refs: list[str] = list(args.refs or [])
-    fixes: list[str] = list(args.fixes or [])
-
     # Active-SPEC inference: only run if user didn't explicitly pass
     # `--implements`, and `--no-infer` wasn't set.
     if not implements and not args.no_infer:
@@ -313,9 +323,11 @@ def commit_run(args: argparse.Namespace) -> int:
                 implements.append(inferred)
                 info("commit", f"inferred Implements: {inferred} (from staged paths)")
         else:
-            # No index → fall through without trailers. The user can
-            # still pass `--implements` explicitly.
-            info("commit", "index not built; skipping active-SPEC inference")
+            error(
+                "commit",
+                "index not built; run `decree index rebuild`, pass --implements <SPEC-ID>, or use --no-infer",
+            )
+            return 1
 
     # Assemble the message.
     message = args.message or ""
@@ -354,10 +366,8 @@ def commit_run(args: argparse.Namespace) -> int:
                 check=False,
             ).returncode
         finally:
-            try:
+            with suppress(FileNotFoundError):
                 tpl_path.unlink()
-            except FileNotFoundError:
-                pass
         if rc == 0:
             IndexDB(default_db_path(root)).sync_commits_from_git(root)
         return rc
@@ -386,10 +396,8 @@ def commit_run(args: argparse.Namespace) -> int:
             check=False,
         )
     finally:
-        try:
+        with suppress(FileNotFoundError):
             msg_path.unlink()
-        except FileNotFoundError:
-            pass
 
     if result.returncode == 0:
         rows, ms = IndexDB(default_db_path(root)).sync_commits_from_git(root)

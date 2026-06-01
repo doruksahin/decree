@@ -1,4 +1,4 @@
-"""Tests for SPEC-005 — `decree why` and `decree refs` queries."""
+"""Tests for SPEC-00000000000000000000000005 — `decree why` and `decree refs` queries."""
 
 from __future__ import annotations
 
@@ -9,16 +9,13 @@ from pathlib import Path
 import pytest
 
 from decree.commands.queries import (
-    GoverningDecision,
     MatchKind,
-    RefsReport,
     refs,
     refs_run,
     why,
     why_run,
 )
 from decree.index_db import IndexDB, default_db_path
-
 
 # ── Fixtures ───────────────────────────────────────────────
 
@@ -90,43 +87,46 @@ def _write_basic_corpus(root: Path) -> None:
     (root / "src").mkdir()
     (root / "src" / "foo.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "adr" / "0001-test.md").write_text(
+    (root / "decree" / "adr" / "adr-00000000000000000000000001-test.md").write_text(
         """---
+id: ADR-00000000000000000000000001
 status: accepted
 date: 2026-05-11
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 ---
 
-# ADR-0001 Test ADR
+# ADR-00000000000000000000000001 Test ADR
 
 ## Context and Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-test.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-12
-references: [PRD-001, ADR-0001]
+references: [PRD-00000000000000000000000001, ADR-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 Test SPEC
+# SPEC-00000000000000000000000001 Test SPEC
 
 ## Overview
 
@@ -143,29 +143,31 @@ def _write_prefix_corpus(root: Path) -> None:
     (root / "src" / "api").mkdir(parents=True)
     (root / "src" / "api" / "handlers.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-test.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/api/
 ---
 
-# SPEC-001 Dir SPEC
+# SPEC-00000000000000000000000001 Dir SPEC
 
 ## Overview
 
@@ -182,13 +184,14 @@ def _write_two_specs_same_file(root: Path) -> None:
     (root / "src").mkdir()
     (root / "src" / "foo.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
@@ -196,16 +199,17 @@ Prose.
 """
     )
     # Draft SPEC — newer date but lower status priority
-    (root / "decree" / "spec" / "002-draft.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000002-draft.md").write_text(
         """---
+id: SPEC-00000000000000000000000002
 status: draft
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-002 Draft
+# SPEC-00000000000000000000000002 Draft
 
 ## Overview
 
@@ -213,16 +217,17 @@ Prose.
 """
     )
     # Implemented SPEC — older date but terminal-success
-    (root / "decree" / "spec" / "001-impl.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-impl.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-01
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 Implemented
+# SPEC-00000000000000000000000001 Implemented
 
 ## Overview
 
@@ -239,45 +244,48 @@ def _write_recency_corpus(root: Path) -> None:
     (root / "src").mkdir()
     (root / "src" / "foo.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-old.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-old.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-01
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 Old
+# SPEC-00000000000000000000000001 Old
 
 ## Overview
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "002-new.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000002-new.md").write_text(
         """---
+id: SPEC-00000000000000000000000002
 status: implemented
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-002 New
+# SPEC-00000000000000000000000002 New
 
 ## Overview
 
@@ -287,48 +295,51 @@ Prose.
 
 
 def _write_supersedes_chain(root: Path) -> None:
-    """ADR-0001 ← (superseded-by) ADR-0002 ← (superseded-by) ADR-0003."""
+    """Write ADR-1 <- ADR-2 <- ADR-3 supersede chain."""
     (root / "decree.toml").write_text(_decree_toml())
     for sub in ("prd", "adr", "spec"):
         (root / "decree" / sub).mkdir(parents=True)
 
-    (root / "decree" / "adr" / "0003-c.md").write_text(
+    (root / "decree" / "adr" / "adr-00000000000000000000000003-c.md").write_text(
         """---
+id: ADR-00000000000000000000000003
 status: accepted
 date: 2026-05-12
-supersedes: ADR-0002
+supersedes: ADR-00000000000000000000000002
 ---
 
-# ADR-0003 Newest
+# ADR-00000000000000000000000003 Newest
 
 ## Context and Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "adr" / "0002-b.md").write_text(
+    (root / "decree" / "adr" / "adr-00000000000000000000000002-b.md").write_text(
         """---
+id: ADR-00000000000000000000000002
 status: superseded
 date: 2026-05-11
-supersedes: ADR-0001
-superseded-by: ADR-0003
+supersedes: ADR-00000000000000000000000001
+superseded-by: ADR-00000000000000000000000003
 ---
 
-# ADR-0002 Middle
+# ADR-00000000000000000000000002 Middle
 
 ## Context and Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "adr" / "0001-a.md").write_text(
+    (root / "decree" / "adr" / "adr-00000000000000000000000001-a.md").write_text(
         """---
+id: ADR-00000000000000000000000001
 status: superseded
 date: 2026-05-10
-superseded-by: ADR-0002
+superseded-by: ADR-00000000000000000000000002
 ---
 
-# ADR-0001 Oldest
+# ADR-00000000000000000000000001 Oldest
 
 ## Context and Problem Statement
 
@@ -369,7 +380,7 @@ class TestWhyMatching:
     def test_exact_match(self, basic_db: IndexDB):
         results = why(basic_db, "src/foo.py")
         assert len(results) == 1
-        assert results[0].decision_id == "SPEC-001"
+        assert results[0].decision_id == "SPEC-00000000000000000000000001"
         assert results[0].match_kind == MatchKind.EXACT
         assert results[0].matched_path == "src/foo.py"
 
@@ -378,7 +389,7 @@ class TestWhyMatching:
         db = _rebuild_index(tmp_path, monkeypatch)
         results = why(db, "src/api/handlers.py")
         assert len(results) == 1
-        assert results[0].decision_id == "SPEC-001"
+        assert results[0].decision_id == "SPEC-00000000000000000000000001"
         assert results[0].match_kind == MatchKind.PREFIX
         assert results[0].matched_path == "src/api/"
 
@@ -389,7 +400,7 @@ class TestWhyMatching:
     def test_symbol_stripped(self, basic_db: IndexDB):
         results = why(basic_db, "src/foo.py#bar")
         assert len(results) == 1
-        assert results[0].decision_id == "SPEC-001"
+        assert results[0].decision_id == "SPEC-00000000000000000000000001"
         assert results[0].symbol == "bar"
 
     def test_exact_wins_over_prefix(self, tmp_path: Path, monkeypatch):
@@ -399,20 +410,28 @@ class TestWhyMatching:
             (tmp_path / "decree" / sub).mkdir(parents=True)
         (tmp_path / "src" / "api").mkdir(parents=True)
         (tmp_path / "src" / "api" / "x.py").touch()
-        (tmp_path / "decree" / "prd" / "001-x.md").write_text(
-            "---\nstatus: approved\ndate: 2026-05-10\n---\n\n# PRD-001\n\n## Problem Statement\n\nx.\n"
+        (tmp_path / "decree" / "prd" / "prd-00000000000000000000000001-x.md").write_text(
+            "---\n"
+            "id: PRD-00000000000000000000000001\n"
+            "status: approved\n"
+            "date: 2026-05-10\n"
+            "---\n\n"
+            "# PRD-00000000000000000000000001\n\n"
+            "## Problem Statement\n\n"
+            "x.\n"
         )
-        (tmp_path / "decree" / "spec" / "001-x.md").write_text(
+        (tmp_path / "decree" / "spec" / "spec-00000000000000000000000001-x.md").write_text(
             """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/api/
   - src/api/x.py
 ---
 
-# SPEC-001 Both
+# SPEC-00000000000000000000000001 Both
 
 ## Overview
 
@@ -421,7 +440,7 @@ Prose.
         )
         db = _rebuild_index(tmp_path, monkeypatch)
         results = why(db, "src/api/x.py")
-        # Only one row for SPEC-001 — exact wins
+        # Only one row for SPEC-00000000000000000000000001 — exact wins
         assert len(results) == 1
         assert results[0].match_kind == MatchKind.EXACT
 
@@ -433,9 +452,9 @@ class TestWhyOrdering:
         results = why(db, "src/foo.py")
         assert len(results) == 2
         # Implemented (terminal-success) sorts before draft (active)
-        assert results[0].decision_id == "SPEC-001"
+        assert results[0].decision_id == "SPEC-00000000000000000000000001"
         assert results[0].status == "implemented"
-        assert results[1].decision_id == "SPEC-002"
+        assert results[1].decision_id == "SPEC-00000000000000000000000002"
         assert results[1].status == "draft"
 
     def test_recency_tiebreak(self, tmp_path: Path, monkeypatch):
@@ -444,9 +463,9 @@ class TestWhyOrdering:
         results = why(db, "src/foo.py")
         assert len(results) == 2
         # Same status; newer date first
-        assert results[0].decision_id == "SPEC-002"
+        assert results[0].decision_id == "SPEC-00000000000000000000000002"
         assert results[0].date == "2026-05-12"
-        assert results[1].decision_id == "SPEC-001"
+        assert results[1].decision_id == "SPEC-00000000000000000000000001"
 
 
 # ── why_run — CLI tests ────────────────────────────────────
@@ -458,7 +477,7 @@ class TestWhyCli:
         rc = why_run(argparse.Namespace(path="src/foo.py", json=False, project=None))
         assert rc == 0
         out = capsys.readouterr().out
-        assert "SPEC-001" in out
+        assert "SPEC-00000000000000000000000001" in out
         assert "exact" in out
 
     def test_json_output(self, basic_project: Path, monkeypatch, capsys):
@@ -469,7 +488,7 @@ class TestWhyCli:
         data = json.loads(out)
         assert data["query"] == "src/foo.py"
         assert data["match_count"] == 1
-        assert data["matches"][0]["decision_id"] == "SPEC-001"
+        assert data["matches"][0]["decision_id"] == "SPEC-00000000000000000000000001"
         assert data["matches"][0]["match_kind"] == "exact"
         assert data["matches"][0]["type"] == "spec"
         assert data["matches"][0]["status"] == "implemented"
@@ -490,18 +509,19 @@ class TestWhyCli:
         err = capsys.readouterr().err
         assert "decree index rebuild" in err
 
-    def test_stale_index_warning(self, basic_project: Path, monkeypatch, capsys):
+    def test_stale_index_exit_one(self, basic_project: Path, monkeypatch, capsys):
         # Mutate a doc after rebuild to induce drift
-        (basic_project / "decree" / "spec" / "001-test.md").write_text(
+        (basic_project / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
             """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-12
-references: [PRD-001, ADR-0001]
+references: [PRD-00000000000000000000000001, ADR-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 Test SPEC
+# SPEC-00000000000000000000000001 Test SPEC
 
 ## Overview
 
@@ -510,9 +530,10 @@ Mutated content.
         )
         monkeypatch.chdir(basic_project)
         rc = why_run(argparse.Namespace(path="src/foo.py", json=False, project=None))
-        assert rc == 0  # Still returns results
+        assert rc == 1
         err = capsys.readouterr().err
         assert "stale" in err.lower()
+        assert "decree index rebuild" in err
 
 
 # ── refs() — unit tests ────────────────────────────────────
@@ -520,19 +541,19 @@ Mutated content.
 
 class TestRefs:
     def test_forward_refs(self, basic_db: IndexDB):
-        report = refs(basic_db, "SPEC-001")
+        report = refs(basic_db, "SPEC-00000000000000000000000001")
         assert report is not None
         ids = {r.to_id for r in report.forward_refs}
-        assert "PRD-001" in ids
-        assert "ADR-0001" in ids
+        assert "PRD-00000000000000000000000001" in ids
+        assert "ADR-00000000000000000000000001" in ids
 
     def test_reverse_refs(self, basic_db: IndexDB):
-        report = refs(basic_db, "PRD-001")
+        report = refs(basic_db, "PRD-00000000000000000000000001")
         assert report is not None
         ids = {r.from_id for r in report.reverse_refs}
-        # Both ADR-0001 and SPEC-001 reference PRD-001
-        assert "ADR-0001" in ids
-        assert "SPEC-001" in ids
+        # Both ADR-1 and SPEC-1 reference PRD-1.
+        assert "ADR-00000000000000000000000001" in ids
+        assert "SPEC-00000000000000000000000001" in ids
 
     def test_governs(self, tmp_path: Path, monkeypatch):
         # SPEC governing two paths
@@ -542,20 +563,28 @@ class TestRefs:
         (tmp_path / "src").mkdir()
         (tmp_path / "src" / "a.py").touch()
         (tmp_path / "src" / "b.py").touch()
-        (tmp_path / "decree" / "prd" / "001-x.md").write_text(
-            "---\nstatus: approved\ndate: 2026-05-10\n---\n\n# PRD-001\n\n## Problem Statement\n\nx.\n"
+        (tmp_path / "decree" / "prd" / "prd-00000000000000000000000001-x.md").write_text(
+            "---\n"
+            "id: PRD-00000000000000000000000001\n"
+            "status: approved\n"
+            "date: 2026-05-10\n"
+            "---\n\n"
+            "# PRD-00000000000000000000000001\n\n"
+            "## Problem Statement\n\n"
+            "x.\n"
         )
-        (tmp_path / "decree" / "spec" / "001-x.md").write_text(
+        (tmp_path / "decree" / "spec" / "spec-00000000000000000000000001-x.md").write_text(
             """---
+id: SPEC-00000000000000000000000001
 status: draft
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/a.py
   - src/b.py
 ---
 
-# SPEC-001 X
+# SPEC-00000000000000000000000001 X
 
 ## Overview
 
@@ -563,39 +592,47 @@ Prose.
 """
         )
         db = _rebuild_index(tmp_path, monkeypatch)
-        report = refs(db, "SPEC-001")
+        report = refs(db, "SPEC-00000000000000000000000001")
         assert report is not None
         paths = sorted(g.path for g in report.governs)
         assert paths == ["src/a.py", "src/b.py"]
 
     def test_commits_empty(self, basic_db: IndexDB):
-        report = refs(basic_db, "SPEC-001")
+        report = refs(basic_db, "SPEC-00000000000000000000000001")
         assert report is not None
         assert report.commits == ()
 
     def test_supersedes_chain(self, tmp_path: Path, monkeypatch):
         _write_supersedes_chain(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
-        report = refs(db, "ADR-0001")
+        report = refs(db, "ADR-00000000000000000000000001")
         assert report is not None
         # Full chain oldest → newest
-        assert report.supersedes_chain == ("ADR-0001", "ADR-0002", "ADR-0003")
+        assert report.supersedes_chain == (
+            "ADR-00000000000000000000000001",
+            "ADR-00000000000000000000000002",
+            "ADR-00000000000000000000000003",
+        )
 
     def test_supersedes_chain_from_middle(self, tmp_path: Path, monkeypatch):
         _write_supersedes_chain(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
-        report = refs(db, "ADR-0002")
+        report = refs(db, "ADR-00000000000000000000000002")
         assert report is not None
         # Walks both directions
-        assert report.supersedes_chain == ("ADR-0001", "ADR-0002", "ADR-0003")
+        assert report.supersedes_chain == (
+            "ADR-00000000000000000000000001",
+            "ADR-00000000000000000000000002",
+            "ADR-00000000000000000000000003",
+        )
 
     def test_unknown_decision_returns_none(self, basic_db: IndexDB):
-        assert refs(basic_db, "PRD-999") is None
+        assert refs(basic_db, "PRD-00000000000000000000000999") is None
 
     def test_metadata(self, basic_db: IndexDB):
-        report = refs(basic_db, "SPEC-001")
+        report = refs(basic_db, "SPEC-00000000000000000000000001")
         assert report is not None
-        assert report.metadata.title == "SPEC-001 Test SPEC"
+        assert report.metadata.title == "Test SPEC"
         assert report.metadata.status == "implemented"
         assert report.metadata.type == "spec"
         assert len(report.metadata.body_hash) == 64  # sha256 hex
@@ -607,30 +644,30 @@ Prose.
 class TestRefsCli:
     def test_human_output(self, basic_project: Path, monkeypatch, capsys):
         monkeypatch.chdir(basic_project)
-        rc = refs_run(argparse.Namespace(decision_id="SPEC-001", json=False, project=None))
+        rc = refs_run(argparse.Namespace(decision_id="SPEC-00000000000000000000000001", json=False, project=None))
         assert rc == 0
         out = capsys.readouterr().out
-        assert "SPEC-001" in out
+        assert "SPEC-00000000000000000000000001" in out
         assert "Forward refs" in out
-        assert "PRD-001" in out
+        assert "PRD-00000000000000000000000001" in out
 
     def test_json_output(self, basic_project: Path, monkeypatch, capsys):
         monkeypatch.chdir(basic_project)
-        rc = refs_run(argparse.Namespace(decision_id="SPEC-001", json=True, project=None))
+        rc = refs_run(argparse.Namespace(decision_id="SPEC-00000000000000000000000001", json=True, project=None))
         assert rc == 0
         out = capsys.readouterr().out
         data = json.loads(out)
-        assert data["decision_id"] == "SPEC-001"
+        assert data["decision_id"] == "SPEC-00000000000000000000000001"
         # Schema-stable keys
         for key in ("metadata", "forward_refs", "reverse_refs", "supersedes_chain", "governs", "commits"):
             assert key in data
         assert data["commits"] == []
         ids = {r["to_id"] for r in data["forward_refs"]}
-        assert "PRD-001" in ids
+        assert "PRD-00000000000000000000000001" in ids
 
     def test_unknown_id_exits_one(self, basic_project: Path, monkeypatch, capsys):
         monkeypatch.chdir(basic_project)
-        rc = refs_run(argparse.Namespace(decision_id="PRD-999", json=False, project=None))
+        rc = refs_run(argparse.Namespace(decision_id="PRD-00000000000000000000000999", json=False, project=None))
         assert rc == 1
         err = capsys.readouterr().err
         assert "unknown" in err.lower()
@@ -640,7 +677,7 @@ class TestRefsCli:
         for sub in ("prd", "adr", "spec"):
             (tmp_path / "decree" / sub).mkdir(parents=True)
         monkeypatch.chdir(tmp_path)
-        rc = refs_run(argparse.Namespace(decision_id="SPEC-001", json=False, project=None))
+        rc = refs_run(argparse.Namespace(decision_id="SPEC-00000000000000000000000001", json=False, project=None))
         assert rc == 1
         err = capsys.readouterr().err
         assert "decree index rebuild" in err
@@ -659,15 +696,15 @@ class TestIntegration:
         rc = main()
         assert rc == 0
         out = capsys.readouterr().out
-        assert "SPEC-001" in out
+        assert "SPEC-00000000000000000000000001" in out
 
     def test_end_to_end_refs_json(self, basic_project: Path, monkeypatch, capsys):
         monkeypatch.chdir(basic_project)
-        monkeypatch.setattr("sys.argv", ["decree", "refs", "SPEC-001", "--json"])
+        monkeypatch.setattr("sys.argv", ["decree", "refs", "SPEC-00000000000000000000000001", "--json"])
         from decree.cli import main
 
         rc = main()
         assert rc == 0
         out = capsys.readouterr().out
         data = json.loads(out)
-        assert data["decision_id"] == "SPEC-001"
+        assert data["decision_id"] == "SPEC-00000000000000000000000001"

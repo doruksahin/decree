@@ -8,6 +8,10 @@ All notable changes to Decree are documented here.
 - Fix `adr index` typo in generated index files
 - Fix silent `"adr"` fallback in `new` command
 - Add pyproject.toml metadata (authors, classifiers, URLs)
+- Add `decree report regenerate` for explicit completion-report refreshes
+- Run Lychee online by default and exclude local virtualenv markdown files
+- Refresh dogfood completion reports and generated index wording
+- Add parallel-safe `TYPE-ULID` frontmatter IDs, `decree migrate ids`, scoped progress/DDD views, and explicit generated-artifact responsibility.
 
 ## v1.0.0 — Multi-doctype Decree
 
@@ -27,7 +31,7 @@ document lifecycle toolkit.
 
 Initial single-type ADR management tool based on MADR v4.0.0.
 
-- `new` -- create ADR with auto-numbering and slug
+- `new` -- create ADR with numeric auto-numbering and slug
 - `status` -- enforce lifecycle transitions (proposed/accepted/rejected/deprecated/superseded)
 - `lint` -- frontmatter validation, required sections, supersede symmetry
 - `index` -- auto-generated markdown table from frontmatter

@@ -3,23 +3,21 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from decree.commands.report import (
-    CompletionReportConfig,
     DEFAULT_DEFERRED_SECTION_PATTERNS,
     _parse_checkboxes_by_section,
-    _render_report,
     _section_is_deferred,
     generate_report,
     is_terminal_success,
     load_report_config,
+    regenerate_reports,
+    regenerate_run,
     resolve_report_path,
 )
-
 
 # ── Section classification ──────────────────────────────────────
 
@@ -141,7 +139,18 @@ class TestParseCheckboxesBySection:
 
 class TestLoadReportConfig:
     def test_defaults_when_no_config(self, tmp_path: Path):
-        (tmp_path / "decree.toml").write_text("[types.spec]\nprefix = 'SPEC'\ndigits = 3\ndir = 'decree/spec'\ninitial_status = 'draft'\nstatuses = ['draft']\n[types.spec.transitions]\ndraft = []\n[types.spec.actions]\n")
+        (tmp_path / "decree.toml").write_text(
+            """[types.spec]
+prefix = 'SPEC'
+digits = 3
+dir = 'decree/spec'
+initial_status = 'draft'
+statuses = ['draft']
+[types.spec.transitions]
+draft = []
+[types.spec.actions]
+"""
+        )
         cfg = load_report_config(tmp_path, "spec")
         assert cfg.enabled is True
         assert cfg.require_for_terminal_status is False
@@ -177,7 +186,7 @@ deferred_sections = ["Backlog", "Notes"]
 
 @pytest.fixture
 def spec_corpus(tmp_path: Path) -> Path:
-    """A small corpus with a SPEC-001 ready to be implemented."""
+    """A small corpus with a SPEC-00000000000000000000000001 ready to be implemented."""
     (tmp_path / "decree.toml").write_text(
         """[types.prd]
 dir = "decree/prd"
@@ -214,27 +223,29 @@ implement = "implemented"
     )
     (tmp_path / "decree" / "prd").mkdir(parents=True)
     (tmp_path / "decree" / "spec").mkdir(parents=True)
-    (tmp_path / "decree" / "prd" / "001-test.md").write_text(
+    (tmp_path / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-12
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 prose
 """
     )
-    (tmp_path / "decree" / "spec" / "001-test.md").write_text(
+    (tmp_path / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: approved
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 ---
 
-# SPEC-001 Test SPEC
+# SPEC-00000000000000000000000001 Test SPEC
 
 ## Overview
 
@@ -258,16 +269,16 @@ class TestGenerateReport:
         monkeypatch.chdir(spec_corpus)
         from decree.parser import find_by_id, load_all_types
 
-        doc = find_by_id("SPEC-001")
-        all_docs = load_all_types(strict=False)
+        doc = find_by_id("SPEC-00000000000000000000000001")
+        all_docs = load_all_types()
         report_path = generate_report(doc, spec_corpus, "implemented", all_docs=all_docs)
         assert report_path is not None
         assert report_path.exists()
         text = report_path.read_text()
-        assert "SPEC-001 Completion Report" in text
+        assert "SPEC-00000000000000000000000001 Completion Report" in text
         assert "primary (2/2)" in text
         assert "Deferred / Out of scope (0/1)" in text
-        assert "PRD-001" in text  # chain reconstruction
+        assert "PRD-00000000000000000000000001" in text  # chain reconstruction
 
     def test_disabled_skips_generation(self, monkeypatch, spec_corpus: Path):
         # Disable for the spec type
@@ -277,8 +288,8 @@ class TestGenerateReport:
         monkeypatch.chdir(spec_corpus)
         from decree.parser import find_by_id, load_all_types
 
-        doc = find_by_id("SPEC-001")
-        all_docs = load_all_types(strict=False)
+        doc = find_by_id("SPEC-00000000000000000000000001")
+        all_docs = load_all_types()
         result = generate_report(doc, spec_corpus, "implemented", all_docs=all_docs)
         assert result is None
 
@@ -289,11 +300,83 @@ class TestGenerateReport:
         monkeypatch.chdir(spec_corpus)
         from decree.parser import find_by_id, load_all_types
 
-        doc = find_by_id("SPEC-001")
-        all_docs = load_all_types(strict=False)
+        doc = find_by_id("SPEC-00000000000000000000000001")
+        all_docs = load_all_types()
         report_path = generate_report(doc, spec_corpus, "implemented", all_docs=all_docs)
-        assert report_path == spec_corpus / "reports" / "SPEC-001.md"
+        assert report_path == spec_corpus / "reports" / "SPEC-00000000000000000000000001.md"
         assert report_path.exists()
+
+    def test_legacy_number_str_location_is_error(self, monkeypatch, spec_corpus: Path):
+        monkeypatch.chdir(spec_corpus)
+        from decree.parser import find_by_id
+
+        doc = find_by_id("SPEC-00000000000000000000000001")
+
+        with pytest.raises(ValueError, match="number_str"):
+            resolve_report_path(doc, spec_corpus, "{dir}/reports/{number_str}.md")
+
+
+class TestRegenerateReports:
+    def test_regenerates_explicit_terminal_doc(self, monkeypatch, spec_corpus: Path):
+        monkeypatch.chdir(spec_corpus)
+        from decree.commands.status import run as status_run
+
+        status_run(argparse.Namespace(doc_id="SPEC-00000000000000000000000001", action="implement", target_id=None))
+        spec_path = spec_corpus / "decree" / "spec" / "spec-00000000000000000000000001-test.md"
+        spec_path.write_text(spec_path.read_text().replace("- [x] Primary 2", "- [ ] Primary 2"))
+
+        results = regenerate_reports(spec_corpus, doc_ids=("SPEC-00000000000000000000000001",))
+
+        assert len(results) == 1
+        assert results[0].action == "written"
+        text = (spec_corpus / "decree" / "spec" / "reports" / "SPEC-00000000000000000000000001.md").read_text()
+        assert "primary (1/2)" in text
+
+    def test_existing_only_skips_missing_report(self, monkeypatch, spec_corpus: Path):
+        monkeypatch.chdir(spec_corpus)
+        spec_path = spec_corpus / "decree" / "spec" / "spec-00000000000000000000000001-test.md"
+        spec_path.write_text(spec_path.read_text().replace("status: approved", "status: implemented"))
+
+        results = regenerate_reports(spec_corpus, doc_ids=("SPEC-00000000000000000000000001",), existing_only=True)
+
+        assert len(results) == 1
+        assert results[0].action == "skipped"
+        assert results[0].reason == "report does not already exist"
+        assert not (spec_corpus / "decree" / "spec" / "reports" / "SPEC-00000000000000000000000001.md").exists()
+
+
+class TestRegenerateRun:
+    def test_requires_target(self, capsys):
+        rc = regenerate_run(
+            argparse.Namespace(
+                doc_ids=[],
+                all=False,
+                existing_only=False,
+                dry_run=False,
+                project=None,
+            )
+        )
+
+        assert rc == 1
+        assert "pass at least one DOC_ID" in capsys.readouterr().err
+
+    def test_regenerates_via_cli_handler(self, monkeypatch, spec_corpus: Path):
+        monkeypatch.chdir(spec_corpus)
+        from decree.commands.status import run as status_run
+
+        status_run(argparse.Namespace(doc_id="SPEC-00000000000000000000000001", action="implement", target_id=None))
+
+        rc = regenerate_run(
+            argparse.Namespace(
+                doc_ids=["SPEC-00000000000000000000000001"],
+                all=False,
+                existing_only=False,
+                dry_run=False,
+                project=str(spec_corpus),
+            )
+        )
+
+        assert rc == 0
 
 
 # ── Status transition triggers report ──────────────────────────────
@@ -304,11 +387,11 @@ class TestStatusTransitionTriggersReport:
         monkeypatch.chdir(spec_corpus)
         from decree.commands.status import run as status_run
 
-        args = argparse.Namespace(doc_id="SPEC-001", action="implement", target_id=None)
+        args = argparse.Namespace(doc_id="SPEC-00000000000000000000000001", action="implement", target_id=None)
         rc = status_run(args)
         assert rc == 0
         # Report file written to the sibling reports/ subdirectory by default
-        assert (spec_corpus / "decree" / "spec" / "reports" / "SPEC-001.md").exists()
+        assert (spec_corpus / "decree" / "spec" / "reports" / "SPEC-00000000000000000000000001.md").exists()
 
 
 # ── Lint validation ──────────────────────────────────────────────
@@ -316,9 +399,9 @@ class TestStatusTransitionTriggersReport:
 
 class TestLintRequiresReport:
     def test_lint_fails_when_implemented_has_no_report(self, monkeypatch, spec_corpus: Path):
-        # Mark SPEC-001 as already implemented (without going through `decree status`
+        # Mark SPEC-00000000000000000000000001 as already implemented (without going through `decree status`
         # so no report is written), and enable require_for_terminal_status.
-        spec_path = spec_corpus / "decree" / "spec" / "001-test.md"
+        spec_path = spec_corpus / "decree" / "spec" / "spec-00000000000000000000000001-test.md"
         text = spec_path.read_text()
         spec_path.write_text(text.replace("status: approved", "status: implemented"))
         toml = (spec_corpus / "decree.toml").read_text()
@@ -335,7 +418,7 @@ class TestLintRequiresReport:
         monkeypatch.chdir(spec_corpus)
         from decree.commands.status import run as status_run
 
-        status_run(argparse.Namespace(doc_id="SPEC-001", action="implement", target_id=None))
+        status_run(argparse.Namespace(doc_id="SPEC-00000000000000000000000001", action="implement", target_id=None))
 
         toml = (spec_corpus / "decree.toml").read_text()
         toml += "\n[types.spec.completion_report]\nrequire_for_terminal_status = true\n"
@@ -357,7 +440,7 @@ class TestIsTerminalSuccess:
         return DocType(
             name="spec",
             prefix="SPEC",
-            digits=3,
+            legacy_digits=3,
             dir="decree/spec",
             initial_status="draft",
             statuses=("draft", "approved", "implemented"),
@@ -377,7 +460,7 @@ class TestIsTerminalSuccess:
         custom = DocType(
             name="ddr",
             prefix="DDR",
-            digits=3,
+            legacy_digits=3,
             dir="decree/ddr",
             initial_status="proposed",
             statuses=("proposed", "accepted", "rejected"),

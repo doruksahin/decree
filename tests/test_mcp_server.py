@@ -1,4 +1,4 @@
-"""SPEC-007 — MCP server tests.
+"""SPEC-00000000000000000000000007 — MCP server tests.
 
 Direct function tests cover the tool happy-paths and error-shaped responses.
 A protocol-level smoke test exercises FastMCP's `tools/list` + `tools/call`
@@ -16,7 +16,6 @@ import pytest
 from decree.commands import mcp_server
 from decree.commands.mcp_server import mcp
 from decree.index_db import IndexDB, default_db_path
-
 
 # ── Corpus helpers ──────────────────────────────────────────
 
@@ -81,50 +80,53 @@ implement = "implemented"
 
 
 def _write_basic_corpus(root: Path) -> None:
-    """A PRD + ADR + SPEC where SPEC-001 governs `src/foo.py`."""
+    """A PRD + ADR + SPEC where SPEC-00000000000000000000000001 governs `src/foo.py`."""
     (root / "decree.toml").write_text(_decree_toml())
     for sub in ("prd", "adr", "spec"):
         (root / "decree" / sub).mkdir(parents=True)
     (root / "src").mkdir()
     (root / "src" / "foo.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "adr" / "0001-test.md").write_text(
+    (root / "decree" / "adr" / "adr-00000000000000000000000001-test.md").write_text(
         """---
+id: ADR-00000000000000000000000001
 status: accepted
 date: 2026-05-11
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 ---
 
-# ADR-0001 Test ADR
+# ADR-00000000000000000000000001 Test ADR
 
 ## Context and Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-test.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-12
-references: [PRD-001, ADR-0001]
+references: [PRD-00000000000000000000000001, ADR-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 Test SPEC
+# SPEC-00000000000000000000000001 Test SPEC
 
 ## Overview
 
@@ -143,6 +145,24 @@ def _rebuild_index(root: Path, monkeypatch) -> IndexDB:
     db = IndexDB(default_db_path(root))
     db.rebuild(root)
     return db
+
+
+def _write_threshold_zero_calibration(root: Path) -> None:
+    from decree.eval.calibration import Calibration, save_calibration
+
+    cal_dir = root / "eval" / "calibrations"
+    cal_dir.mkdir(parents=True)
+    save_calibration(
+        Calibration(
+            method_name="keyword-v1",
+            target_precision=0.0,
+            threshold=0.0,
+            gate_weights={},
+            calibrated_at="2026-05-12T00:00:00+00:00",
+            n_calibration_queries=1,
+        ),
+        cal_dir / "keyword-v1.json",
+    )
 
 
 @pytest.fixture
@@ -167,6 +187,28 @@ def project_without_index(tmp_path: Path, monkeypatch) -> Path:
     mcp_server._set_project_root(None)  # type: ignore[arg-type]
 
 
+@pytest.fixture
+def project_with_stale_index(project_with_index: Path) -> Path:
+    (project_with_index / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
+        """---
+id: SPEC-00000000000000000000000001
+status: implemented
+date: 2026-05-12
+references: [PRD-00000000000000000000000001, ADR-00000000000000000000000001]
+governs:
+  - src/foo.py
+---
+
+# SPEC-00000000000000000000000001 Test SPEC
+
+## Overview
+
+Mutated after index rebuild.
+"""
+    )
+    return project_with_index
+
+
 # ── Direct tool-function tests ──────────────────────────────
 
 
@@ -175,7 +217,7 @@ class TestWhyTool:
         result = mcp_server.why("src/foo.py")
         assert result["query"] == "src/foo.py"
         assert result["match_count"] == 1
-        assert result["matches"][0]["decision_id"] == "SPEC-001"
+        assert result["matches"][0]["decision_id"] == "SPEC-00000000000000000000000001"
         assert result["matches"][0]["match_kind"] == "exact"
         assert result["matches"][0]["type"] == "spec"
         assert result["matches"][0]["status"] == "implemented"
@@ -187,27 +229,31 @@ class TestWhyTool:
         assert result["matches"] == []
         assert "error" not in result
 
-    def test_index_missing_returns_error_response(
-        self, project_without_index: Path
-    ) -> None:
+    def test_index_missing_returns_error_response(self, project_without_index: Path) -> None:
         result = mcp_server.why("src/foo.py")
         assert result == {
             "error": "index not found",
             "hint": "Run `decree index rebuild` to build the index, then retry.",
         }
 
+    def test_stale_index_returns_error_response(self, project_with_stale_index: Path) -> None:
+        result = mcp_server.why("src/foo.py")
+        assert result["error"] == "index stale"
+        assert result["drift_findings"] >= 1
+        assert result["hint"] == "Run `decree index rebuild` before querying."
+
 
 class TestRefsTool:
     def test_known_decision_returns_full_report(self, project_with_index: Path) -> None:
-        result = mcp_server.refs("SPEC-001")
-        assert result["decision_id"] == "SPEC-001"
+        result = mcp_server.refs("SPEC-00000000000000000000000001")
+        assert result["decision_id"] == "SPEC-00000000000000000000000001"
         assert result["metadata"]["type"] == "spec"
         assert result["metadata"]["status"] == "implemented"
         assert "Test SPEC" in result["metadata"]["title"]
-        # SPEC-001 references PRD-001 and ADR-0001
+        # SPEC-00000000000000000000000001 references PRD-00000000000000000000000001 and ADR-00000000000000000000000001
         forward_to_ids = {r["to_id"] for r in result["forward_refs"]}
-        assert forward_to_ids == {"PRD-001", "ADR-0001"}
-        # SPEC-001 governs src/foo.py
+        assert forward_to_ids == {"PRD-00000000000000000000000001", "ADR-00000000000000000000000001"}
+        # SPEC-00000000000000000000000001 governs src/foo.py
         govern_paths = {g["path"] for g in result["governs"]}
         assert "src/foo.py" in govern_paths
         # Sub-arrays exist with correct shapes
@@ -215,23 +261,25 @@ class TestRefsTool:
         assert isinstance(result["supersedes_chain"], list)
         assert isinstance(result["commits"], list)
 
-    def test_unknown_decision_returns_error_response(
-        self, project_with_index: Path
-    ) -> None:
-        result = mcp_server.refs("SPEC-999")
+    def test_unknown_decision_returns_error_response(self, project_with_index: Path) -> None:
+        result = mcp_server.refs("SPEC-00000000000000000000000999")
         assert result == {
             "error": "unknown decision id",
-            "decision_id": "SPEC-999",
+            "decision_id": "SPEC-00000000000000000000000999",
         }
 
-    def test_index_missing_returns_error_response(
-        self, project_without_index: Path
-    ) -> None:
-        result = mcp_server.refs("SPEC-001")
+    def test_index_missing_returns_error_response(self, project_without_index: Path) -> None:
+        result = mcp_server.refs("SPEC-00000000000000000000000001")
         assert result == {
             "error": "index not found",
             "hint": "Run `decree index rebuild` to build the index, then retry.",
         }
+
+    def test_stale_index_returns_error_response(self, project_with_stale_index: Path) -> None:
+        result = mcp_server.refs("SPEC-00000000000000000000000001")
+        assert result["error"] == "index stale"
+        assert result["drift_findings"] >= 1
+        assert result["hint"] == "Run `decree index rebuild` before querying."
 
 
 # ── Tool registry ───────────────────────────────────────────
@@ -239,7 +287,7 @@ class TestRefsTool:
 
 class TestToolRegistry:
     def test_exactly_six_tools_registered(self) -> None:
-        # SPEC-014 added `intent_check` to the SPEC-007 + SPEC-008 + SPEC-009 set.
+        # SPEC-14 added `intent_check` to the SPEC-7/8/9 tool set.
         tools = mcp._tool_manager.list_tools()
         names = sorted(t.name for t in tools)
         assert names == [
@@ -249,10 +297,7 @@ class TestToolRegistry:
             "refs",
             "stale",
             "why",
-        ], (
-            "Expected SPEC-007 + SPEC-008 + SPEC-009 + SPEC-014 tools; "
-            f"got {names}."
-        )
+        ], f"Expected SPEC-7/8/9/14 tools; got {names}."
 
     def test_why_has_full_docstring(self) -> None:
         tools = {t.name: t for t in mcp._tool_manager.list_tools()}
@@ -294,7 +339,7 @@ class TestProtocol:
 
         tools = asyncio.run(go())
         names = sorted(t.name for t in tools)
-        # SPEC-014 added `intent_check` to the SPEC-007 + SPEC-008 + SPEC-009 set.
+        # SPEC-14 added `intent_check` to the SPEC-7/8/9 tool set.
         assert names == [
             "health",
             "intent_check",
@@ -332,22 +377,21 @@ class TestProtocol:
         payload = json.loads(text_blocks[0].text)
         assert payload["query"] == "src/foo.py"
         assert payload["match_count"] == 1
-        assert payload["matches"][0]["decision_id"] == "SPEC-001"
+        assert payload["matches"][0]["decision_id"] == "SPEC-00000000000000000000000001"
 
     def test_tools_call_refs_via_fastmcp(self, project_with_index: Path) -> None:
         async def go():
-            return await mcp.call_tool("refs", {"decision_id": "SPEC-001"})
+            return await mcp.call_tool("refs", {"decision_id": "SPEC-00000000000000000000000001"})
 
         result = asyncio.run(go())
         text_blocks = [b for b in result if getattr(b, "type", None) == "text"]
         assert text_blocks
         payload = json.loads(text_blocks[0].text)
-        assert payload["decision_id"] == "SPEC-001"
+        assert payload["decision_id"] == "SPEC-00000000000000000000000001"
         assert payload["metadata"]["type"] == "spec"
 
 
-
-# ── SPEC-008: stale + health tools ──────────────────────────
+# ── SPEC-00000000000000000000000008: stale + health tools ──────────────────────────
 
 
 def _git_init_and_commit(repo: Path) -> None:
@@ -374,18 +418,14 @@ class TestStaleTool:
             "hint": "decree stale needs git history; initialize the project as a git repo first.",
         }
 
-    def test_returns_empty_list_for_clean_repo(
-        self, project_with_index: Path, monkeypatch
-    ) -> None:
+    def test_returns_empty_list_for_clean_repo(self, project_with_index: Path, monkeypatch) -> None:
         _git_init_and_commit(project_with_index)
         result = mcp_server.stale(threshold_commits=10)
         assert "stale_decisions" in result
         assert result["stale_decisions"] == []
         assert result["threshold_commits"] == 10
 
-    def test_index_missing_returns_error_response(
-        self, project_without_index: Path
-    ) -> None:
+    def test_index_missing_returns_error_response(self, project_without_index: Path) -> None:
         result = mcp_server.stale()
         assert result["error"] == "index not found"
 
@@ -398,9 +438,7 @@ class TestHealthTool:
             "hint": "decree health needs git history; initialize the project as a git repo first.",
         }
 
-    def test_returns_combined_report(
-        self, project_with_index: Path, monkeypatch
-    ) -> None:
+    def test_returns_combined_report(self, project_with_index: Path, monkeypatch) -> None:
         _git_init_and_commit(project_with_index)
         result = mcp_server.health(threshold_commits=10, threshold_days=30)
         assert set(result.keys()) >= {
@@ -412,9 +450,7 @@ class TestHealthTool:
         assert result["threshold_commits"] == 10
         assert result["threshold_days"] == 30
 
-    def test_index_missing_returns_error_response(
-        self, project_without_index: Path
-    ) -> None:
+    def test_index_missing_returns_error_response(self, project_without_index: Path) -> None:
         result = mcp_server.health()
         assert result["error"] == "index not found"
 
@@ -443,7 +479,7 @@ class TestIntentReviewTool:
         assert "error" not in result
         assert result["changed_paths"] == ["src/foo.py"]
         assert len(result["governing_decisions"]) == 1
-        assert result["governing_decisions"][0]["decision_id"] == "SPEC-001"
+        assert result["governing_decisions"][0]["decision_id"] == "SPEC-00000000000000000000000001"
 
     def test_by_diff_string(self, project_with_index: Path) -> None:
         diff = (
@@ -459,9 +495,7 @@ class TestIntentReviewTool:
         assert result["changed_paths"] == ["src/foo.py"]
         assert len(result["governing_decisions"]) == 1
 
-    def test_changed_paths_wins_when_both_given(
-        self, project_with_index: Path
-    ) -> None:
+    def test_changed_paths_wins_when_both_given(self, project_with_index: Path) -> None:
         # Pass an empty diff but explicit changed_paths — paths should win.
         result = mcp_server.intent_review(
             diff="diff --git a/unrelated.py b/unrelated.py\n",
@@ -469,9 +503,7 @@ class TestIntentReviewTool:
         )
         assert result["changed_paths"] == ["src/foo.py"]
 
-    def test_index_missing_returns_error_response(
-        self, project_without_index: Path
-    ) -> None:
+    def test_index_missing_returns_error_response(self, project_without_index: Path) -> None:
         result = mcp_server.intent_review(changed_paths=["src/foo.py"])
         assert result["error"] == "index not found"
 
@@ -484,11 +516,12 @@ class TestIntentReviewTool:
         assert "When not to call:" in desc
 
 
-# ── SPEC-013 — with_abstention on MCP tools ────────────────
+# ── SPEC-00000000000000000000000013 — with_abstention on MCP tools ────────────────
 
 
 class TestWithAbstentionMcp:
     def test_why_with_abstention_signals_present(self, project_with_index: Path) -> None:
+        _write_threshold_zero_calibration(project_with_index)
         result = mcp_server.why("src/foo.py", with_abstention=True)
         # Even when the answer is high-confidence (and so not abstained),
         # the calibrated-assessment fields are merged in.
@@ -506,17 +539,13 @@ class TestWithAbstentionMcp:
             "authorship",
         }
 
-    def test_refs_with_abstention_returns_full_when_confident(
-        self, project_with_index: Path
-    ) -> None:
-        # SPEC-001 exists; decision_id-as-concept-query is high-confidence enough
-        # that abstention doesn't trip with threshold=0.
-        result = mcp_server.refs("SPEC-001", with_abstention=True)
+    def test_refs_with_abstention_returns_full_when_confident(self, project_with_index: Path) -> None:
+        _write_threshold_zero_calibration(project_with_index)
+        # SPEC-00000000000000000000000001 exists; decision_id-as-concept-query is high-confidence enough.
+        result = mcp_server.refs("SPEC-00000000000000000000000001", with_abstention=True)
         assert "decision_id" in result
-        # Either the abstention shape OR the regular shape — both are valid;
-        # with no calibration installed, threshold=0 so we get full payload.
         if "metadata" in result:
-            assert result["decision_id"] == "SPEC-001"
+            assert result["decision_id"] == "SPEC-00000000000000000000000001"
 
     def test_why_arg_schema_includes_with_abstention(self) -> None:
         tools = {t.name: t for t in mcp._tool_manager.list_tools()}
@@ -532,19 +561,17 @@ class TestWithAbstentionMcp:
         assert props["with_abstention"]["type"] == "boolean"
 
 
-# ── SPEC-014 — intent_check MCP tool ────────────────────────
+# ── SPEC-00000000000000000000000014 — intent_check MCP tool ────────────────────────
 
 
 class TestIntentCheckTool:
-    def test_minimal_call_returns_report_shape(
-        self, project_with_index: Path
-    ) -> None:
+    def test_minimal_call_returns_report_shape(self, project_with_index: Path) -> None:
         result = mcp_server.intent_check(
             plan="Plan to touch src/foo.py",
             planned_files=["src/foo.py"],
         )
         assert "error" not in result
-        # Schema-stable keys present (SPEC-014 IntentCheckReport).
+        # Schema-stable keys present (SPEC-00000000000000000000000014 IntentCheckReport).
         for key in (
             "plan",
             "planned_files",
@@ -558,11 +585,9 @@ class TestIntentCheckTool:
             assert key in result, f"missing key {key!r} in MCP intent_check payload"
         assert result["planned_files"] == ["src/foo.py"]
         assert len(result["governing_decisions"]) == 1
-        assert result["governing_decisions"][0]["decision_id"] == "SPEC-001"
+        assert result["governing_decisions"][0]["decision_id"] == "SPEC-00000000000000000000000001"
 
-    def test_with_abstention_routes_through_calibrated(
-        self, project_with_index: Path
-    ) -> None:
+    def test_with_abstention_routes_through_calibrated(self, project_with_index: Path) -> None:
         # An ungoverned path should produce empty governance and (when the
         # calibration JSON is absent on disk) leave abstention None — but the
         # key must still exist in the payload.
@@ -577,12 +602,13 @@ class TestIntentCheckTool:
         # there's no calibration on disk in the test sandbox.
         assert "abstention" in result
 
-    def test_judge_conflicts_without_api_key_returns_judge_error(
-        self, project_with_index: Path, monkeypatch
-    ) -> None:
-        # Strip every API-key env var so resolve_model raises SystemExit(2).
+    def test_judge_conflicts_without_api_key_returns_judge_error(self, project_with_index: Path, monkeypatch) -> None:
+        # Strip every provider source so resolve_model raises SystemExit(2).
         for var in ("DECREE_LLM_MODEL", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
             monkeypatch.delenv(var, raising=False)
+        # SPEC-00000000000000000000000015 adds a `claude` CLI default before API-key fallbacks; stub it
+        # away so this test still covers the no-provider error path.
+        monkeypatch.setattr("decree.llm_io.shutil.which", lambda name: None)
 
         result = mcp_server.intent_check(
             plan="Plan to touch src/foo.py",

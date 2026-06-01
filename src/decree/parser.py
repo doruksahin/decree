@@ -21,11 +21,13 @@ from pydantic import (
 
 from .config import DATE_FORMAT
 from .doctypes import ADR_DEFAULT
+from .identity import require_doc_id
 
 
 class DocFrontmatter(BaseModel):
     """Validated document frontmatter. Parsed from YAML, not constructed manually."""
 
+    id: str | None = None
     status: str
     date: date
     supersedes: str | None = None
@@ -54,6 +56,17 @@ class DocFrontmatter(BaseModel):
             raise ValueError(f"Invalid status '{v}'. Must be one of: {valid}")
         return v
 
+    @field_validator("id")
+    @classmethod
+    def id_format(cls, v: str | None, info: ValidationInfo) -> str | None:
+        if v is None:
+            return v
+        ctx = info.context or {} if info else {}
+        doc_type = ctx.get("doc_type") if ctx else None
+        effective_type = doc_type if doc_type is not None else ADR_DEFAULT
+        normalized = v.strip().upper()
+        return require_doc_id(normalized, prefix=effective_type.prefix)
+
     @field_validator("supersedes", "superseded_by")
     @classmethod
     def ref_format(cls, v: str | None, info: ValidationInfo) -> str | None:
@@ -64,33 +77,34 @@ class DocFrontmatter(BaseModel):
         pattern = doc_type.ref_re if doc_type is not None else ADR_DEFAULT.ref_re
         if not pattern.match(v):
             if doc_type is not None:
-                fmt = f"{doc_type.prefix}-{'N' * doc_type.digits}"
+                fmt = f"{doc_type.prefix}-ULID"
                 raise ValueError(f"Reference '{v}' must match format {fmt}")
-            raise ValueError(f"ADR reference '{v}' must match format ADR-NNNN")
+            raise ValueError(f"ADR reference '{v}' must match format ADR-ULID")
         return v
+
+    @field_validator("references")
+    @classmethod
+    def references_format(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        return [require_doc_id(ref) for ref in v]
 
     @field_validator("governs")
     @classmethod
     def governs_syntax(cls, v: list[str] | None) -> list[str] | None:
-        """Per SPEC-004: each entry is `<path>` or `<path>#<symbol>` (repo-relative path)."""
+        """Per SPEC-01KT22NMRXFWNE61NSETKATHBA: each entry is `<path>` or `<path>#<symbol>` (repo-relative path)."""
         if v is None:
             return v
         for entry in v:
             if not isinstance(entry, str):
-                raise ValueError(
-                    f"governs entries must be strings; got {type(entry).__name__}: {entry!r}"
-                )
+                raise ValueError(f"governs entries must be strings; got {type(entry).__name__}: {entry!r}")
             path_part = entry.split("#", 1)[0]
             if not path_part:
                 raise ValueError(f"governs entry has empty path: {entry!r}")
             if path_part.startswith("/"):
-                raise ValueError(
-                    f"governs path must be repo-relative (no leading '/'): {entry!r}"
-                )
+                raise ValueError(f"governs path must be repo-relative (no leading '/'): {entry!r}")
             if ".." in path_part.split("/"):
-                raise ValueError(
-                    f"governs path must not contain '..' segments: {entry!r}"
-                )
+                raise ValueError(f"governs path must not contain '..' segments: {entry!r}")
         return v
 
     def evolve(self, doc_type=None, **overrides) -> "DocFrontmatter":
@@ -137,35 +151,23 @@ class DocDocument:
 
     @property
     def doc_id(self) -> str:
-        if self.doc_type is not None:
-            match = self.doc_type.filename_re.match(self.path.name)
-            if not match:
-                raise ValueError(f"Invalid filename for type {self.doc_type.name}: {self.path.name}")
-            return self.doc_type.format_id(int(match.group(1)))
-        else:
-            match = ADR_DEFAULT.filename_re.match(self.path.name)
-            if not match:
-                raise ValueError(f"Invalid ADR filename: {self.path.name}")
-            return f"ADR-{match.group(1)}"
+        if self.meta.id is None:
+            raise ValueError(f"{self.path}: missing required frontmatter field 'id'")
+        return self.meta.id
 
     @property
     def number(self) -> int:
-        if self.doc_type is not None:
-            match = self.doc_type.filename_re.match(self.path.name)
-            if not match:
-                raise ValueError(f"Invalid filename: {self.path.name}")
-            return int(match.group(1))
-        else:
-            match = ADR_DEFAULT.filename_re.match(self.path.name)
-            if not match:
-                raise ValueError(f"Invalid ADR filename: {self.path.name}")
-            return int(match.group(1))
+        raise ValueError("Numeric document numbers are not part of the canonical identity model")
 
     @property
     def title(self) -> str:
         for line in self.body.splitlines():
             if line.startswith("# "):
-                return line.lstrip("# ").strip()
+                title = line.lstrip("# ").strip()
+                prefix = f"{self.doc_id} "
+                if title.startswith(prefix):
+                    return title[len(prefix) :]
+                return title
         return self.path.stem
 
     @property
@@ -184,6 +186,14 @@ def load(path: Path, doc_type=None) -> DocDocument:
     post = frontmatter.load(str(path))
     context = {"doc_type": doc_type} if doc_type is not None else None
     meta = DocFrontmatter.model_validate(post.metadata, context=context)
+    effective_type = doc_type if doc_type is not None else ADR_DEFAULT
+    if meta.id is None:
+        raise ValueError(f"{path}: missing required frontmatter field 'id'")
+    if not effective_type.ref_re.match(meta.id):
+        raise ValueError(f"{path}: id '{meta.id}' must match {effective_type.prefix}-ULID")
+    expected_prefix = f"{meta.id.lower()}-"
+    if not path.name.startswith(expected_prefix) or path.suffix != ".md":
+        raise ValueError(f"{path}: filename must start with '{expected_prefix}'")
     return DocDocument(
         path=path,
         meta=meta,
@@ -199,7 +209,7 @@ def load_all(*, strict: bool = True, doc_type) -> list[DocDocument]:
     from .log import error as log_error
 
     type_dir = get_project_root() / doc_type.dir
-    paths = sorted(p for p in type_dir.glob("[0-9]*.md") if doc_type.filename_re.match(p.name))
+    paths = sorted(p for p in type_dir.glob("*.md") if p.name != "index.md")
     docs = []
     for p in paths:
         try:
@@ -221,7 +231,7 @@ def load_all_types(*, strict: bool = True) -> list[DocDocument]:
         type_dir = get_project_root() / dt.dir
         if not type_dir.exists():
             continue
-        paths = sorted(p for p in type_dir.glob("[0-9]*.md") if dt.filename_re.match(p.name))
+        paths = sorted(p for p in type_dir.glob("*.md") if p.name != "index.md")
         for p in paths:
             try:
                 all_docs.append(load(p, doc_type=dt))
@@ -237,24 +247,14 @@ def find_by_id(doc_id: str) -> DocDocument:
     from .config import find_doc_type, get_project_root
 
     doc_type = find_doc_type(doc_id)
-    number_str = doc_id.split("-", 1)[1]
     type_dir = get_project_root() / doc_type.dir
-    matches = list(type_dir.glob(f"{number_str}-*.md"))
+    matches = list(type_dir.glob(f"{doc_id.lower()}-*.md"))
 
     if not matches:
         raise FileNotFoundError(f"{doc_id} not found")
     if len(matches) > 1:
         raise ValueError(f"Multiple files match {doc_id}: {[m.name for m in matches]}")
     return load(matches[0], doc_type=doc_type)
-
-
-def next_number(doc_type) -> int:
-    """Return next available number for a given doc type."""
-    from .config import get_project_root
-
-    type_dir = get_project_root() / doc_type.dir
-    existing = [int(m.group(1)) for p in type_dir.glob("[0-9]*.md") if (m := doc_type.filename_re.match(p.name))]
-    return max(existing, default=0) + 1
 
 
 def save(doc: DocDocument) -> None:

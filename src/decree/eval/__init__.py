@@ -1,4 +1,4 @@
-"""decree.eval — labeled-query retrieval-eval harness (SPEC-012).
+"""decree.eval — labeled-query retrieval-eval harness (SPEC-01KT22NMRZXE5C42F6Z0ZY559A).
 
 Public re-exports for the harness:
 
@@ -21,15 +21,15 @@ from decree.eval.runner import (
 from decree.eval.schema import Query, QuerySet, load_query_set
 
 __all__ = [
+    "METHODS",
+    "KeywordBaseline",
+    "MethodResult",
     "Query",
     "QuerySet",
-    "load_query_set",
     "RetrievalMethod",
-    "KeywordBaseline",
-    "METHODS",
-    "MethodResult",
     "RunReport",
-    "run_evaluation",
     "freeze_baseline",
+    "load_query_set",
     "read_baseline",
+    "run_evaluation",
 ]

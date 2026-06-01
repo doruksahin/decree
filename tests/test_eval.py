@@ -1,4 +1,4 @@
-"""SPEC-012 — evaluation-harness tests."""
+"""SPEC-00000000000000000000000012 — evaluation-harness tests."""
 
 from __future__ import annotations
 
@@ -8,14 +8,11 @@ from pathlib import Path
 from random import Random
 
 import pytest
+from pydantic import ValidationError
 
-from decree.eval.methods import KeywordBaseline, METHODS
+from decree.eval.methods import METHODS, KeywordBaseline
 from decree.eval.runner import (
-    MethodResult,
-    MetricStat,
     _bootstrap_ci,
-    build_qrels,
-    build_run,
     freeze_baseline,
     metrics_for_ks,
     read_baseline,
@@ -30,9 +27,8 @@ from decree.eval.schema import (
     QuerySet,
     load_query_set,
 )
-from decree.index_db import IndexDB, default_db_path
+from decree.index_db import IndexDB
 from tests.test_queries import _rebuild_index, _write_basic_corpus  # reuse fixture builder
-
 
 # ── Helpers ────────────────────────────────────────────────
 
@@ -61,22 +57,22 @@ queries:
   - id: q1
     kind: file_path
     query: src/decree/index_db.py
-    relevant: [SPEC-003]
+    relevant: [SPEC-00000000000000000000000003]
   - id: q2
     kind: concept
     query: provenance index
-    relevant: [SPEC-003]
-    grades: {SPEC-003: 3}
+    relevant: [SPEC-00000000000000000000000003]
+    grades: {SPEC-00000000000000000000000003: 3}
 """,
         )
         qs = load_query_set(p)
         assert qs.corpus == "decree"
         assert len(qs.queries) == 2
         assert qs.queries[0].kind == "file_path"
-        assert qs.queries[1].grades == {"SPEC-003": 3}
+        assert qs.queries[1].grades == {"SPEC-00000000000000000000000003": 3}
         # effective_grades for binary returns grade=1; for graded returns the dict.
-        assert qs.queries[0].effective_grades() == {"SPEC-003": 1}
-        assert qs.queries[1].effective_grades() == {"SPEC-003": 3}
+        assert qs.queries[0].effective_grades() == {"SPEC-00000000000000000000000003": 1}
+        assert qs.queries[1].effective_grades() == {"SPEC-00000000000000000000000003": 3}
 
     def test_bad_decision_id(self, tmp_path: Path):
         # Malformed: lowercase prefix breaks the `^[A-Z]+-\d+$` regex.
@@ -121,11 +117,11 @@ queries:
   - id: q1
     kind: file_path
     query: foo
-    relevant: [SPEC-001]
+    relevant: [SPEC-00000000000000000000000001]
     bogus_key: nope
 """,
         )
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             load_query_set(p)
 
     def test_duplicate_id(self, tmp_path: Path):
@@ -156,7 +152,7 @@ corpus: decree
 queries: []
 """,
         )
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             load_query_set(p)
 
     def test_total_queries_mismatch(self, tmp_path: Path):
@@ -177,10 +173,11 @@ queries:
         assert "total_queries" in str(exc.value)
 
     def test_decision_id_regex(self):
-        assert DECISION_ID_RE.match("SPEC-001")
-        assert DECISION_ID_RE.match("ADR-0001")
-        assert DECISION_ID_RE.match("PRD-003")
+        assert DECISION_ID_RE.match("SPEC-00000000000000000000000001")
+        assert DECISION_ID_RE.match("ADR-00000000000000000000000001")
+        assert DECISION_ID_RE.match("PRD-00000000000000000000000003")
         assert not DECISION_ID_RE.match("spec-001")
+        assert not DECISION_ID_RE.match("SPEC-001")
         assert not DECISION_ID_RE.match("SPEC001")
 
     def test_invalid_kind(self, tmp_path: Path):
@@ -195,7 +192,7 @@ queries:
     relevant: []
 """,
         )
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             load_query_set(p)
 
 
@@ -206,18 +203,18 @@ class TestKeywordBaseline:
     def test_file_path_query(self, tmp_path: Path, monkeypatch):
         db = _build_db(tmp_path, monkeypatch)
         baseline = KeywordBaseline()
-        q = Query(id="q", kind="file_path", query="src/foo.py", relevant=["SPEC-001"])
+        q = Query(id="q", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"])
         result = baseline.query(db, q, k=5)
-        assert result == ["SPEC-001"]
+        assert result == ["SPEC-00000000000000000000000001"]
 
     def test_concept_query_fts(self, tmp_path: Path, monkeypatch):
         db = _build_db(tmp_path, monkeypatch)
         baseline = KeywordBaseline()
         # _write_basic_corpus's SPEC mentions "Overview" + "Prose" — search a body token.
-        q = Query(id="q", kind="concept", query="Overview", relevant=["SPEC-001"])
+        q = Query(id="q", kind="concept", query="Overview", relevant=["SPEC-00000000000000000000000001"])
         result = baseline.query(db, q, k=5)
-        # FTS hits on the SPEC's body — SPEC-001 must appear in the ranked results.
-        assert "SPEC-001" in result
+        # FTS hits on the SPEC's body — SPEC-00000000000000000000000001 must appear in the ranked results.
+        assert "SPEC-00000000000000000000000001" in result
 
     def test_empty_concept_result(self, tmp_path: Path, monkeypatch):
         db = _build_db(tmp_path, monkeypatch)
@@ -304,8 +301,8 @@ class TestRunner:
         qs = QuerySet(
             corpus="basic",
             queries=[
-                Query(id="q1", kind="file_path", query="src/foo.py", relevant=["SPEC-001"]),
-                Query(id="q2", kind="concept", query="Overview", relevant=["SPEC-001"]),
+                Query(id="q1", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"]),
+                Query(id="q2", kind="concept", query="Overview", relevant=["SPEC-00000000000000000000000001"]),
                 Query(id="q3", kind="file_path", query="src/missing.py", relevant=[]),
             ],
         )
@@ -320,7 +317,7 @@ class TestRunner:
         assert len(report.methods) == 1
         mr = report.methods[0]
         assert mr.error is None
-        # q1 must return SPEC-001 at rank 0 → R@1 = 1
+        # q1 must return SPEC-00000000000000000000000001 at rank 0 → R@1 = 1
         assert mr.per_query["q1"]["R@1"] == pytest.approx(1.0)
         # abstention q3 must be excluded from per_query (filtered before iter_calc)
         assert "q3" not in mr.per_query
@@ -347,8 +344,8 @@ class TestReport:
         qs = QuerySet(
             corpus="basic",
             queries=[
-                Query(id="q1", kind="file_path", query="src/foo.py", relevant=["SPEC-001"]),
-                Query(id="q2", kind="concept", query="Overview", relevant=["SPEC-001"]),
+                Query(id="q1", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"]),
+                Query(id="q2", kind="concept", query="Overview", relevant=["SPEC-00000000000000000000000001"]),
             ],
         )
         return run_evaluation(
@@ -399,7 +396,7 @@ class TestBaseline:
         qs = QuerySet(
             corpus="basic",
             queries=[
-                Query(id="q1", kind="file_path", query="src/foo.py", relevant=["SPEC-001"]),
+                Query(id="q1", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"]),
             ],
         )
         report = run_evaluation(
@@ -448,11 +445,11 @@ queries:
   - id: q1
     kind: file_path
     query: src/foo.py
-    relevant: [SPEC-001]
+    relevant: [SPEC-00000000000000000000000001]
   - id: q2
     kind: concept
     query: Overview
-    relevant: [SPEC-001]
+    relevant: [SPEC-00000000000000000000000001]
   - id: q3
     kind: file_path
     query: src/missing.py
@@ -558,11 +555,11 @@ queries:
         assert rc2 == 0
 
 
-# ── SPEC-013 — calibrated method regression ───────────────
+# ── SPEC-00000000000000000000000013 — calibrated method regression ───────────────
 
 
 class TestKeywordCalibratedRegression:
-    """SPEC-013: `keyword-v1-calibrated` is registered and runs alongside the baseline."""
+    """SPEC-00000000000000000000000013: calibrated retrieval is explicit about calibration state."""
 
     def test_method_registered(self) -> None:
         from decree.eval.methods import METHODS
@@ -570,20 +567,20 @@ class TestKeywordCalibratedRegression:
         assert "keyword-v1-calibrated" in METHODS
 
     def test_runs_against_query_set(self, tmp_path: Path, monkeypatch) -> None:
-        """Calibrated method runs end-to-end; absent calibration ⇒ no abstention."""
+        """Missing calibration is an explicit method error, not a silent baseline fallback."""
         _write_basic_corpus(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
         from decree.eval.methods import KeywordCalibrated
 
-        # No calibration JSON on disk → threshold=0, behaves like baseline.
         m = KeywordCalibrated(calibration_path=tmp_path / "nope.json")
-        q = Query(id="q", kind="file_path", query="src/foo.py", relevant=["SPEC-001"])
-        ids = m.query(db, q, k=5)
-        assert ids == ["SPEC-001"]
+        q = Query(id="q", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"])
+
+        with pytest.raises(FileNotFoundError, match="calibration not found"):
+            m.query(db, q, k=5)
 
 
 class TestCalibrateCLI:
-    """SPEC-013 — `decree retrieval-eval --calibrate` writes calibrations/<method>.json."""
+    """SPEC-00000000000000000000000013 — `decree retrieval-eval --calibrate` writes calibrations/<method>.json."""
 
     def test_calibrate_writes_json(self, tmp_path: Path, monkeypatch):
         _write_basic_corpus(tmp_path)
@@ -597,11 +594,11 @@ queries:
   - id: q1
     kind: file_path
     query: src/foo.py
-    relevant: [SPEC-001]
+    relevant: [SPEC-00000000000000000000000001]
   - id: q2
     kind: file_path
     query: src/foo.py
-    relevant: [SPEC-001]
+    relevant: [SPEC-00000000000000000000000001]
   - id: q3
     kind: file_path
     query: src/missing.py

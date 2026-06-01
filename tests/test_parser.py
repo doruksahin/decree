@@ -11,9 +11,13 @@ from decree.parser import (
     DocFrontmatter,
     find_by_id,
     load,
-    next_number,
     save,
 )
+
+ADR_1 = "ADR-00000000000000000000000001"
+ADR_5 = "ADR-00000000000000000000000005"
+ADR_99 = "ADR-00000000000000000000000099"
+ADR_1_FILE = "adr-00000000000000000000000001-test.md"
 
 
 class TestDocFrontmatter:
@@ -34,9 +38,9 @@ class TestDocFrontmatter:
         fm = DocFrontmatter(
             status="superseded",
             date=date(2026, 4, 2),
-            **{"superseded-by": "ADR-0005"},
+            **{"superseded-by": ADR_5},
         )
-        assert fm.superseded_by == "ADR-0005"
+        assert fm.superseded_by == ADR_5
 
     def test_invalid_adr_ref(self):
         with pytest.raises(ValueError, match="must match format"):
@@ -45,6 +49,22 @@ class TestDocFrontmatter:
                 date=date(2026, 4, 2),
                 **{"superseded-by": "0005"},
             )
+
+    def test_references_require_canonical_ids(self):
+        with pytest.raises(ValueError, match="TYPE-ULID"):
+            DocFrontmatter(
+                status="proposed",
+                date=date(2026, 4, 2),
+                references=["ADR-0001"],
+            )
+
+    def test_references_are_normalized(self):
+        fm = DocFrontmatter(
+            status="proposed",
+            date=date(2026, 4, 2),
+            references=["prd-00000000000000000000000001"],
+        )
+        assert fm.references == ["PRD-00000000000000000000000001"]
 
     def test_date_serializer(self):
         fm = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
@@ -78,13 +98,13 @@ class TestDocFrontmatter:
 
     def test_evolve_adds_field(self):
         fm = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
-        evolved = fm.evolve(status="superseded", **{"superseded-by": "ADR-0005"})
+        evolved = fm.evolve(status="superseded", **{"superseded-by": ADR_5})
         assert evolved.status == "superseded"
-        assert evolved.superseded_by == "ADR-0005"
+        assert evolved.superseded_by == ADR_5
 
 
 class TestGovernsFrontmatter:
-    """SPEC-004: governs is a typed list of path or path#symbol entries."""
+    """SPEC-00000000000000000000000004: governs is a typed list of path or path#symbol entries."""
 
     def test_well_formed_path(self):
         fm = DocFrontmatter(
@@ -110,7 +130,7 @@ class TestGovernsFrontmatter:
         # Pydantic's typed `list[str]` rejects non-string entries with `string_type`
         # before our custom validator runs. Either way, a non-string entry is rejected
         # with a clear error — which is what the SPEC AC requires.
-        with pytest.raises(ValueError, match="(governs entries must be strings|valid string)"):
+        with pytest.raises(ValueError, match=r"(governs entries must be strings|valid string)"):
             DocFrontmatter(
                 status="proposed",
                 date=date(2026, 4, 2),
@@ -145,24 +165,21 @@ class TestGovernsFrontmatter:
 class TestDocDocument:
     def _make_doc(
         self,
-        filename="0001-test.md",
-        body="# ADR-0001 Test Title\n\n## Context and Problem Statement\n\nText.\n",
+        filename=ADR_1_FILE,
+        body=f"# {ADR_1} Test Title\n\n## Context and Problem Statement\n\nText.\n",
     ):
-        meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
+        meta = DocFrontmatter(id=ADR_1, status="proposed", date=date(2026, 4, 2))
         return DocDocument(path=Path(f"/fake/{filename}"), meta=meta, body=body, doc_type=ADR_DEFAULT)
 
     def test_doc_id(self):
-        assert self._make_doc().doc_id == "ADR-0001"
-
-    def test_number(self):
-        assert self._make_doc().number == 1
+        assert self._make_doc().doc_id == ADR_1
 
     def test_title_from_h1(self):
-        assert self._make_doc().title == "ADR-0001 Test Title"
+        assert self._make_doc().title == "Test Title"
 
     def test_title_fallback(self):
         doc = self._make_doc(body="No heading.\n")
-        assert doc.title == "0001-test"
+        assert doc.title == "adr-00000000000000000000000001-test"
 
     def test_sections(self):
         body = "# T\n\n## Context and Problem Statement\n\n## Considered Options\n"
@@ -176,9 +193,9 @@ class TestDocDocument:
         from decree.config import load_doc_types
 
         adr_type = load_doc_types()[0]
-        meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2))
+        meta = DocFrontmatter(id=ADR_1, status="proposed", date=date(2026, 4, 2))
         body = "# T\n\n## Context and Problem Statement\n\nText.\n"
-        doc = DocDocument(path=Path("/fake/0001-test.md"), meta=meta, body=body, doc_type=adr_type)
+        doc = DocDocument(path=Path(f"/fake/{ADR_1_FILE}"), meta=meta, body=body, doc_type=adr_type)
         missing = doc.missing_sections
         assert "Considered Options" in missing
         assert "Decision Outcome" in missing
@@ -188,39 +205,28 @@ class TestDocDocument:
 
 class TestFileIO:
     def test_roundtrip(self, tmp_path):
-        f = tmp_path / "0001-test.md"
-        f.write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n\n# ADR-0001 Test\n")
+        f = tmp_path / ADR_1_FILE
+        f.write_text(f"---\nid: {ADR_1}\nstatus: proposed\ndate: 2026-04-02\n---\n\n# {ADR_1} Test\n")
         doc = load(f)
         assert doc.meta.status == "proposed"
-        doc.meta = DocFrontmatter(status="accepted", date=doc.meta.date)
+        doc.meta = DocFrontmatter(id=ADR_1, status="accepted", date=doc.meta.date)
         save(doc)
         assert load(f).meta.status == "accepted"
 
     def test_save_excludes_empty_lists(self, tmp_path):
-        f = tmp_path / "0001-clean.md"
-        meta = DocFrontmatter(status="proposed", date=date(2026, 4, 2), deciders=[])
+        f = tmp_path / ADR_1_FILE
+        meta = DocFrontmatter(id=ADR_1, status="proposed", date=date(2026, 4, 2), deciders=[])
         doc = DocDocument(path=f, meta=meta, body="# T\n")
         save(doc)
         assert "deciders" not in f.read_text()
 
-    def test_next_number_empty(self, project_dir, monkeypatch):
-        monkeypatch.chdir(project_dir)
-        assert next_number(ADR_DEFAULT) == 1
-
-    def test_next_number_with_existing(self, project_dir, monkeypatch):
-        monkeypatch.chdir(project_dir)
-        adr_dir = project_dir / "docs" / "adr"
-        (adr_dir / "0001-a.md").write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n# T\n")
-        (adr_dir / "0003-b.md").write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n# T\n")
-        assert next_number(ADR_DEFAULT) == 4
-
     def test_find_by_id(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)
-        f = project_dir / "docs" / "adr" / "0001-test.md"
-        f.write_text("---\nstatus: proposed\ndate: 2026-04-02\n---\n\n# ADR-0001 Test\n")
-        assert find_by_id("ADR-0001").doc_id == "ADR-0001"
+        f = project_dir / "docs" / "adr" / ADR_1_FILE
+        f.write_text(f"---\nid: {ADR_1}\nstatus: proposed\ndate: 2026-04-02\n---\n\n# {ADR_1} Test\n")
+        assert find_by_id(ADR_1).doc_id == ADR_1
 
     def test_find_by_id_not_found(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)
         with pytest.raises(FileNotFoundError):
-            find_by_id("ADR-0099")
+            find_by_id(ADR_99)

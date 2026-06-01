@@ -24,19 +24,19 @@ Key design decisions encoded in these scenarios:
 
 Relationship graph for the happy-path fixture:
 
-    PRD-001  "Team Billing"  (approved)
+    PRD-00000000000000000000000001  "Team Billing"  (approved)
       ^       ^       ^
       |       |       |
-    ADR-0001  ADR-0002          ADR-0003
+    ADR-00000000000000000000000001  ADR-00000000000000000000000002          ADR-00000000000000000000000003
     "Stripe"  "Per-seat"        "Metered billing"
     (accepted) (superseded)----->(accepted)
       ^    ^                       ^
       |    |                       |
-      |  SPEC-001 "Billing API"  (approved)
-      |    refs: [PRD-001, ADR-0001, ADR-0003]
+      |  SPEC-00000000000000000000000001 "Billing API"  (approved)
+      |    refs: [PRD-00000000000000000000000001, ADR-00000000000000000000000001, ADR-00000000000000000000000003]
       |
-    SPEC-002 "Stripe Webhooks"  (draft)
-      refs: [ADR-0001, SPEC-001]
+    SPEC-00000000000000000000000002 "Stripe Webhooks"  (draft)
+      refs: [ADR-00000000000000000000000001, SPEC-00000000000000000000000001]
 """
 
 # ── TOML config shared across all scenarios ──────────────────
@@ -118,9 +118,14 @@ implement = "implemented"
 # ── Document content builders ────────────────────────────────
 
 
+def _doc_id(prefix: str, number: int) -> str:
+    return f"{prefix}-{number:026d}"
+
+
 def _adr(number, title, status, references=None, supersedes=None, superseded_by=None):
     """Build an ADR markdown string."""
-    fm_lines = ["---", f"status: {status}", "date: 2026-04-01"]
+    doc_id = _doc_id("ADR", number)
+    fm_lines = ["---", f"id: {doc_id}", f"status: {status}", "date: 2026-04-01"]
     if references:
         fm_lines.append(f"references: [{', '.join(references)}]")
     if supersedes:
@@ -129,7 +134,7 @@ def _adr(number, title, status, references=None, supersedes=None, superseded_by=
         fm_lines.append(f"superseded-by: {superseded_by}")
     fm_lines.append("---")
     body = f"""
-# ADR-{number:04d} {title}
+# {doc_id} {title}
 
 ## Context and Problem Statement
 
@@ -149,12 +154,13 @@ Chosen option: the one that works.
 
 def _prd(number, title, status, references=None):
     """Build a PRD markdown string."""
-    fm_lines = ["---", f"status: {status}", "date: 2026-03-15"]
+    doc_id = _doc_id("PRD", number)
+    fm_lines = ["---", f"id: {doc_id}", f"status: {status}", "date: 2026-03-15"]
     if references:
         fm_lines.append(f"references: [{', '.join(references)}]")
     fm_lines.append("---")
     body = f"""
-# PRD-{number:03d} {title}
+# {doc_id} {title}
 
 ## Problem Statement
 
@@ -174,12 +180,13 @@ Business need for {title.lower()}.
 
 def _spec(number, title, status, references=None):
     """Build a SPEC markdown string."""
-    fm_lines = ["---", f"status: {status}", "date: 2026-04-03"]
+    doc_id = _doc_id("SPEC", number)
+    fm_lines = ["---", f"id: {doc_id}", f"status: {status}", "date: 2026-04-03"]
     if references:
         fm_lines.append(f"references: [{', '.join(references)}]")
     fm_lines.append("---")
     body = f"""
-# SPEC-{number:03d} {title}
+# {doc_id} {title}
 
 ## Overview
 
@@ -213,9 +220,8 @@ def scaffold_project(tmp_path):
 
 def write_doc(tmp_path, doc_type, number, title, content):
     """Write a document file to the correct directory."""
-    digits = 4 if doc_type == "adr" else 3
     slug = _slug(title)
-    filename = f"{number:0{digits}d}-{slug}.md"
+    filename = f"{_doc_id(doc_type.upper(), number).lower()}-{slug}.md"
     path = tmp_path / f"docs/{doc_type}" / filename
     path.write_text(content)
     return path
@@ -230,20 +236,26 @@ def scenario_happy_path(tmp_path):
     """
     Everything aligned. All references valid. Lint passes clean.
 
-    PRD-001 (approved)
+    PRD-00000000000000000000000001 (approved)
       ^       ^       ^
       |       |       |
-    ADR-0001 (accepted)   refs: [PRD-001]
-    ADR-0002 (superseded) refs: [PRD-001], superseded-by: ADR-0003
-    ADR-0003 (accepted)   refs: [PRD-001], supersedes: ADR-0002
+    ADR-00000000000000000000000001 (accepted)   refs: [PRD-00000000000000000000000001]
+    ADR-00000000000000000000000002 (superseded)
+      refs: [PRD-00000000000000000000000001]
+      superseded-by: ADR-00000000000000000000000003
+    ADR-00000000000000000000000003 (accepted)
+      refs: [PRD-00000000000000000000000001]
+      supersedes: ADR-00000000000000000000000002
       ^                     ^
       |                     |
-    SPEC-001 (approved)   refs: [PRD-001, ADR-0001, ADR-0003]
+    SPEC-00000000000000000000000001 (approved)
+      refs: [PRD-00000000000000000000000001, ADR-00000000000000000000000001,
+             ADR-00000000000000000000000003]
       ^
       |
-    SPEC-002 (draft)      refs: [ADR-0001, SPEC-001]
+    SPEC-00000000000000000000000002 (draft)      refs: [ADR-00000000000000000000000001, SPEC-00000000000000000000000001]
 
-    Expected: PASS — ADR-0002 is superseded but nothing references it directly.
+    Expected: PASS — ADR-00000000000000000000000002 is superseded but nothing references it directly.
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
@@ -252,7 +264,7 @@ def scenario_happy_path(tmp_path):
         "adr",
         1,
         "Use Stripe",
-        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+        _adr(1, "Use Stripe", "accepted", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
@@ -263,8 +275,8 @@ def scenario_happy_path(tmp_path):
             2,
             "Per-seat billing",
             "superseded",
-            references=["PRD-001"],
-            superseded_by="ADR-0003",
+            references=["PRD-00000000000000000000000001"],
+            superseded_by="ADR-00000000000000000000000003",
         ),
     )
     write_doc(
@@ -276,8 +288,8 @@ def scenario_happy_path(tmp_path):
             3,
             "Metered billing",
             "accepted",
-            references=["PRD-001"],
-            supersedes="ADR-0002",
+            references=["PRD-00000000000000000000000001"],
+            supersedes="ADR-00000000000000000000000002",
         ),
     )
     write_doc(
@@ -285,14 +297,28 @@ def scenario_happy_path(tmp_path):
         "spec",
         1,
         "Billing API",
-        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0001", "ADR-0003"]),
+        _spec(
+            1,
+            "Billing API",
+            "approved",
+            references=[
+                "PRD-00000000000000000000000001",
+                "ADR-00000000000000000000000001",
+                "ADR-00000000000000000000000003",
+            ],
+        ),
     )
     write_doc(
         proj,
         "spec",
         2,
         "Stripe Webhooks",
-        _spec(2, "Stripe Webhooks", "draft", references=["ADR-0001", "SPEC-001"]),
+        _spec(
+            2,
+            "Stripe Webhooks",
+            "draft",
+            references=["ADR-00000000000000000000000001", "SPEC-00000000000000000000000001"],
+        ),
     )
     return proj
 
@@ -301,14 +327,14 @@ def scenario_shared_adr(tmp_path):
     """
     One ADR serves two PRDs. Shared infrastructure decision.
 
-    PRD-001 (approved)   PRD-002 (approved)
+    PRD-00000000000000000000000001 (approved)   PRD-00000000000000000000000002 (approved)
       ^       ^             ^       ^
       |       |             |       |
-      +---ADR-0001 (accepted)---+
-          refs: [PRD-001, PRD-002]
+      +---ADR-00000000000000000000000001 (accepted)---+
+          refs: [PRD-00000000000000000000000001, PRD-00000000000000000000000002]
           ^                 ^
           |                 |
-        SPEC-001 (approved) SPEC-002 (draft)
+        SPEC-00000000000000000000000001 (approved) SPEC-00000000000000000000000002 (draft)
 
     Expected: PASS — one ADR serving multiple PRDs is valid.
     """
@@ -326,21 +352,30 @@ def scenario_shared_adr(tmp_path):
         "adr",
         1,
         "Use Redis",
-        _adr(1, "Use Redis", "accepted", references=["PRD-001", "PRD-002"]),
+        _adr(
+            1, "Use Redis", "accepted", references=["PRD-00000000000000000000000001", "PRD-00000000000000000000000002"]
+        ),
     )
     write_doc(
         proj,
         "spec",
         1,
         "Redis Setup",
-        _spec(1, "Redis Setup", "approved", references=["ADR-0001", "PRD-001"]),
+        _spec(
+            1,
+            "Redis Setup",
+            "approved",
+            references=["ADR-00000000000000000000000001", "PRD-00000000000000000000000001"],
+        ),
     )
     write_doc(
         proj,
         "spec",
         2,
         "Cache Layer",
-        _spec(2, "Cache Layer", "draft", references=["ADR-0001", "PRD-002"]),
+        _spec(
+            2, "Cache Layer", "draft", references=["ADR-00000000000000000000000001", "PRD-00000000000000000000000002"]
+        ),
     )
     return proj
 
@@ -349,10 +384,10 @@ def scenario_infra_no_prd(tmp_path):
     """
     Tech debt work. ADR without any PRD. Valid — not all decisions are product-driven.
 
-    ADR-0001 (accepted)  "Migrate to PG16"  refs: []
+    ADR-00000000000000000000000001 (accepted)  "Migrate to PG16"  refs: []
       ^
       |
-    SPEC-001 (draft)     "PG16 Runbook"     refs: [ADR-0001]
+    SPEC-00000000000000000000000001 (draft)     "PG16 Runbook"     refs: [ADR-00000000000000000000000001]
 
     Expected: PASS — no PRD required.
     """
@@ -369,19 +404,19 @@ def scenario_infra_no_prd(tmp_path):
         "spec",
         1,
         "PG16 Migration Runbook",
-        _spec(1, "PG16 Migration Runbook", "draft", references=["ADR-0001"]),
+        _spec(1, "PG16 Migration Runbook", "draft", references=["ADR-00000000000000000000000001"]),
     )
     return proj
 
 
 def scenario_lateral_spec_references(tmp_path):
     """
-    SPEC-002 extends SPEC-001 (same-type lateral reference).
+    SPEC-00000000000000000000000002 extends SPEC-00000000000000000000000001 (same-type lateral reference).
 
-    SPEC-001 (approved)  refs: [ADR-0001]
+    SPEC-00000000000000000000000001 (approved)  refs: [ADR-00000000000000000000000001]
       ^
       |
-    SPEC-002 (draft)     refs: [SPEC-001]
+    SPEC-00000000000000000000000002 (draft)     refs: [SPEC-00000000000000000000000001]
 
     Expected: PASS — same-type references are valid.
     """
@@ -392,33 +427,35 @@ def scenario_lateral_spec_references(tmp_path):
         "adr",
         1,
         "Use Stripe",
-        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+        _adr(1, "Use Stripe", "accepted", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         1,
         "Core Billing API",
-        _spec(1, "Core Billing API", "approved", references=["ADR-0001"]),
+        _spec(1, "Core Billing API", "approved", references=["ADR-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         2,
         "Billing Webhooks",
-        _spec(2, "Billing Webhooks", "draft", references=["SPEC-001"]),
+        _spec(2, "Billing Webhooks", "draft", references=["SPEC-00000000000000000000000001"]),
     )
     return proj
 
 
 def scenario_reference_implemented_spec(tmp_path):
     """
-    SPEC-002 references SPEC-001 which is "implemented" (terminal but healthy).
+    SPEC-00000000000000000000000002 references implemented SPEC-00000000000000000000000001.
+    The referenced SPEC is terminal but healthy.
 
-    SPEC-001 (implemented)  refs: [ADR-0001]  <-- terminal status, but NOT dead
+    SPEC-00000000000000000000000001 (implemented)
+      refs: [ADR-00000000000000000000000001]  <-- terminal status, but NOT dead
       ^
       |
-    SPEC-002 (draft)        refs: [SPEC-001]  <-- should be valid!
+    SPEC-00000000000000000000000002 (draft)        refs: [SPEC-00000000000000000000000001]  <-- should be valid!
 
     Expected: PASS — "implemented" is not in warn_on_reference for SPEC.
     This is the critical test that distinguishes terminal from dead.
@@ -430,14 +467,14 @@ def scenario_reference_implemented_spec(tmp_path):
         "spec",
         1,
         "Billing API",
-        _spec(1, "Billing API", "implemented", references=["ADR-0001"]),
+        _spec(1, "Billing API", "implemented", references=["ADR-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         2,
         "Billing Webhooks",
-        _spec(2, "Billing Webhooks", "draft", references=["SPEC-001"]),
+        _spec(2, "Billing Webhooks", "draft", references=["SPEC-00000000000000000000000001"]),
     )
     return proj
 
@@ -447,10 +484,10 @@ def scenario_circular_spec_references(tmp_path):
     Two SPECs that co-depend. Common in real projects (e.g., Auth API and
     Session Management that reference each other).
 
-    SPEC-001 (approved)  refs: [SPEC-002]
+    SPEC-00000000000000000000000001 (approved)  refs: [SPEC-00000000000000000000000002]
       ^                          |
       |                          v
-    SPEC-002 (approved)  refs: [SPEC-001]
+    SPEC-00000000000000000000000002 (approved)  refs: [SPEC-00000000000000000000000001]
 
     Expected: PASS — circular references are allowed.
     """
@@ -460,14 +497,14 @@ def scenario_circular_spec_references(tmp_path):
         "spec",
         1,
         "Auth API",
-        _spec(1, "Auth API", "approved", references=["SPEC-002"]),
+        _spec(1, "Auth API", "approved", references=["SPEC-00000000000000000000000002"]),
     )
     write_doc(
         proj,
         "spec",
         2,
         "Session Management",
-        _spec(2, "Session Management", "approved", references=["SPEC-001"]),
+        _spec(2, "Session Management", "approved", references=["SPEC-00000000000000000000000001"]),
     )
     return proj
 
@@ -477,10 +514,10 @@ def scenario_spec_before_adr_accepted(tmp_path):
     SPEC written speculatively before ADR is formally accepted.
     "proposed" is not a dead status — this is valid permissive behavior.
 
-    ADR-0001 (proposed)   <-- NOT yet accepted
+    ADR-00000000000000000000000001 (proposed)   <-- NOT yet accepted
       ^
       |
-    SPEC-001 (draft)      refs: [ADR-0001]
+    SPEC-00000000000000000000000001 (draft)      refs: [ADR-00000000000000000000000001]
 
     Expected: PASS — "proposed" is not in warn_on_reference.
     """
@@ -491,7 +528,7 @@ def scenario_spec_before_adr_accepted(tmp_path):
         "spec",
         1,
         "JWT Token API",
-        _spec(1, "JWT Token API", "draft", references=["ADR-0001"]),
+        _spec(1, "JWT Token API", "draft", references=["ADR-00000000000000000000000001"]),
     )
     return proj
 
@@ -501,8 +538,8 @@ def scenario_reverse_reference(tmp_path):
     ADR references a SPEC (reverse direction). "See also" link.
     Reference direction is convention, not enforced.
 
-    ADR-0001 (accepted)   refs: [SPEC-001]   <-- "backwards" but valid
-    SPEC-001 (approved)   refs: [ADR-0001]
+    ADR-00000000000000000000000001 (accepted)   refs: [SPEC-00000000000000000000000001]   <-- "backwards" but valid
+    SPEC-00000000000000000000000001 (approved)   refs: [ADR-00000000000000000000000001]
 
     Expected: PASS — direction is not enforced.
     """
@@ -512,14 +549,14 @@ def scenario_reverse_reference(tmp_path):
         "adr",
         1,
         "Use Stripe",
-        _adr(1, "Use Stripe", "accepted", references=["SPEC-001"]),
+        _adr(1, "Use Stripe", "accepted", references=["SPEC-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         1,
         "Stripe Integration",
-        _spec(1, "Stripe Integration", "approved", references=["ADR-0001"]),
+        _spec(1, "Stripe Integration", "approved", references=["ADR-00000000000000000000000001"]),
     )
     return proj
 
@@ -528,12 +565,12 @@ def scenario_competing_adrs(tmp_path):
     """
     Multiple proposed ADRs for the same problem. Common during design phase.
 
-    PRD-001 (approved)
+    PRD-00000000000000000000000001 (approved)
       ^       ^       ^
       |       |       |
-    ADR-0001 (proposed)  "JWT"     refs: [PRD-001]
-    ADR-0002 (proposed)  "OAuth2"  refs: [PRD-001]
-    ADR-0003 (proposed)  "SAML"    refs: [PRD-001]
+    ADR-00000000000000000000000001 (proposed)  "JWT"     refs: [PRD-00000000000000000000000001]
+    ADR-00000000000000000000000002 (proposed)  "OAuth2"  refs: [PRD-00000000000000000000000001]
+    ADR-00000000000000000000000003 (proposed)  "SAML"    refs: [PRD-00000000000000000000000001]
 
     Expected: PASS — multiple proposed ADRs is valid workflow.
     """
@@ -544,33 +581,33 @@ def scenario_competing_adrs(tmp_path):
         "adr",
         1,
         "Auth via JWT",
-        _adr(1, "Auth via JWT", "proposed", references=["PRD-001"]),
+        _adr(1, "Auth via JWT", "proposed", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "adr",
         2,
         "Auth via OAuth2",
-        _adr(2, "Auth via OAuth2", "proposed", references=["PRD-001"]),
+        _adr(2, "Auth via OAuth2", "proposed", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "adr",
         3,
         "Auth via SAML",
-        _adr(3, "Auth via SAML", "proposed", references=["PRD-001"]),
+        _adr(3, "Auth via SAML", "proposed", references=["PRD-00000000000000000000000001"]),
     )
     return proj
 
 
 def scenario_prd_references_prd(tmp_path):
     """
-    PRD-002 extends PRD-001 (lateral PRD reference for enterprise tier).
+    PRD-00000000000000000000000002 extends PRD-00000000000000000000000001 (lateral PRD reference for enterprise tier).
 
-    PRD-001 (approved)  "Team Billing"
+    PRD-00000000000000000000000001 (approved)  "Team Billing"
       ^
       |
-    PRD-002 (approved)  "Enterprise Billing"  refs: [PRD-001]
+    PRD-00000000000000000000000002 (approved)  "Enterprise Billing"  refs: [PRD-00000000000000000000000001]
 
     Expected: PASS — PRD-to-PRD references are valid.
     """
@@ -581,7 +618,7 @@ def scenario_prd_references_prd(tmp_path):
         "prd",
         2,
         "Enterprise Billing",
-        _prd(2, "Enterprise Billing", "approved", references=["PRD-001"]),
+        _prd(2, "Enterprise Billing", "approved", references=["PRD-00000000000000000000000001"]),
     )
     return proj
 
@@ -591,7 +628,7 @@ def scenario_explicit_empty_references(tmp_path):
     Document with explicit `references: []` in frontmatter.
     Different from omitting the field entirely. Should be treated the same.
 
-    ADR-0001 (accepted)  references: []  <-- explicit empty list
+    ADR-00000000000000000000000001 (accepted)  references: []  <-- explicit empty list
 
     Expected: PASS — empty references list is valid, same as absent field.
     """
@@ -599,12 +636,13 @@ def scenario_explicit_empty_references(tmp_path):
     # Build manually to emit `references: []` (the builder skips falsy references)
     content = (
         "---\n"
+        "id: ADR-00000000000000000000000001\n"
         "status: accepted\n"
         "date: 2026-04-01\n"
         "references: []\n"
         "---\n"
         "\n"
-        "# ADR-0001 Use Stripe\n"
+        "# ADR-00000000000000000000000001 Use Stripe\n"
         "\n"
         "## Context and Problem Statement\n"
         "\n"
@@ -640,23 +678,27 @@ def scenario_deep_chain_no_transitive_staleness(tmp_path):
     Deep chain: PRD -> ADR -> SPEC -> SPEC -> SPEC.
     ADR gets superseded. Only the DIRECT reference is flagged.
 
-    PRD-001 (approved)
+    PRD-00000000000000000000000001 (approved)
       ^
       |
-    ADR-0001 (superseded)   superseded-by: ADR-0002
-    ADR-0002 (accepted)     supersedes: ADR-0001
+    ADR-00000000000000000000000001 (superseded)   superseded-by: ADR-00000000000000000000000002
+    ADR-00000000000000000000000002 (accepted)     supersedes: ADR-00000000000000000000000001
       ^
       |
-    SPEC-001 (approved)     refs: [ADR-0001]   <-- STALE (direct ref to superseded)
+    SPEC-00000000000000000000000001 (approved)
+      refs: [ADR-00000000000000000000000001]   <-- STALE (direct ref to superseded)
       ^
       |
-    SPEC-002 (approved)     refs: [SPEC-001]   <-- NOT stale (SPEC-001 is approved)
+    SPEC-00000000000000000000000002 (approved)
+      refs: [SPEC-00000000000000000000000001]   <-- NOT stale; referenced SPEC is approved
       ^
       |
-    SPEC-003 (draft)        refs: [SPEC-002]   <-- NOT stale (SPEC-002 is approved)
+    SPEC-00000000000000000000000003 (draft)
+      refs: [SPEC-00000000000000000000000002]   <-- NOT stale; referenced SPEC is approved
 
-    Expected: FAIL — but only 1 error (SPEC-001 -> ADR-0001).
-    SPEC-002 and SPEC-003 are NOT flagged because staleness is direct-only.
+    Expected: FAIL — but only 1 error (SPEC-00000000000000000000000001 -> ADR-00000000000000000000000001).
+    SPEC-00000000000000000000000002 and SPEC-00000000000000000000000003 are NOT flagged.
+    Staleness is direct-only.
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
@@ -669,8 +711,8 @@ def scenario_deep_chain_no_transitive_staleness(tmp_path):
             1,
             "Per-seat billing",
             "superseded",
-            references=["PRD-001"],
-            superseded_by="ADR-0002",
+            references=["PRD-00000000000000000000000001"],
+            superseded_by="ADR-00000000000000000000000002",
         ),
     )
     write_doc(
@@ -682,8 +724,8 @@ def scenario_deep_chain_no_transitive_staleness(tmp_path):
             2,
             "Metered billing",
             "accepted",
-            references=["PRD-001"],
-            supersedes="ADR-0001",
+            references=["PRD-00000000000000000000000001"],
+            supersedes="ADR-00000000000000000000000001",
         ),
     )
     write_doc(
@@ -691,21 +733,21 @@ def scenario_deep_chain_no_transitive_staleness(tmp_path):
         "spec",
         1,
         "Billing Core",
-        _spec(1, "Billing Core", "approved", references=["ADR-0001"]),
+        _spec(1, "Billing Core", "approved", references=["ADR-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         2,
         "Billing Extensions",
-        _spec(2, "Billing Extensions", "approved", references=["SPEC-001"]),
+        _spec(2, "Billing Extensions", "approved", references=["SPEC-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         3,
         "Billing Webhooks",
-        _spec(3, "Billing Webhooks", "draft", references=["SPEC-002"]),
+        _spec(3, "Billing Webhooks", "draft", references=["SPEC-00000000000000000000000002"]),
     )
     return proj
 
@@ -717,13 +759,15 @@ def scenario_deep_chain_no_transitive_staleness(tmp_path):
 
 def scenario_stale_spec(tmp_path):
     """
-    SPEC-001 references ADR-0002 which was superseded.
+    SPEC-00000000000000000000000001 references ADR-00000000000000000000000002 which was superseded.
 
-    SPEC-001 (approved)  refs: [PRD-001, ADR-0001, ADR-0002]
+    SPEC-00000000000000000000000001 (approved)
+      refs: [PRD-00000000000000000000000001, ADR-00000000000000000000000001,
+             ADR-00000000000000000000000002]
                                                     ^^^^^^^^
-                                STALE! ADR-0002 is superseded.
+                                STALE! ADR-00000000000000000000000002 is superseded.
 
-    Expected: FAIL — 1 error: SPEC-001 references ADR-0002 (superseded)
+    Expected: FAIL — 1 error: SPEC-00000000000000000000000001 references ADR-00000000000000000000000002 (superseded)
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
@@ -732,7 +776,7 @@ def scenario_stale_spec(tmp_path):
         "adr",
         1,
         "Use Stripe",
-        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+        _adr(1, "Use Stripe", "accepted", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
@@ -743,8 +787,8 @@ def scenario_stale_spec(tmp_path):
             2,
             "Per-seat billing",
             "superseded",
-            references=["PRD-001"],
-            superseded_by="ADR-0003",
+            references=["PRD-00000000000000000000000001"],
+            superseded_by="ADR-00000000000000000000000003",
         ),
     )
     write_doc(
@@ -756,8 +800,8 @@ def scenario_stale_spec(tmp_path):
             3,
             "Metered billing",
             "accepted",
-            references=["PRD-001"],
-            supersedes="ADR-0002",
+            references=["PRD-00000000000000000000000001"],
+            supersedes="ADR-00000000000000000000000002",
         ),
     )
     write_doc(
@@ -765,7 +809,16 @@ def scenario_stale_spec(tmp_path):
         "spec",
         1,
         "Billing API",
-        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0001", "ADR-0002"]),
+        _spec(
+            1,
+            "Billing API",
+            "approved",
+            references=[
+                "PRD-00000000000000000000000001",
+                "ADR-00000000000000000000000001",
+                "ADR-00000000000000000000000002",
+            ],
+        ),
     )
     return proj
 
@@ -774,12 +827,12 @@ def scenario_rejected_adr_orphaned_spec(tmp_path):
     """
     SPEC building on a rejected ADR.
 
-    ADR-0001 (rejected)   refs: [PRD-001]
+    ADR-00000000000000000000000001 (rejected)   refs: [PRD-00000000000000000000000001]
       ^
       |
-    SPEC-001 (draft)      refs: [ADR-0001]   <-- STALE
+    SPEC-00000000000000000000000001 (draft)      refs: [ADR-00000000000000000000000001]   <-- STALE
 
-    Expected: FAIL — SPEC-001 references ADR-0001 (rejected)
+    Expected: FAIL — SPEC-00000000000000000000000001 references ADR-00000000000000000000000001 (rejected)
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "prd", 1, "User Auth", _prd(1, "User Auth", "approved"))
@@ -788,14 +841,14 @@ def scenario_rejected_adr_orphaned_spec(tmp_path):
         "adr",
         1,
         "Auth via JWT",
-        _adr(1, "Auth via JWT", "rejected", references=["PRD-001"]),
+        _adr(1, "Auth via JWT", "rejected", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         1,
         "JWT Token API",
-        _spec(1, "JWT Token API", "draft", references=["ADR-0001"]),
+        _spec(1, "JWT Token API", "draft", references=["ADR-00000000000000000000000001"]),
     )
     return proj
 
@@ -804,12 +857,17 @@ def scenario_archived_prd_cascade(tmp_path):
     """
     Business killed the feature. PRD archived. All downstream references are stale.
 
-    PRD-001 (archived)
+    PRD-00000000000000000000000001 (archived)
       ^       ^       ^
       |       |       |
-    ADR-0001 refs:[PRD-001]  ADR-0002 refs:[PRD-001]  SPEC-001 refs:[PRD-001, ADR-0001]
+    ADR-00000000000000000000000001 refs:[PRD-00000000000000000000000001]
+    ADR-00000000000000000000000002 refs:[PRD-00000000000000000000000001]
+    SPEC-00000000000000000000000001
+      refs:[PRD-00000000000000000000000001, ADR-00000000000000000000000001]
 
-    Expected: FAIL — 3 errors (ADR-0001, ADR-0002, SPEC-001 all reference archived PRD)
+    Expected: FAIL — 3 errors.
+    ADR-00000000000000000000000001, ADR-00000000000000000000000002,
+    and SPEC-00000000000000000000000001 all reference archived PRD.
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "archived"))
@@ -818,21 +876,26 @@ def scenario_archived_prd_cascade(tmp_path):
         "adr",
         1,
         "Use Stripe",
-        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+        _adr(1, "Use Stripe", "accepted", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "adr",
         2,
         "Metered billing",
-        _adr(2, "Metered billing", "accepted", references=["PRD-001"]),
+        _adr(2, "Metered billing", "accepted", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         1,
         "Billing API",
-        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0001"]),
+        _spec(
+            1,
+            "Billing API",
+            "approved",
+            references=["PRD-00000000000000000000000001", "ADR-00000000000000000000000001"],
+        ),
     )
     return proj
 
@@ -841,10 +904,10 @@ def scenario_dangling_reference(tmp_path):
     """
     SPEC references an ADR that doesn't exist. Typo or deleted file.
 
-    SPEC-001 (draft)  refs: [ADR-0001, ADR-0099]
+    SPEC-00000000000000000000000001 (draft)  refs: [ADR-00000000000000000000000001, ADR-00000000000000000000000099]
                                         ^^^^^^^^ DANGLING
 
-    Expected: FAIL — ADR-0099 does not exist
+    Expected: FAIL — ADR-00000000000000000000000099 does not exist
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "prd", 1, "Team Billing", _prd(1, "Team Billing", "approved"))
@@ -853,14 +916,16 @@ def scenario_dangling_reference(tmp_path):
         "adr",
         1,
         "Use Stripe",
-        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+        _adr(1, "Use Stripe", "accepted", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "spec",
         1,
         "Billing API",
-        _spec(1, "Billing API", "draft", references=["ADR-0001", "ADR-0099"]),
+        _spec(
+            1, "Billing API", "draft", references=["ADR-00000000000000000000000001", "ADR-00000000000000000000000099"]
+        ),
     )
     return proj
 
@@ -869,10 +934,10 @@ def scenario_adr_dangling_to_prd(tmp_path):
     """
     ADR references a PRD that doesn't exist. Different code path from SPEC->ADR dangling.
 
-    ADR-0001 (accepted)  refs: [PRD-099]
+    ADR-00000000000000000000000001 (accepted)  refs: [PRD-00000000000000000000000099]
                                 ^^^^^^^ DANGLING
 
-    Expected: FAIL — PRD-099 does not exist
+    Expected: FAIL — PRD-00000000000000000000000099 does not exist
     """
     proj = scaffold_project(tmp_path)
     write_doc(
@@ -880,7 +945,7 @@ def scenario_adr_dangling_to_prd(tmp_path):
         "adr",
         1,
         "Use Stripe",
-        _adr(1, "Use Stripe", "accepted", references=["PRD-099"]),
+        _adr(1, "Use Stripe", "accepted", references=["PRD-00000000000000000000000099"]),
     )
     return proj
 
@@ -889,7 +954,7 @@ def scenario_self_reference(tmp_path):
     """
     Document references itself. Almost certainly a copy-paste mistake.
 
-    SPEC-001 (draft)  refs: [SPEC-001]
+    SPEC-00000000000000000000000001 (draft)  refs: [SPEC-00000000000000000000000001]
                              ^^^^^^^^ SELF-REFERENCE
 
     Expected: FAIL — self-reference detected
@@ -900,18 +965,18 @@ def scenario_self_reference(tmp_path):
         "spec",
         1,
         "Billing API",
-        _spec(1, "Billing API", "draft", references=["SPEC-001"]),
+        _spec(1, "Billing API", "draft", references=["SPEC-00000000000000000000000001"]),
     )
     return proj
 
 
 def scenario_broken_supersede_symmetry(tmp_path):
     """
-    ADR-0001 claims superseded-by ADR-0002, but ADR-0002 is missing the
-    supersedes field. Broken symmetry.
+    ADR-00000000000000000000000001 claims superseded-by ADR-00000000000000000000000002,
+    but the target is missing supersedes. Broken symmetry.
 
-    ADR-0001 (superseded)  superseded-by: ADR-0002
-    ADR-0002 (accepted)    supersedes: <MISSING>
+    ADR-00000000000000000000000001 (superseded)  superseded-by: ADR-00000000000000000000000002
+    ADR-00000000000000000000000002 (accepted)    supersedes: <MISSING>
 
     Expected: FAIL — asymmetric supersede chain
     """
@@ -921,10 +986,10 @@ def scenario_broken_supersede_symmetry(tmp_path):
         "adr",
         1,
         "Per-seat billing",
-        _adr(1, "Per-seat billing", "superseded", superseded_by="ADR-0002"),
+        _adr(1, "Per-seat billing", "superseded", superseded_by="ADR-00000000000000000000000002"),
     )
     write_doc(proj, "adr", 2, "Metered billing", _adr(2, "Metered billing", "accepted"))
-    # Note: ADR-0002 does NOT have supersedes: ADR-0001
+    # Note: ADR-00000000000000000000000002 does NOT have supersedes: ADR-00000000000000000000000001
     return proj
 
 
@@ -932,26 +997,28 @@ def scenario_duplicate_ids(tmp_path):
     """
     Two files in the same directory map to the same ID. Bad merge or manual error.
 
-    docs/adr/0001-use-redis.md       -> ADR-0001
-    docs/adr/0001-use-memcached.md   -> ADR-0001 (collision!)
+    docs/adr/0001-use-redis.md       -> ADR-00000000000000000000000001
+    docs/adr/0001-use-memcached.md   -> ADR-00000000000000000000000001 (collision!)
 
     Expected: FAIL — duplicate ID detected
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "adr", 1, "Use Redis", _adr(1, "Use Redis", "accepted"))
-    # Write a second file that also maps to ADR-0001
+    # Write a second file that also maps to ADR-00000000000000000000000001
     slug2 = "use-memcached"
-    path2 = proj / "docs" / "adr" / f"0001-{slug2}.md"
+    path2 = proj / "docs" / "adr" / f"adr-00000000000000000000000001-{slug2}.md"
     path2.write_text(_adr(1, "Use Memcached", "accepted"))
     return proj
 
 
 def scenario_dangling_supersede_target(tmp_path):
     """
-    ADR-0001 claims superseded-by ADR-0099, but ADR-0099 doesn't exist at all.
+    ADR-00000000000000000000000001 claims superseded-by ADR-00000000000000000000000099,
+    but ADR-00000000000000000000000099 doesn't exist at all.
     Different from broken symmetry — the target file is completely absent.
 
-    ADR-0001 (superseded)  superseded-by: ADR-0099  <-- DANGLING! file doesn't exist.
+    ADR-00000000000000000000000001 (superseded)
+      superseded-by: ADR-00000000000000000000000099  <-- DANGLING! file doesn't exist.
 
     Expected: FAIL — dangling supersede reference
     """
@@ -961,7 +1028,7 @@ def scenario_dangling_supersede_target(tmp_path):
         "adr",
         1,
         "Per-seat billing",
-        _adr(1, "Per-seat billing", "superseded", superseded_by="ADR-0099"),
+        _adr(1, "Per-seat billing", "superseded", superseded_by="ADR-00000000000000000000000099"),
     )
     return proj
 
@@ -971,12 +1038,12 @@ def scenario_deprecated_adr_no_replacement(tmp_path):
     ADR deprecated (tech is EOL). Unlike superseded, there's no replacement.
     Error message should reflect this.
 
-    ADR-0001 (deprecated)   <-- no superseded-by, just deprecated
+    ADR-00000000000000000000000001 (deprecated)   <-- no superseded-by, just deprecated
       ^
       |
-    SPEC-001 (approved)     refs: [ADR-0001]   <-- STALE
+    SPEC-00000000000000000000000001 (approved)     refs: [ADR-00000000000000000000000001]   <-- STALE
 
-    Expected: FAIL — ADR-0001 is deprecated (different from superseded)
+    Expected: FAIL — ADR-00000000000000000000000001 is deprecated (different from superseded)
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "adr", 1, "Use Legacy API", _adr(1, "Use Legacy API", "deprecated"))
@@ -985,7 +1052,7 @@ def scenario_deprecated_adr_no_replacement(tmp_path):
         "spec",
         1,
         "Legacy Integration",
-        _spec(1, "Legacy Integration", "approved", references=["ADR-0001"]),
+        _spec(1, "Legacy Integration", "approved", references=["ADR-00000000000000000000000001"]),
     )
     return proj
 
@@ -994,7 +1061,7 @@ def scenario_unknown_prefix_reference(tmp_path):
     """
     SPEC references an ID with a prefix that is not a configured document type.
 
-    SPEC-001 (draft)  refs: [RFC-001]
+    SPEC-00000000000000000000000001 (draft)  refs: [RFC-001]
                              ^^^^^^^ RFC is not a configured type.
 
     Expected: FAIL — RFC-001 does not match any known type, treated as dangling.
@@ -1014,7 +1081,7 @@ def scenario_malformed_reference_id(tmp_path):
     """
     References field contains IDs with wrong format.
 
-    SPEC-001 (draft)  refs: [ADR-1, adr-0001]
+    SPEC-00000000000000000000000001 (draft)  refs: [ADR-1, adr-0001]
                              ^^^^^  ^^^^^^^^
                          Wrong digits  Lowercase prefix
 
@@ -1034,17 +1101,23 @@ def scenario_malformed_reference_id(tmp_path):
 
 def scenario_prd_split(tmp_path):
     """
-    PRD-001 was too broad, gets archived. Split into PRD-002 and PRD-003.
+    PRD-00000000000000000000000001 was too broad, gets archived.
+    It splits into PRD-00000000000000000000000002 and PRD-00000000000000000000000003.
     Downstream ADR still references the archived parent.
 
-    PRD-001 (archived)                  <-- split, archived
+    PRD-00000000000000000000000001 (archived)                  <-- split, archived
       ^       ^       ^
       |       |       |
-    PRD-002 refs:[PRD-001] (approved)   <-- lineage trace (to archived = stale)
-    PRD-003 refs:[PRD-001] (approved)   <-- lineage trace (to archived = stale)
-    ADR-0001 refs:[PRD-001] (accepted)  <-- STALE, should ref PRD-002 or PRD-003
+    PRD-00000000000000000000000002 refs:[PRD-00000000000000000000000001] (approved)
+      <-- lineage trace to archived parent is stale
+    PRD-00000000000000000000000003 refs:[PRD-00000000000000000000000001] (approved)
+      <-- lineage trace to archived parent is stale
+    ADR-00000000000000000000000001 refs:[PRD-00000000000000000000000001] (accepted)
+      <-- STALE; should ref one of the split PRDs
 
-    Expected: FAIL — 3 errors (PRD-002, PRD-003, ADR-0001 all ref archived PRD-001)
+    Expected: FAIL — 3 errors.
+    PRD-00000000000000000000000002, PRD-00000000000000000000000003,
+    and ADR-00000000000000000000000001 all ref archived PRD-00000000000000000000000001.
     """
     proj = scaffold_project(tmp_path)
     write_doc(proj, "prd", 1, "Billing", _prd(1, "Billing", "archived"))
@@ -1053,31 +1126,32 @@ def scenario_prd_split(tmp_path):
         "prd",
         2,
         "Team Billing",
-        _prd(2, "Team Billing", "approved", references=["PRD-001"]),
+        _prd(2, "Team Billing", "approved", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "prd",
         3,
         "Enterprise Billing",
-        _prd(3, "Enterprise Billing", "approved", references=["PRD-001"]),
+        _prd(3, "Enterprise Billing", "approved", references=["PRD-00000000000000000000000001"]),
     )
     write_doc(
         proj,
         "adr",
         1,
         "Use Stripe",
-        _adr(1, "Use Stripe", "accepted", references=["PRD-001"]),
+        _adr(1, "Use Stripe", "accepted", references=["PRD-00000000000000000000000001"]),
     )
     return proj
 
 
 def scenario_dangling_supersedes_field(tmp_path):
     """
-    ADR-0002 claims supersedes ADR-0099, but ADR-0099 doesn't exist.
+    ADR-00000000000000000000000002 claims supersedes ADR-00000000000000000000000099,
+    but ADR-00000000000000000000000099 doesn't exist.
     Reverse direction of scenario_dangling_supersede_target.
 
-    ADR-0002 (accepted)  supersedes: ADR-0099  <-- DANGLING
+    ADR-00000000000000000000000002 (accepted)  supersedes: ADR-00000000000000000000000099  <-- DANGLING
 
     Expected: FAIL — referenced ADR does not exist
     """
@@ -1087,18 +1161,18 @@ def scenario_dangling_supersedes_field(tmp_path):
         "adr",
         2,
         "Metered billing",
-        _adr(2, "Metered billing", "accepted", supersedes="ADR-0099"),
+        _adr(2, "Metered billing", "accepted", supersedes="ADR-00000000000000000000000099"),
     )
     return proj
 
 
 def scenario_superseded_by_without_status(tmp_path):
     """
-    ADR-0001 has superseded-by field but status is still "accepted".
+    ADR-00000000000000000000000001 has superseded-by field but status is still "accepted".
     Inconsistent — field says superseded, status disagrees.
 
-    ADR-0001 (accepted)  superseded-by: ADR-0002  <-- inconsistent!
-    ADR-0002 (accepted)
+    ADR-00000000000000000000000001 (accepted)  superseded-by: ADR-00000000000000000000000002  <-- inconsistent!
+    ADR-00000000000000000000000002 (accepted)
 
     Expected: FAIL — status/field mismatch
     Note: Current Pydantic model may NOT catch this since status_field_requirements
@@ -1109,12 +1183,13 @@ def scenario_superseded_by_without_status(tmp_path):
     # Must build manually — the Pydantic model might reject this at parse time
     content = (
         "---\n"
+        "id: ADR-00000000000000000000000001\n"
         "status: accepted\n"
         "date: 2026-04-01\n"
-        "superseded-by: ADR-0002\n"
+        "superseded-by: ADR-00000000000000000000000002\n"
         "---\n"
         "\n"
-        "# ADR-0001 Per-seat billing\n"
+        "# ADR-00000000000000000000000001 Per-seat billing\n"
         "\n"
         "## Context and Problem Statement\n\nContext.\n"
         "\n## Considered Options\n\n- A\n"
@@ -1127,11 +1202,11 @@ def scenario_superseded_by_without_status(tmp_path):
 
 def scenario_mixed_errors_in_one_document(tmp_path):
     """
-    SPEC-001 has both a dangling reference AND a stale reference.
+    SPEC-00000000000000000000000001 has both a dangling reference AND a stale reference.
     Linter must report both without short-circuiting.
 
-    ADR-0001 (rejected)
-    SPEC-001 (draft)  refs: [ADR-0099, ADR-0001]
+    ADR-00000000000000000000000001 (rejected)
+    SPEC-00000000000000000000000001 (draft)  refs: [ADR-00000000000000000000000099, ADR-00000000000000000000000001]
                              ^^^^^^^^  ^^^^^^^^
                              DANGLING  STALE (rejected)
 
@@ -1144,7 +1219,9 @@ def scenario_mixed_errors_in_one_document(tmp_path):
         "spec",
         1,
         "JWT Token API",
-        _spec(1, "JWT Token API", "draft", references=["ADR-0099", "ADR-0001"]),
+        _spec(
+            1, "JWT Token API", "draft", references=["ADR-00000000000000000000000099", "ADR-00000000000000000000000001"]
+        ),
     )
     return proj
 
@@ -1154,15 +1231,17 @@ def scenario_dead_to_dead_reference(tmp_path):
     A superseded ADR references a rejected ADR. Both are dead.
     We still flag it — the reference is stale regardless of who's looking.
 
-    ADR-0001 (rejected)
+    ADR-00000000000000000000000001 (rejected)
       ^
       |
-    ADR-0002 (superseded)  refs: [ADR-0001]   superseded-by: ADR-0003
-                                  ^^^^^^^^ STALE (ADR-0001 is rejected)
-    ADR-0003 (accepted)    supersedes: ADR-0002
+    ADR-00000000000000000000000002 (superseded)
+      refs: [ADR-00000000000000000000000001]
+      superseded-by: ADR-00000000000000000000000003
+                                  ^^^^^^^^ STALE (ADR-00000000000000000000000001 is rejected)
+    ADR-00000000000000000000000003 (accepted)    supersedes: ADR-00000000000000000000000002
 
     Expected: FAIL — dead-to-dead references are still flagged.
-    Rationale: if someone un-supersedes ADR-0002, the stale ref to ADR-0001
+    Rationale: if someone un-supersedes ADR-00000000000000000000000002, the stale ref to ADR-00000000000000000000000001
     should already be visible, not hidden.
     """
     proj = scaffold_project(tmp_path)
@@ -1176,8 +1255,8 @@ def scenario_dead_to_dead_reference(tmp_path):
             2,
             "Auth via OAuth2",
             "superseded",
-            references=["ADR-0001"],
-            superseded_by="ADR-0003",
+            references=["ADR-00000000000000000000000001"],
+            superseded_by="ADR-00000000000000000000000003",
         ),
     )
     write_doc(
@@ -1185,7 +1264,7 @@ def scenario_dead_to_dead_reference(tmp_path):
         "adr",
         3,
         "Auth via Passkeys",
-        _adr(3, "Auth via Passkeys", "accepted", supersedes="ADR-0002"),
+        _adr(3, "Auth via Passkeys", "accepted", supersedes="ADR-00000000000000000000000002"),
     )
     return proj
 
@@ -1195,11 +1274,12 @@ def scenario_dead_to_dead_reference(tmp_path):
 
 def scenario_supersede_then_cascade(tmp_path):
     """
-    Phase 1: ADR-0001 superseded, SPEC-001 still references it.
+    Phase 1: ADR-00000000000000000000000001 superseded, SPEC-00000000000000000000000001 still references it.
 
-    ADR-0001 (superseded)  superseded-by: ADR-0002
-    ADR-0002 (accepted)    supersedes: ADR-0001
-    SPEC-001 (approved)    refs: [PRD-001, ADR-0001]   <-- STALE
+    ADR-00000000000000000000000001 (superseded)  superseded-by: ADR-00000000000000000000000002
+    ADR-00000000000000000000000002 (accepted)    supersedes: ADR-00000000000000000000000001
+    SPEC-00000000000000000000000001 (approved)
+      refs: [PRD-00000000000000000000000001, ADR-00000000000000000000000001]   <-- STALE
 
     Expected: FAIL
     """
@@ -1214,8 +1294,8 @@ def scenario_supersede_then_cascade(tmp_path):
             1,
             "Per-seat billing",
             "superseded",
-            references=["PRD-001"],
-            superseded_by="ADR-0002",
+            references=["PRD-00000000000000000000000001"],
+            superseded_by="ADR-00000000000000000000000002",
         ),
     )
     write_doc(
@@ -1227,8 +1307,8 @@ def scenario_supersede_then_cascade(tmp_path):
             2,
             "Metered billing",
             "accepted",
-            references=["PRD-001"],
-            supersedes="ADR-0001",
+            references=["PRD-00000000000000000000000001"],
+            supersedes="ADR-00000000000000000000000001",
         ),
     )
     write_doc(
@@ -1236,19 +1316,29 @@ def scenario_supersede_then_cascade(tmp_path):
         "spec",
         1,
         "Billing API",
-        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0001"]),
+        _spec(
+            1,
+            "Billing API",
+            "approved",
+            references=["PRD-00000000000000000000000001", "ADR-00000000000000000000000001"],
+        ),
     )
     return proj
 
 
 def scenario_supersede_cascade_fixed(tmp_path):
-    """Phase 2: SPEC-001 updated to reference ADR-0002. Expected: PASS."""
+    """Phase 2: SPEC-00000000000000000000000001 updated to reference ADR-00000000000000000000000002. Expected: PASS."""
     proj = scenario_supersede_then_cascade(tmp_path)
     write_doc(
         proj,
         "spec",
         1,
         "Billing API",
-        _spec(1, "Billing API", "approved", references=["PRD-001", "ADR-0002"]),
+        _spec(
+            1,
+            "Billing API",
+            "approved",
+            references=["PRD-00000000000000000000000001", "ADR-00000000000000000000000002"],
+        ),
     )
     return proj

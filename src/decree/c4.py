@@ -4,7 +4,7 @@ Opt-in module: activated when a doc type has [types.*.c4] configured.
 Validates hierarchy (parent), dependencies (depends-on), field presence,
 and generates Mermaid C4Container diagrams.
 
-See: decree/spec/001-c4-validation-and-diagram-generation.md
+See: decree/spec/spec-01kt22nmrwenykc3mgra50m7ge-c4-validation-and-diagram-generation.md
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ class C4Config:
     """Configuration for C4 architecture support on a doc type."""
 
     enabled: bool
-    id_field: str = "id"
+    id_field: str = "c4_id"
     levels: tuple[str, ...] = ("system", "container", "component")
 
 

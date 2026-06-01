@@ -1,10 +1,9 @@
-"""Tests for the SQLite provenance index (SPEC-003)."""
+"""Tests for the SQLite provenance index (SPEC-00000000000000000000000003)."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 from pathlib import Path
 
 import pytest
@@ -13,11 +12,9 @@ from decree.index_db import (
     INDEX_DIR_NAME,
     INDEX_FILENAME,
     SCHEMA_VERSION,
-    DriftFinding,
     IndexDB,
     default_db_path,
 )
-
 
 # ── Fixtures ───────────────────────────────────────────────
 
@@ -85,41 +82,44 @@ def _write_corpus(root: Path) -> None:
     (root / "decree.toml").write_text(_minimal_decree_toml())
     for sub in ("prd", "adr", "spec"):
         (root / "decree" / sub).mkdir(parents=True)
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-12
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose explaining the problem.
 """
     )
-    (root / "decree" / "adr" / "0001-test.md").write_text(
+    (root / "decree" / "adr" / "adr-00000000000000000000000001-test.md").write_text(
         """---
+id: ADR-00000000000000000000000001
 status: accepted
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 ---
 
-# ADR-0001 Test ADR
+# ADR-00000000000000000000000001 Test ADR
 
 ## Context and Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-test.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: draft
 date: 2026-05-12
-references: [PRD-001, ADR-0001]
+references: [PRD-00000000000000000000000001, ADR-00000000000000000000000001]
 ---
 
-# SPEC-001 Test SPEC
+# SPEC-00000000000000000000000001 Test SPEC
 
 ## Overview
 
@@ -192,17 +192,21 @@ class TestRebuild:
         assert stats.decisions == 3
         rows = list(db.db["decisions"].rows)
         ids = sorted(r["id"] for r in rows)
-        assert ids == ["ADR-0001", "PRD-001", "SPEC-001"]
+        assert ids == [
+            "ADR-00000000000000000000000001",
+            "PRD-00000000000000000000000001",
+            "SPEC-00000000000000000000000001",
+        ]
 
     def test_rebuild_populates_refs(self, monkeypatch, project: Path):
         monkeypatch.chdir(project)
         db = IndexDB(default_db_path(project))
         db.rebuild(project)
         refs = sorted((r["from_id"], r["to_id"], r["kind"]) for r in db.db["refs"].rows)
-        # ADR-0001 → PRD-001, SPEC-001 → PRD-001, SPEC-001 → ADR-0001
-        assert ("ADR-0001", "PRD-001", "references") in refs
-        assert ("SPEC-001", "PRD-001", "references") in refs
-        assert ("SPEC-001", "ADR-0001", "references") in refs
+        # Expected refs: ADR -> PRD, SPEC -> PRD, SPEC -> ADR.
+        assert ("ADR-00000000000000000000000001", "PRD-00000000000000000000000001", "references") in refs
+        assert ("SPEC-00000000000000000000000001", "PRD-00000000000000000000000001", "references") in refs
+        assert ("SPEC-00000000000000000000000001", "ADR-00000000000000000000000001", "references") in refs
 
     def test_rebuild_classifies_acceptance_criteria(self, monkeypatch, project: Path):
         monkeypatch.chdir(project)
@@ -240,7 +244,13 @@ class TestRebuild:
         db.rebuild(project)
         # Insert a fake commit row
         db.db["commits"].insert(
-            {"sha": "abc123", "decision_id": "SPEC-001", "trailer_kind": "Implements", "summary": "test", "committed_at": "2026-05-12"},
+            {
+                "sha": "abc123",
+                "decision_id": "SPEC-00000000000000000000000001",
+                "trailer_kind": "Implements",
+                "summary": "test",
+                "committed_at": "2026-05-12",
+            },
             replace=True,
         )
         assert db.db["commits"].count == 1
@@ -258,23 +268,24 @@ class TestRebuild:
         assert h1 == h2
 
     def test_rebuild_populates_governs_from_typed_field(self, monkeypatch, project: Path):
-        """SPEC-004: rebuild reads governs off doc.meta.governs (typed) and splits #symbol."""
+        """SPEC-00000000000000000000000004: rebuild reads governs off doc.meta.governs (typed) and splits #symbol."""
         monkeypatch.chdir(project)
-        # Replace SPEC-001 with a governs block (paths must exist for parser to accept).
+        # Replace SPEC-00000000000000000000000001 with a governs block (paths must exist for parser to accept).
         (project / "src").mkdir()
         (project / "src" / "foo.py").touch()
         (project / "src" / "bar.py").touch()
-        (project / "decree" / "spec" / "001-test.md").write_text(
+        (project / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
             """---
+id: SPEC-00000000000000000000000001
 status: draft
 date: 2026-05-12
-references: [PRD-001, ADR-0001]
+references: [PRD-00000000000000000000000001, ADR-00000000000000000000000001]
 governs:
   - src/foo.py
   - src/bar.py#baz
 ---
 
-# SPEC-001 Test SPEC
+# SPEC-00000000000000000000000001 Test SPEC
 
 ## Overview
 
@@ -283,14 +294,11 @@ Prose.
         )
         db = IndexDB(default_db_path(project))
         stats = db.rebuild(project)
-        # Two governs rows for SPEC-001.
-        rows = sorted(
-            (r["decision_id"], r["path"], r["symbol"], r["order_index"])
-            for r in db.db["governs"].rows
-        )
+        # Two governs rows for SPEC-00000000000000000000000001.
+        rows = sorted((r["decision_id"], r["path"], r["symbol"], r["order_index"]) for r in db.db["governs"].rows)
         assert rows == [
-            ("SPEC-001", "src/bar.py", "baz", 1),
-            ("SPEC-001", "src/foo.py", "", 0),
+            ("SPEC-00000000000000000000000001", "src/bar.py", "baz", 1),
+            ("SPEC-00000000000000000000000001", "src/foo.py", "", 0),
         ]
         assert stats.governs == 2
 
@@ -320,27 +328,30 @@ class TestVerify:
         db = IndexDB(default_db_path(project))
         db.rebuild(project)
 
-        spec_path = project / "decree" / "spec" / "001-test.md"
+        spec_path = project / "decree" / "spec" / "spec-00000000000000000000000001-test.md"
         text = spec_path.read_text()
         spec_path.write_text(text + "\nAdded line after rebuild.\n")
 
         findings = db.verify(project)
-        assert any(f.kind == "body_hash_mismatch" and f.decision_id == "SPEC-001" for f in findings)
+        assert any(
+            f.kind == "body_hash_mismatch" and f.decision_id == "SPEC-00000000000000000000000001" for f in findings
+        )
 
     def test_verify_detects_missing_in_index(self, monkeypatch, project: Path):
         monkeypatch.chdir(project)
         db = IndexDB(default_db_path(project))
         db.rebuild(project)
         # Add a new spec after rebuild
-        new_spec = project / "decree" / "spec" / "002-new.md"
+        new_spec = project / "decree" / "spec" / "spec-00000000000000000000000002-new.md"
         new_spec.write_text(
             """---
+id: SPEC-00000000000000000000000002
 status: draft
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 ---
 
-# SPEC-002 New SPEC
+# SPEC-00000000000000000000000002 New SPEC
 
 ## Overview
 
@@ -348,16 +359,18 @@ Prose.
 """
         )
         findings = db.verify(project)
-        assert any(f.kind == "missing_in_index" and f.decision_id == "SPEC-002" for f in findings)
+        assert any(
+            f.kind == "missing_in_index" and f.decision_id == "SPEC-00000000000000000000000002" for f in findings
+        )
 
     def test_verify_detects_stale_in_index(self, monkeypatch, project: Path):
         monkeypatch.chdir(project)
         db = IndexDB(default_db_path(project))
         db.rebuild(project)
         # Remove a spec from disk after rebuild
-        (project / "decree" / "spec" / "001-test.md").unlink()
+        (project / "decree" / "spec" / "spec-00000000000000000000000001-test.md").unlink()
         findings = db.verify(project)
-        assert any(f.kind == "stale_in_index" and f.decision_id == "SPEC-001" for f in findings)
+        assert any(f.kind == "stale_in_index" and f.decision_id == "SPEC-00000000000000000000000001" for f in findings)
 
     def test_verify_index_missing(self, monkeypatch, project: Path):
         monkeypatch.chdir(project)
@@ -375,10 +388,10 @@ class TestFTS:
         monkeypatch.chdir(project)
         db = IndexDB(default_db_path(project))
         db.rebuild(project)
-        # Search for a body-only term — should hit SPEC-001
+        # Search for a body-only term — should hit SPEC-00000000000000000000000001
         rows = list(db.db.conn.execute("SELECT id FROM decisions_fts WHERE decisions_fts MATCH 'primary' "))
         ids = {r[0] for r in rows}
-        assert "SPEC-001" in ids
+        assert "SPEC-00000000000000000000000001" in ids
 
 
 # ── Storage location ───────────────────────────────────────────
@@ -451,14 +464,26 @@ class TestCli:
 
         rebuild_run(argparse.Namespace(project=None))
         # Mutate after rebuild
-        (project / "decree" / "spec" / "001-test.md").write_text(
-            "---\nstatus: draft\ndate: 2026-05-12\nreferences: [PRD-001]\n---\n\n# SPEC-001 Mutated\n\n## Overview\n\nChanged.\n"
+        (project / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
+            """---
+id: SPEC-00000000000000000000000001
+status: draft
+date: 2026-05-12
+references: [PRD-00000000000000000000000001]
+---
+
+# SPEC-00000000000000000000000001 Mutated
+
+## Overview
+
+Changed.
+"""
         )
         rc = verify_run(argparse.Namespace(project=None, json=False))
         assert rc == 1
 
 
-# ── Git-trailer ingestion (SPEC-006) ─────────────────────────
+# ── Git-trailer ingestion (SPEC-00000000000000000000000006) ─────────────────────────
 
 
 def _git_init(repo: Path) -> None:
@@ -490,37 +515,38 @@ def _git_commit(repo: Path, file_name: str, message: str) -> str:
 class TestSyncCommitsFromGit:
     def test_simple_implements_trailer(self, tmp_path: Path):
         _git_init(tmp_path)
-        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-001")
+        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-00000000000000000000000001")
         db = IndexDB(default_db_path(tmp_path))
         rows, ms = db.sync_commits_from_git(tmp_path)
         assert rows == 1
         assert ms >= 0
-        row = list(db.db.conn.execute("SELECT decision_id, trailer_kind FROM commits"))[0]
-        assert row == ("SPEC-001", "Implements")
+        row = next(db.db.conn.execute("SELECT decision_id, trailer_kind FROM commits"))
+        assert row == ("SPEC-00000000000000000000000001", "Implements")
 
     def test_multi_value_trailer_yields_multiple_rows(self, tmp_path: Path):
         _git_init(tmp_path)
-        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-001, SPEC-002")
+        _git_commit(
+            tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-00000000000000000000000001, SPEC-00000000000000000000000002"
+        )
         db = IndexDB(default_db_path(tmp_path))
         rows, _ = db.sync_commits_from_git(tmp_path)
         assert rows == 2
-        ids = sorted(
-            r[0] for r in db.db.conn.execute("SELECT decision_id FROM commits")
-        )
-        assert ids == ["SPEC-001", "SPEC-002"]
+        ids = sorted(r[0] for r in db.db.conn.execute("SELECT decision_id FROM commits"))
+        assert ids == ["SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002"]
 
     def test_refs_and_fixes_kinds_preserved(self, tmp_path: Path):
         _git_init(tmp_path)
         _git_commit(
             tmp_path,
             "a.txt",
-            "fix: a\n\nImplements: SPEC-001\nRefs: ADR-0002\nFixes: SPEC-003",
+            "fix: a\n\n"
+            "Implements: SPEC-00000000000000000000000001\n"
+            "Refs: ADR-00000000000000000000000002\n"
+            "Fixes: SPEC-00000000000000000000000003",
         )
         db = IndexDB(default_db_path(tmp_path))
         db.sync_commits_from_git(tmp_path)
-        kinds = sorted(
-            r[0] for r in db.db.conn.execute("SELECT trailer_kind FROM commits")
-        )
+        kinds = sorted(r[0] for r in db.db.conn.execute("SELECT trailer_kind FROM commits"))
         assert kinds == ["Fixes", "Implements", "Refs"]
 
     def test_non_git_project_is_noop(self, tmp_path: Path):
@@ -540,9 +566,20 @@ class TestSyncCommitsFromGit:
         rows, _ = db.sync_commits_from_git(tmp_path)
         assert rows == 0
 
+    def test_invalid_numeric_trailer_is_reported_and_skipped(self, tmp_path: Path, capsys):
+        _git_init(tmp_path)
+        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-006")
+        db = IndexDB(default_db_path(tmp_path))
+
+        rows, _ = db.sync_commits_from_git(tmp_path)
+
+        assert rows == 0
+        assert db.last_invalid_git_trailers == 1
+        assert "invalid git trailer" in capsys.readouterr().err
+
     def test_summary_and_committed_at_populated(self, tmp_path: Path):
         _git_init(tmp_path)
-        _git_commit(tmp_path, "a.txt", "feat: my subject\n\nImplements: SPEC-001")
+        _git_commit(tmp_path, "a.txt", "feat: my subject\n\nImplements: SPEC-00000000000000000000000001")
         db = IndexDB(default_db_path(tmp_path))
         db.sync_commits_from_git(tmp_path)
         row = next(db.db.conn.execute("SELECT summary, committed_at FROM commits"))
@@ -559,7 +596,7 @@ class TestSyncCommitsFromGit:
 
         subprocess.run(["git", "-C", str(project), "add", "."], check=True)
         subprocess.run(
-            ["git", "-C", str(project), "commit", "-m", "feat: corpus\n\nImplements: SPEC-001"],
+            ["git", "-C", str(project), "commit", "-m", "feat: corpus\n\nImplements: SPEC-00000000000000000000000001"],
             check=True,
             capture_output=True,
         )
@@ -571,7 +608,7 @@ class TestSyncCommitsFromGit:
     def test_commits_gc_on_rewrite(self, tmp_path: Path):
         """SHAs not in current git log are wiped on next sync."""
         _git_init(tmp_path)
-        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-001")
+        _git_commit(tmp_path, "a.txt", "feat: a\n\nImplements: SPEC-00000000000000000000000001")
         db = IndexDB(default_db_path(tmp_path))
         db.sync_commits_from_git(tmp_path)
         assert next(db.db.conn.execute("SELECT COUNT(*) FROM commits"))[0] == 1
@@ -580,7 +617,7 @@ class TestSyncCommitsFromGit:
         # commit that the previous sync had recorded.
         db.db.conn.execute(  # type: ignore[attr-defined]
             "INSERT INTO commits VALUES ('deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', "
-            "'SPEC-999', 'Implements', 'phantom', '2026-01-01T00:00:00+00:00')"
+            "'SPEC-00000000000000000000000999', 'Implements', 'phantom', '2026-01-01T00:00:00+00:00')"
         )
         db.db.conn.commit()  # type: ignore[attr-defined]
         # Confirm phantom landed.
@@ -588,8 +625,6 @@ class TestSyncCommitsFromGit:
 
         # Re-sync. The phantom is purged because we wipe-and-insert.
         db.sync_commits_from_git(tmp_path)
-        shas = {
-            r[0] for r in db.db.conn.execute("SELECT sha FROM commits")
-        }
+        shas = {r[0] for r in db.db.conn.execute("SELECT sha FROM commits")}
         assert "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" not in shas
         assert next(db.db.conn.execute("SELECT COUNT(*) FROM commits"))[0] == 1

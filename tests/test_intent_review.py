@@ -1,4 +1,4 @@
-"""SPEC-009 — intent-review tests.
+"""SPEC-00000000000000000000000009 — intent-review tests.
 
 Mirrors the fixture patterns from `tests/test_queries.py` and the tmp git-repo
 recipe from `tests/test_health.py`.
@@ -16,18 +16,13 @@ from pathlib import Path
 import pytest
 
 from decree.commands.intent_review import (
-    Conflict,
-    GoverningSnapshot,
     IntentReport,
-    Recommendation,
-    UncheckedAC,
     intent_review,
     intent_review_run,
     parse_diff,
     report_to_dict,
 )
 from decree.index_db import IndexDB, default_db_path
-
 
 # ── Fixture helpers ─────────────────────────────────────────
 
@@ -92,36 +87,38 @@ implement = "implemented"
 
 
 def _write_corpus_basic(root: Path, *, spec_status: str = "implemented") -> None:
-    """SPEC-001 governing src/foo.py, with one optional unchecked AC."""
+    """SPEC-00000000000000000000000001 governing src/foo.py, with one optional unchecked AC."""
     (root / "decree.toml").write_text(_decree_toml())
     for sub in ("prd", "adr", "spec"):
         (root / "decree" / sub).mkdir(parents=True)
     (root / "src").mkdir()
     (root / "src" / "foo.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-test.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-test.md").write_text(
         f"""---
+id: SPEC-00000000000000000000000001
 status: {spec_status}
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 Test SPEC
+# SPEC-00000000000000000000000001 Test SPEC
 
 ## Overview
 
@@ -136,52 +133,55 @@ Prose.
 
 
 def _write_corpus_two_specs_same_file(root: Path) -> None:
-    """SPEC-001 and SPEC-002 both declaring governs: src/foo.py."""
+    """SPEC-00000000000000000000000001 and SPEC-00000000000000000000000002 both declaring governs: src/foo.py."""
     (root / "decree.toml").write_text(_decree_toml())
     for sub in ("prd", "adr", "spec"):
         (root / "decree" / sub).mkdir(parents=True)
     (root / "src").mkdir()
     (root / "src" / "foo.py").touch()
 
-    (root / "decree" / "prd" / "001-test.md").write_text(
+    (root / "decree" / "prd" / "prd-00000000000000000000000001-test.md").write_text(
         """---
+id: PRD-00000000000000000000000001
 status: approved
 date: 2026-05-10
 ---
 
-# PRD-001 Test PRD
+# PRD-00000000000000000000000001 Test PRD
 
 ## Problem Statement
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "001-a.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000001-a.md").write_text(
         """---
+id: SPEC-00000000000000000000000001
 status: implemented
 date: 2026-05-01
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-001 A
+# SPEC-00000000000000000000000001 A
 
 ## Overview
 
 Prose.
 """
     )
-    (root / "decree" / "spec" / "002-b.md").write_text(
+    (root / "decree" / "spec" / "spec-00000000000000000000000002-b.md").write_text(
         """---
+id: SPEC-00000000000000000000000002
 status: draft
 date: 2026-05-12
-references: [PRD-001]
+references: [PRD-00000000000000000000000001]
 governs:
   - src/foo.py
 ---
 
-# SPEC-002 B
+# SPEC-00000000000000000000000002 B
 
 ## Overview
 
@@ -313,9 +313,7 @@ class TestParseDiff:
 
 
 class TestIntentReviewLibrary:
-    def test_empty_changed_paths(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_empty_changed_paths(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
         report = intent_review(db, root, [])
         assert isinstance(report, IntentReport)
@@ -326,9 +324,7 @@ class TestIntentReviewLibrary:
         assert report.conflicts == ()
         assert report.recommended_actions == ()
 
-    def test_ungoverned_path(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_ungoverned_path(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
         report = intent_review(db, root, ["src/unknown.py"])
         assert report.governing_decisions == ()
@@ -338,21 +334,17 @@ class TestIntentReviewLibrary:
         gov_recs = [r for r in report.recommended_actions if r.action == "add_governance"]
         assert any("src/unknown.py" in r.detail for r in gov_recs)
 
-    def test_one_governing_decision(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_one_governing_decision(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
         report = intent_review(db, root, ["src/foo.py"])
         assert len(report.governing_decisions) == 1
         snap = report.governing_decisions[0]
-        assert snap.decision_id == "SPEC-001"
+        assert snap.decision_id == "SPEC-00000000000000000000000001"
         assert snap.status == "implemented"
         assert snap.match_kind == "exact"
 
-    def test_unchecked_ac_surfaced_for_in_flight_spec(
-        self, in_flight_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
-        # SPEC-001 is draft (non-terminal) so its unchecked AC should surface.
+    def test_unchecked_ac_surfaced_for_in_flight_spec(self, in_flight_db_and_root: tuple[IndexDB, Path]) -> None:
+        # SPEC-00000000000000000000000001 is draft (non-terminal) so its unchecked AC should surface.
         db, root = in_flight_db_and_root
         report = intent_review(db, root, ["src/foo.py"])
         ac_texts = [ac.text for ac in report.unchecked_acceptance_criteria]
@@ -362,42 +354,32 @@ class TestIntentReviewLibrary:
         actions = {r.action for r in report.recommended_actions}
         assert "check_ac" in actions
 
-    def test_unchecked_ac_not_surfaced_for_terminal_spec(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
-        # SPEC-001 is `implemented` (terminal) → don't surface its ACs.
+    def test_unchecked_ac_not_surfaced_for_terminal_spec(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        # SPEC-00000000000000000000000001 is `implemented` (terminal) → don't surface its ACs.
         db, root = basic_db_and_root
         report = intent_review(db, root, ["src/foo.py"])
         assert report.unchecked_acceptance_criteria == ()
 
-    def test_structural_conflict_detected(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_structural_conflict_detected(self, tmp_path: Path, monkeypatch) -> None:
         _write_corpus_two_specs_same_file(tmp_path)
         db = _rebuild_index(tmp_path, monkeypatch)
         report = intent_review(db, tmp_path, ["src/foo.py"])
         assert len(report.conflicts) == 1
         c = report.conflicts[0]
         assert c.path == "src/foo.py"
-        assert set(c.decision_ids) == {"SPEC-001", "SPEC-002"}
+        assert set(c.decision_ids) == {"SPEC-00000000000000000000000001", "SPEC-00000000000000000000000002"}
         actions = {r.action for r in report.recommended_actions}
         assert "resolve_conflict" in actions
 
-    def test_add_implements_trailer_for_in_flight_spec(
-        self, in_flight_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_add_implements_trailer_for_in_flight_spec(self, in_flight_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = in_flight_db_and_root
         report = intent_review(db, root, ["src/foo.py"])
         actions = {r.action for r in report.recommended_actions}
         assert "add_implements_trailer" in actions
-        rec = next(
-            r for r in report.recommended_actions if r.action == "add_implements_trailer"
-        )
-        assert rec.target_id == "SPEC-001"
+        rec = next(r for r in report.recommended_actions if r.action == "add_implements_trailer")
+        assert rec.target_id == "SPEC-00000000000000000000000001"
 
-    def test_dedupes_changed_paths(
-        self, basic_db_and_root: tuple[IndexDB, Path]
-    ) -> None:
+    def test_dedupes_changed_paths(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
         db, root = basic_db_and_root
         report = intent_review(db, root, ["src/foo.py", "src/foo.py"])
         assert report.changed_paths == ("src/foo.py",)
@@ -431,9 +413,7 @@ def _commit(repo: Path, file_path: str, body: str, message: str) -> None:
 
 
 class TestIntentReviewStale:
-    def test_stale_governance_surfaced(
-        self, tmp_path: Path, monkeypatch
-    ) -> None:
+    def test_stale_governance_surfaced(self, tmp_path: Path, monkeypatch) -> None:
         # Build a fresh git repo with one SPEC governing src/foo.py.
         _git_init(tmp_path)
         _write_corpus_basic(tmp_path)
@@ -448,14 +428,12 @@ class TestIntentReviewStale:
             _commit(tmp_path, "src/foo.py", f"v{i}\n", f"edit {i}")
 
         report = intent_review(db, tmp_path, ["src/foo.py"], threshold_commits=10)
-        # SPEC-001 should appear as stale governance.
+        # SPEC-00000000000000000000000001 should appear as stale governance.
         stale_ids = {s["decision_id"] for s in report.stale_governance}
-        assert "SPEC-001" in stale_ids
+        assert "SPEC-00000000000000000000000001" in stale_ids
         # And a recommendation to update_decision should be emitted.
-        update_recs = [
-            r for r in report.recommended_actions if r.action == "update_decision"
-        ]
-        assert any(r.target_id == "SPEC-001" for r in update_recs)
+        update_recs = [r for r in report.recommended_actions if r.action == "update_decision"]
+        assert any(r.target_id == "SPEC-00000000000000000000000001" for r in update_recs)
 
 
 # ── JSON shape ──────────────────────────────────────────────
@@ -490,25 +468,18 @@ def _make_args(**kw) -> argparse.Namespace:
 
 
 class TestIntentReviewCLI:
-    def test_diff_from_file(
-        self, basic_db_and_root: tuple[IndexDB, Path], tmp_path: Path, capsys
-    ) -> None:
+    def test_diff_from_file(self, basic_db_and_root: tuple[IndexDB, Path], tmp_path: Path, capsys) -> None:
         _db, root = basic_db_and_root
         diff_path = tmp_path / "patch.diff"
         diff_path.write_text(
-            "diff --git a/src/foo.py b/src/foo.py\n"
-            "--- a/src/foo.py\n"
-            "+++ b/src/foo.py\n"
-            "@@ -1 +1 @@\n"
-            "-x\n"
-            "+y\n"
+            "diff --git a/src/foo.py b/src/foo.py\n--- a/src/foo.py\n+++ b/src/foo.py\n@@ -1 +1 @@\n-x\n+y\n"
         )
         args = _make_args(diff=str(diff_path), project=str(root))
         rc = intent_review_run(args)
         out = capsys.readouterr().out
         assert rc == 0
         assert "src/foo.py" in out
-        assert "SPEC-001" in out
+        assert "SPEC-00000000000000000000000001" in out
 
     def test_diff_from_stdin(
         self,
@@ -517,11 +488,7 @@ class TestIntentReviewCLI:
         capsys,
     ) -> None:
         _db, root = basic_db_and_root
-        diff_text = (
-            "diff --git a/src/foo.py b/src/foo.py\n"
-            "--- a/src/foo.py\n"
-            "+++ b/src/foo.py\n"
-        )
+        diff_text = "diff --git a/src/foo.py b/src/foo.py\n--- a/src/foo.py\n+++ b/src/foo.py\n"
         monkeypatch.setattr("sys.stdin", io.StringIO(diff_text))
         args = _make_args(diff="-", project=str(root))
         rc = intent_review_run(args)
@@ -546,7 +513,7 @@ class TestIntentReviewCLI:
         rc = intent_review_run(args)
         out = capsys.readouterr().out
         assert "src/foo.py" in out
-        # SPEC-001 governs src/foo.py and is in terminal status, so exit 0.
+        # SPEC-00000000000000000000000001 governs src/foo.py and is in terminal status, so exit 0.
         assert rc == 0
 
     def test_json_output_schema(
@@ -557,11 +524,7 @@ class TestIntentReviewCLI:
     ) -> None:
         _db, root = basic_db_and_root
         diff_path = tmp_path / "patch.diff"
-        diff_path.write_text(
-            "diff --git a/src/foo.py b/src/foo.py\n"
-            "--- a/src/foo.py\n"
-            "+++ b/src/foo.py\n"
-        )
+        diff_path.write_text("diff --git a/src/foo.py b/src/foo.py\n--- a/src/foo.py\n+++ b/src/foo.py\n")
         args = _make_args(diff=str(diff_path), json=True, project=str(root))
         rc = intent_review_run(args)
         out = capsys.readouterr().out
@@ -576,17 +539,11 @@ class TestIntentReviewCLI:
         }
         assert rc == 0
 
-    def test_exit_code_1_on_conflict(
-        self, tmp_path: Path, monkeypatch, capsys
-    ) -> None:
+    def test_exit_code_1_on_conflict(self, tmp_path: Path, monkeypatch, capsys) -> None:
         _write_corpus_two_specs_same_file(tmp_path)
         _rebuild_index(tmp_path, monkeypatch)
         diff_path = tmp_path / "patch.diff"
-        diff_path.write_text(
-            "diff --git a/src/foo.py b/src/foo.py\n"
-            "--- a/src/foo.py\n"
-            "+++ b/src/foo.py\n"
-        )
+        diff_path.write_text("diff --git a/src/foo.py b/src/foo.py\n--- a/src/foo.py\n+++ b/src/foo.py\n")
         args = _make_args(diff=str(diff_path), project=str(tmp_path))
         rc = intent_review_run(args)
         capsys.readouterr()
@@ -601,9 +558,7 @@ class TestIntentReviewCLI:
         _db, root = basic_db_and_root
         diff_path = tmp_path / "patch.diff"
         diff_path.write_text(
-            "diff --git a/src/unrelated.py b/src/unrelated.py\n"
-            "--- a/src/unrelated.py\n"
-            "+++ b/src/unrelated.py\n"
+            "diff --git a/src/unrelated.py b/src/unrelated.py\n--- a/src/unrelated.py\n+++ b/src/unrelated.py\n"
         )
         args = _make_args(diff=str(diff_path), project=str(root))
         rc = intent_review_run(args)

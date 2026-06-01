@@ -1,13 +1,13 @@
-"""SPEC-013 — confidence gates + calibration tests."""
+"""SPEC-00000000000000000000000013 — confidence gates + calibration tests."""
 
 from __future__ import annotations
 
 import json
-import math
 from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from decree.eval.calibration import (
     Calibration,
@@ -33,10 +33,8 @@ from decree.eval.gates import (
 )
 from decree.eval.methods import KeywordBaseline, KeywordCalibrated
 from decree.eval.schema import Query, QuerySet
-from decree.index_db import IndexDB, default_db_path
-
+from decree.index_db import IndexDB
 from tests.test_queries import _rebuild_index, _write_basic_corpus
-
 
 # ── Helpers ────────────────────────────────────────────────
 
@@ -47,7 +45,7 @@ def _basic_db(tmp_path: Path, monkeypatch) -> IndexDB:
 
 
 def _row(
-    decision_id: str = "SPEC-001",
+    decision_id: str = "SPEC-00000000000000000000000001",
     rank: int = 0,
     raw_score: float = 5.0,
     title: str = "Example",
@@ -86,13 +84,13 @@ class TestDominanceGate:
         assert sig.score == 1.0
 
     def test_clean_dominance(self):
-        rows = [_row(raw_score=10.0), _row(decision_id="SPEC-002", rank=1, raw_score=2.0)]
+        rows = [_row(raw_score=10.0), _row(decision_id="SPEC-00000000000000000000000002", rank=1, raw_score=2.0)]
         sig = dominance_gate(_q(), rows, db=None)  # type: ignore[arg-type]
         # 10/2 = 5 → saturates at 1.0
         assert sig.score == 1.0
 
     def test_close_race(self):
-        rows = [_row(raw_score=10.0), _row(decision_id="SPEC-002", rank=1, raw_score=9.0)]
+        rows = [_row(raw_score=10.0), _row(decision_id="SPEC-00000000000000000000000002", rank=1, raw_score=9.0)]
         sig = dominance_gate(_q(), rows, db=None)  # type: ignore[arg-type]
         # 10/9 / 2 ≈ 0.55
         assert 0.5 < sig.score < 0.6
@@ -106,7 +104,7 @@ class TestIdentifierCitationGate:
     def test_full_hit(self):
         rows = [
             _row(
-                title="SPEC-003 SQLite Provenance Index",
+                title="SPEC-00000000000000000000000003 SQLite Provenance Index",
                 governs_paths=("src/decree/index_db.py",),
             )
         ]
@@ -115,9 +113,7 @@ class TestIdentifierCitationGate:
         assert sig.score == 1.0
 
     def test_partial_hit(self):
-        rows = [
-            _row(title="something unrelated", governs_paths=("src/decree/other.py",))
-        ]
+        rows = [_row(title="something unrelated", governs_paths=("src/decree/other.py",))]
         sig = identifier_citation_gate(_q("src/decree/index_db.py"), rows, db=None)  # type: ignore[arg-type]
         # tokens: src, decree, index, db, py — index/db missing from haystack
         assert 0 < sig.score < 1.0
@@ -280,7 +276,7 @@ class TestPickThreshold:
 class TestEnrichRows:
     def test_pulls_body_and_governs(self, tmp_path: Path, monkeypatch):
         db = _basic_db(tmp_path, monkeypatch)
-        rows = enrich_rows(db, ["SPEC-001"])
+        rows = enrich_rows(db, ["SPEC-00000000000000000000000001"])
         assert len(rows) == 1
         r = rows[0]
         assert r.title.startswith("Test SPEC") or "SPEC" in r.title
@@ -315,10 +311,19 @@ class TestCalibrationRoundTrip:
 
     def test_read_rejects_extra(self, tmp_path: Path):
         path = tmp_path / "cal.json"
-        path.write_text(json.dumps({"method_name": "x", "threshold": 0.5, "target_precision": 0.9,
-                                    "calibrated_at": "2026-05-12", "n_calibration_queries": 1,
-                                    "extra_field": "boom"}))
-        with pytest.raises(Exception):
+        path.write_text(
+            json.dumps(
+                {
+                    "method_name": "x",
+                    "threshold": 0.5,
+                    "target_precision": 0.9,
+                    "calibrated_at": "2026-05-12",
+                    "n_calibration_queries": 1,
+                    "extra_field": "boom",
+                }
+            )
+        )
+        with pytest.raises(ValidationError):
             read_calibration(path)
 
 
@@ -332,12 +337,9 @@ class TestCalibrationE2E:
         # A synthetic 6-query set; half are exact matches (label=1), half are
         # path queries to nonexistent files (label=0).
         queries = [
-            Query(id=f"hit-{i}", kind="file_path", query="src/foo.py", relevant=["SPEC-001"])
+            Query(id=f"hit-{i}", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"])
             for i in range(3)
-        ] + [
-            Query(id=f"miss-{i}", kind="file_path", query=f"src/nonexistent_{i}.py", relevant=[])
-            for i in range(3)
-        ]
+        ] + [Query(id=f"miss-{i}", kind="file_path", query=f"src/nonexistent_{i}.py", relevant=[]) for i in range(3)]
         qs = QuerySet(corpus="test", description="synthetic", queries=queries)
 
         cal = calibrate_method(
@@ -382,22 +384,40 @@ class TestKeywordCalibrated:
         save_calibration(cal, cal_dir / "keyword-v1.json")
         monkeypatch.chdir(tmp_path)
         from decree.config import get_project_root, load_doc_types
+
         get_project_root.cache_clear()
         load_doc_types.cache_clear()
 
         method = KeywordCalibrated()
         assert abs(method.threshold - 0.95) < 1e-6
 
-    def test_high_confidence_returns_baseline_results(
-        self, tmp_path: Path, monkeypatch
-    ):
+    def test_high_confidence_returns_baseline_results(self, tmp_path: Path, monkeypatch):
         db = _basic_db(tmp_path, monkeypatch)
-        # Use threshold=0 (no calibration installed) — method behaves like baseline.
-        method = KeywordCalibrated(calibration_path=tmp_path / "no-such.json")
-        q = Query(id="x", kind="file_path", query="src/foo.py", relevant=["SPEC-001"])
+        cal_path = tmp_path / "threshold-zero.json"
+        save_calibration(
+            Calibration(
+                method_name="keyword-v1",
+                target_precision=0.0,
+                threshold=0.0,
+                gate_weights={},
+                calibrated_at="2026-05-12T00:00:00+00:00",
+                n_calibration_queries=1,
+            ),
+            cal_path,
+        )
+        method = KeywordCalibrated(calibration_path=cal_path)
+        q = Query(id="x", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"])
         result = method.query(db, q, k=5)
-        assert "SPEC-001" in result
+        assert "SPEC-00000000000000000000000001" in result
         assert method.last_abstention_reason() is None
+
+    def test_missing_calibration_is_error(self, tmp_path: Path, monkeypatch):
+        db = _basic_db(tmp_path, monkeypatch)
+        method = KeywordCalibrated(calibration_path=tmp_path / "missing.json")
+        q = Query(id="x", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"])
+
+        with pytest.raises(FileNotFoundError, match="calibration not found"):
+            method.query(db, q, k=5)
 
     def test_low_confidence_abstains(self, tmp_path: Path, monkeypatch):
         db = _basic_db(tmp_path, monkeypatch)
@@ -415,7 +435,7 @@ class TestKeywordCalibrated:
             cal_path,
         )
         method = KeywordCalibrated(calibration_path=cal_path)
-        q = Query(id="x", kind="file_path", query="src/foo.py", relevant=["SPEC-001"])
+        q = Query(id="x", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"])
         result = method.query(db, q, k=5)
         assert result == []
         assert method.last_abstention_reason() is not None
@@ -424,12 +444,12 @@ class TestKeywordCalibrated:
         assert diag["threshold"] == 2.0
         assert diag["composite"] < 2.0
         assert len(diag["signals"]) == 7
-        assert diag["would_return"] == ["SPEC-001"]
+        assert diag["would_return"] == ["SPEC-00000000000000000000000001"]
 
     def test_compute_signals_returns_seven(self, tmp_path: Path, monkeypatch):
         db = _basic_db(tmp_path, monkeypatch)
-        q = Query(id="x", kind="file_path", query="src/foo.py", relevant=["SPEC-001"])
-        rows = enrich_rows(db, ["SPEC-001"])
+        q = Query(id="x", kind="file_path", query="src/foo.py", relevant=["SPEC-00000000000000000000000001"])
+        rows = enrich_rows(db, ["SPEC-00000000000000000000000001"])
         signals = compute_signals(q, rows, db)
         names = [s.name for s in signals]
         assert names == [

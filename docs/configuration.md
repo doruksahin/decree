@@ -16,7 +16,7 @@ Each `[types.<name>]` section defines a document type. You can define as many ty
 |-------|------|----------|---------|-------------|
 | `dir` | string | no | `"docs/<name>"` | Directory where documents of this type live (relative to project root) |
 | `prefix` | string | **yes** | — | ID prefix used in filenames and references (e.g., `"ADR"`, `"PRD"`) |
-| `digits` | integer | no | `4` | Number of zero-padded digits in document IDs (e.g., `4` → `ADR-0001`) |
+| `digits` | integer | no | `4` | Legacy numeric width used only by `decree migrate ids` when planning old sequential-corpus migrations |
 | `initial_status` | string | no | first entry in `statuses` | Status assigned to newly created documents |
 | `statuses` | list of strings | **yes** | — | All valid statuses for this document type |
 | `warn_on_reference` | list of strings | no | `[]` | Statuses that trigger a lint warning when referenced by other documents |
@@ -31,7 +31,7 @@ Each `[types.<name>]` section defines a document type. You can define as many ty
 
 `[types.<name>.actions]` defines named shortcuts for status transitions. Each key is an action name (used as a CLI verb), and its value is the target status.
 
-For example, `accept = "accepted"` allows `decree status accept ADR-0004` instead of specifying the target status directly.
+For example, `accept = "accepted"` allows `decree status ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ accept` instead of specifying the target status directly.
 
 ### Status Field Requirements
 
@@ -41,6 +41,24 @@ For example, `accept = "accepted"` allows `decree status accept ADR-0004` instea
 
 `[types.<name>.section_descriptions]` provides LLM-facing guidance text for required sections. Used by `decree new` to populate section descriptions in generated documents.
 
+## Document Identity
+
+Canonical document IDs are stored in frontmatter as `TYPE-ULID`, for example:
+
+```yaml
+id: SPEC-01KT22NMS0D19VMD8VPK4D2MNX
+status: draft
+date: 2026-06-01
+```
+
+New files are named `{id-lower}-{slug}.md`. This is intentionally distributed:
+parallel agents and git worktrees do not coordinate through a central sequence.
+
+The `digits` field remains only so `decree migrate ids` can plan migrations
+from legacy numeric files such as `001-example.md`. Normal runtime commands do
+not read filename-derived identities. New documents never use `digits` for
+identity generation.
+
 ## C4 Model Diagrams (Optional)
 
 `[types.<name>.c4]` enables C4 model diagram generation for a document type.
@@ -48,7 +66,7 @@ For example, `accept = "accepted"` allows `decree status accept ADR-0004` instea
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `enabled` | boolean | `false` | Whether C4 diagrams are enabled |
-| `id_field` | string | `"id"` | Frontmatter field used as the C4 element identifier |
+| `id_field` | string | `"c4_id"` | Frontmatter field used as the C4 element identifier. Do not use decree's `id` field for C4 node identity. |
 | `levels` | list of strings | `["system", "container", "component"]` | C4 abstraction levels to generate |
 
 ## Example Configuration
@@ -57,7 +75,6 @@ For example, `accept = "accepted"` allows `decree status accept ADR-0004` instea
 [types.prd]
 dir = "decree/prd"
 prefix = "PRD"
-digits = 3
 initial_status = "draft"
 statuses = ["draft", "review", "approved", "implemented", "archived"]
 warn_on_reference = ["archived"]
@@ -79,7 +96,6 @@ archive = "archived"
 [types.adr]
 dir = "decree/adr"
 prefix = "ADR"
-digits = 4
 initial_status = "proposed"
 statuses = ["proposed", "accepted", "rejected", "deprecated", "superseded"]
 warn_on_reference = ["rejected", "deprecated", "superseded"]
@@ -104,7 +120,6 @@ superseded = ["superseded-by"]
 [types.spec]
 dir = "decree/spec"
 prefix = "SPEC"
-digits = 3
 initial_status = "draft"
 statuses = ["draft", "review", "approved", "implemented"]
 required_sections = ["Overview", "Technical Design", "Testing Strategy"]

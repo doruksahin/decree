@@ -1,6 +1,6 @@
 """SQLite provenance-index for decree.
 
-Per ADR-0002 Option C (hybrid): this index is a *derived read-cache*.
+Per ADR-01KT22NMRV9CP14X5982JJH161 Option C (hybrid): this index is a *derived read-cache*.
 Frontmatter remains the authoring source of truth; the index is rebuilt
 from it deterministically.
 
@@ -14,10 +14,13 @@ import hashlib
 import json
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import sqlite_utils
+
+from decree.identity import require_doc_id
+from decree.log import warn
 
 SCHEMA_VERSION = 1
 INDEX_DIR_NAME = ".decree"
@@ -37,6 +40,7 @@ class RebuildStats:
     fts_indexed: int
     commits: int = 0
     git_sync_ms: int = 0
+    invalid_git_trailers: int = 0
 
 
 @dataclass(frozen=True)
@@ -51,7 +55,7 @@ class IndexStatus:
 @dataclass(frozen=True)
 class DriftFinding:
     decision_id: str
-    kind: str         # "body_hash_mismatch" / "missing_in_index" / "stale_in_index"
+    kind: str  # "body_hash_mismatch" / "missing_in_index" / "stale_in_index"
     detail: str
 
 
@@ -70,6 +74,7 @@ class IndexDB:
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite_utils.Database(str(db_path))
+        self.last_invalid_git_trailers = 0
 
     # ── Schema setup ────────────────────────────────────────
 
@@ -139,7 +144,7 @@ class IndexDB:
             )
             self.db["acceptance_criteria"].create_index(["decision_id"], if_not_exists=True)
 
-        # commits: SPEC↔commit links, populated by future SPEC-006
+        # commits: SPEC↔commit links, populated by future SPEC-01KT22NMRY8YK9RP4323KX4RQG
         if "commits" not in self.db.table_names():
             self.db["commits"].create(  # type: ignore[attr-defined]
                 {
@@ -166,25 +171,21 @@ class IndexDB:
         existing_tables = self.db.table_names()
         if "decisions_fts" not in existing_tables:
             self.db.conn.execute(  # type: ignore[attr-defined]
-                "CREATE VIRTUAL TABLE decisions_fts USING fts5("
-                "id UNINDEXED, title, body, tokenize='porter unicode61')"
+                "CREATE VIRTUAL TABLE decisions_fts USING fts5(id UNINDEXED, title, body, tokenize='porter unicode61')"
             )
 
     # ── Mutation: rebuild from corpus ───────────────────────
 
     def rebuild(self, project_root: Path) -> RebuildStats:
         """Full rebuild from frontmatter + body. Idempotent on content hash."""
-        from decree.commands.report import (
-            DEFAULT_DEFERRED_SECTION_PATTERNS,
-            _parse_checkboxes_by_section,
-        )
+        from decree.checklists import DEFAULT_DEFERRED_SECTION_PATTERNS, parse_checkboxes_by_section
         from decree.parser import load_all_types
 
         start = time.monotonic()
         self.init_schema()
 
         # Wipe markdown-derived tables. Do NOT wipe `commits` here — the
-        # SPEC-006 `sync_commits_from_git` call below owns that table and
+        # SPEC-01KT22NMRY8YK9RP4323KX4RQG `sync_commits_from_git` call below owns that table and
         # does its own wipe-and-insert against the live git log.
         with self.db.conn:  # type: ignore[attr-defined]
             self.db.conn.execute("DELETE FROM decisions")  # type: ignore[attr-defined]
@@ -194,8 +195,8 @@ class IndexDB:
             # body column is FTS-only; sqlite-utils stores FTS in a sibling table that
             # we'll rebuild at the end.
 
-        docs = load_all_types(strict=False)
-        now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        docs = load_all_types()
+        now_iso = datetime.now(UTC).isoformat(timespec="seconds")
 
         decisions_rows: list[dict] = []
         body_by_id: dict[str, str] = {}
@@ -235,7 +236,7 @@ class IndexDB:
             if doc.meta.superseded_by:
                 refs_rows.append({"from_id": doc.doc_id, "to_id": doc.meta.superseded_by, "kind": "superseded-by"})
 
-            # governs: typed field on DocFrontmatter (SPEC-004). Pydantic already
+            # governs: typed field on DocFrontmatter (SPEC-01KT22NMRXFWNE61NSETKATHBA). Pydantic already
             # validated syntax at load time; here we just split on `#` and emit rows.
             for i, entry in enumerate(doc.meta.governs or []):
                 path_part, _, symbol_part = entry.partition("#")
@@ -248,8 +249,8 @@ class IndexDB:
                     }
                 )
 
-            # acceptance criteria with primary/deferred split (reused from SPEC-002)
-            parsed = _parse_checkboxes_by_section(doc.body, DEFAULT_DEFERRED_SECTION_PATTERNS)
+            # acceptance criteria with primary/deferred split (reused from SPEC-01KT22NMRW79Y92MKZT807B2J1)
+            parsed = parse_checkboxes_by_section(doc.body, DEFAULT_DEFERRED_SECTION_PATTERNS)
             order = 0
             for section in parsed.primary:
                 for item in section.items:
@@ -290,10 +291,11 @@ class IndexDB:
         if ac_rows:
             self.db["acceptance_criteria"].insert_all(ac_rows, replace=True)
 
-        # Git-trailer ingestion (SPEC-006). Happens after the markdown
+        # Git-trailer ingestion (SPEC-01KT22NMRY8YK9RP4323KX4RQG). Happens after the markdown
         # side completes so the `commits` table is consistent with the
         # current `decisions` view. No-op on non-git projects.
         commits_count, git_sync_ms = self.sync_commits_from_git(project_root)
+        invalid_git_trailers = self.last_invalid_git_trailers
 
         # FTS: populate manually since we disabled auto-triggers
         # decisions_fts(id UNINDEXED, title, body) — we need to push title+body in.
@@ -322,6 +324,7 @@ class IndexDB:
             fts_indexed=len(decisions_rows),
             commits=commits_count,
             git_sync_ms=git_sync_ms,
+            invalid_git_trailers=invalid_git_trailers,
         )
 
     # ── Read-only: status ───────────────────────────────────
@@ -376,7 +379,7 @@ class IndexDB:
         indexed: dict[str, str] = {row["id"]: row["body_hash"] for row in self.db["decisions"].rows}
         seen_on_disk: set[str] = set()
 
-        for doc in load_all_types(strict=False):
+        for doc in load_all_types():
             seen_on_disk.add(doc.doc_id)
             body_hash = hashlib.sha256(doc.body.encode("utf-8")).hexdigest()
             if doc.doc_id not in indexed:
@@ -409,17 +412,17 @@ class IndexDB:
 
         return findings
 
-    # ── git-trailer ingestion (SPEC-006) ─────────────────────
+    # ── git-trailer ingestion (SPEC-01KT22NMRY8YK9RP4323KX4RQG) ─────────────────────
 
     def sync_commits_from_git(self, project_root: Path) -> tuple[int, int]:
         """Walk `git log` and populate the `commits` table from trailers.
 
-        Returns (rows_written, duration_ms). Silent no-op (0, 0) if the
-        project is not a git repository.
+        Returns (rows_written, duration_ms). Non-git projects return (0, 0);
+        callers that surface rebuild stats show zero synced commit rows.
 
         Uses `git interpret-trailers --parse` so we never re-implement
         trailer parsing in Python. Multi-value trailers (e.g.
-        `Implements: SPEC-001, SPEC-002`) yield one row per value.
+        `Implements: SPEC-01KT22NMRWENYKC3MGRA50M7GE, SPEC-01KT22NMRW79Y92MKZT807B2J1`) yield one row per value.
 
         Old SHAs (no longer in `git log` — e.g., after a rebase) are
         wiped from `commits` to keep the index consistent with HEAD.
@@ -427,8 +430,9 @@ class IndexDB:
         import subprocess
 
         start = time.monotonic()
+        self.last_invalid_git_trailers = 0
 
-        # Non-git project → silent no-op.
+        # Non-git project → no commit-trailer source to index.
         try:
             check = subprocess.run(
                 ["git", "-C", str(project_root), "rev-parse", "--show-toplevel"],
@@ -485,7 +489,7 @@ class IndexDB:
                 ts = int(ts_str)
             except ValueError:
                 continue
-            committed_at = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(timespec="seconds")
+            committed_at = datetime.fromtimestamp(ts, tz=UTC).isoformat(timespec="seconds")
 
             # Fast-path: skip the subprocess if the body has none of our
             # trailer keywords. `git interpret-trailers --parse` is still
@@ -518,6 +522,12 @@ class IndexDB:
                 for raw in value.split(","):
                     decision_id = raw.strip()
                     if not decision_id:
+                        continue
+                    try:
+                        decision_id = require_doc_id(decision_id)
+                    except ValueError as exc:
+                        self.last_invalid_git_trailers += 1
+                        warn("index", f"skipping invalid git trailer in {sha[:12]}: {key}: {decision_id} ({exc})")
                         continue
                     rows.append(
                         {

@@ -1,34 +1,34 @@
-"""SPEC-013 — conformal calibration of confidence-gate thresholds.
+"""SPEC-01KT22NMS0VWCTYPFPHP8M8V36 — conformal calibration of confidence-gate thresholds.
 
 We treat abstain/return as binary classification with the composite gate
 signal as the discriminator. ``crepes.ConformalClassifier`` provides the
 split-conformal machinery; we drive it deterministically (seed=42) and
-pick the threshold τ that achieves the requested precision on the held-out
+pick the threshold tau that achieves the requested precision on the held-out
 split.
 
 Crepes' ``ConformalClassifier`` is fed *non-conformity scores* per class
 (lower = more conformal to a class). We transform our confidence scores
-``c ∈ [0, 1]`` into a 2-column non-conformity matrix:
+``c in [0, 1]`` into a 2-column non-conformity matrix:
 
-  α[:, 1] = 1 - c     # non-conformity of label "relevant"
-  α[:, 0] = c         # non-conformity of label "irrelevant"
+  alpha[:, 1] = 1 - c     # non-conformity of label "relevant"
+  alpha[:, 0] = c         # non-conformity of label "irrelevant"
 
 After fitting on calibration data, we sweep candidate thresholds on the
-held-out test split and pick the smallest τ achieving the target precision
+held-out test split and pick the smallest tau achieving the target precision
 among accepted predictions. ``crepes``'s p-values are recorded alongside
-for transparency but the decision rule is the empirical τ — this is the
+for transparency but the decision rule is the empirical tau — this is the
 standard selective-classification pattern (El-Yaniv & Wiener, 2010).
 
 If ``crepes`` cannot be imported, calibration degrades to the same
 threshold-sweep without conformal p-values; the resulting Calibration is
-still usable. SPEC-013 commits to *using* the library when it's there.
+still usable. SPEC-01KT22NMS0VWCTYPFPHP8M8V36 commits to *using* the library when it's there.
 """
 
 from __future__ import annotations
 
 import json
 import random
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -80,8 +80,8 @@ def read_calibration(path: Path) -> Calibration:
 
 
 def _score_query(
-    method: "RetrievalMethod",
-    db: "IndexDB",
+    method: RetrievalMethod,
+    db: IndexDB,
     query,
     weights: dict[str, float] | None,
 ) -> tuple[float, int]:
@@ -91,7 +91,7 @@ def _score_query(
     qrels), else 0. Queries with empty `relevant` (intentional abstention
     queries) get label 0.
     """
-    from decree.eval.gates import compute_signals, composite, enrich_rows
+    from decree.eval.gates import composite, compute_signals, enrich_rows
 
     decision_ids = method.query(db, query, k=10)
     if not decision_ids:
@@ -102,22 +102,18 @@ def _score_query(
     score = composite(signals, weights=weights)
 
     relevant = set(query.relevant)
-    if not relevant:
-        # Abstention-target query: any returned hit is a false positive → label 0.
-        label = 0
-    else:
-        label = 1 if decision_ids[0] in relevant else 0
+    label = 0 if not relevant else 1 if decision_ids[0] in relevant else 0
     return score, label
 
 
 def calibrate_method(
-    method: "RetrievalMethod",
-    query_set: "QuerySet",
+    method: RetrievalMethod,
+    query_set: QuerySet,
     target_precision: float,
     project_root: Path,
     *,
     gate_weights: dict[str, float] | None = None,
-    db: "IndexDB | None" = None,
+    db: IndexDB | None = None,
     seed: int = 42,
 ) -> Calibration:
     """End-to-end calibration.
@@ -126,8 +122,8 @@ def calibrate_method(
     2. For each calibration query: compute composite score + label.
     3. Fit a crepes ConformalClassifier on the calibration split (best-effort —
        its p-values feed the diagnostics; the decision threshold is the
-       empirical τ sweep on the held-out split).
-    4. Pick τ such that precision among test-split accepts ≥ ``target_precision``.
+       empirical tau sweep on the held-out split).
+    4. Pick tau such that precision among test-split accepts >= ``target_precision``.
     """
     from decree.eval.schema import QuerySet  # noqa: F401 — type hint only
     from decree.index_db import IndexDB, default_db_path
@@ -156,49 +152,49 @@ def calibrate_method(
         test_scores.append(s)
         test_labels.append(y)
 
-    # ── Fit conformal classifier (diagnostic; threshold decided by τ-sweep) ──
+    # ── Fit conformal classifier (diagnostic; threshold decided by tau sweep) ──
     notes_parts: list[str] = []
     try:
         from crepes import ConformalClassifier  # type: ignore[import-not-found]
 
         cal_alphas = np.column_stack(
             [
-                np.array(cal_scores, dtype=float),      # α for label 0 (irrelevant)
-                1.0 - np.array(cal_scores, dtype=float),  # α for label 1 (relevant)
+                np.array(cal_scores, dtype=float),  # alpha for label 0 (irrelevant)
+                1.0 - np.array(cal_scores, dtype=float),  # alpha for label 1 (relevant)
             ]
         )
         cc = ConformalClassifier()
         cc.fit(cal_alphas, seed=seed)
         notes_parts.append(f"crepes.ConformalClassifier fitted on n={len(cal_scores)}")
-    except Exception as e:  # noqa: BLE001 — degrade gracefully
+    except Exception as e:
         notes_parts.append(f"crepes unavailable or failed: {type(e).__name__}: {e}")
 
     # ── Threshold sweep on held-out test split ──────────────
-    threshold, test_p, test_c = _pick_threshold(
-        test_scores, test_labels, target_precision
-    )
+    threshold, test_p, test_c = _pick_threshold(test_scores, test_labels, target_precision)
 
-    notes_parts.append(
-        f"τ={threshold:.4f}; test precision={test_p:.3f}, coverage={test_c:.3f}"
-    )
+    notes_parts.append(f"tau={threshold:.4f}; test precision={test_p:.3f}, coverage={test_c:.3f}")
 
     # Default weights = uniform 1.0 for the 7 gates.
-    final_weights = dict(gate_weights) if gate_weights else {
-        "dominance": 1.0,
-        "identifier-citation": 1.0,
-        "hedge-phrase": 1.0,
-        "status": 1.0,
-        "recency": 1.0,
-        "coverage": 1.0,
-        "authorship": 1.0,
-    }
+    final_weights = (
+        dict(gate_weights)
+        if gate_weights
+        else {
+            "dominance": 1.0,
+            "identifier-citation": 1.0,
+            "hedge-phrase": 1.0,
+            "status": 1.0,
+            "recency": 1.0,
+            "coverage": 1.0,
+            "authorship": 1.0,
+        }
+    )
 
     return Calibration(
         method_name=method.name,
         target_precision=target_precision,
         threshold=float(threshold),
         gate_weights=final_weights,
-        calibrated_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        calibrated_at=datetime.now(UTC).isoformat(timespec="seconds"),
         n_calibration_queries=len(cal_queries),
         test_precision=float(test_p),
         test_coverage=float(test_c),
@@ -259,6 +255,6 @@ def _pick_threshold(
 __all__ = [
     "Calibration",
     "calibrate_method",
-    "save_calibration",
     "read_calibration",
+    "save_calibration",
 ]

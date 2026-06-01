@@ -29,15 +29,15 @@ class TestAdrDefault:
         assert "Decision Outcome" in ADR_DEFAULT.required_sections
 
     def test_filename_re(self):
-        assert ADR_DEFAULT.filename_re.match("0001-test-slug.md")
+        assert ADR_DEFAULT.filename_re.match("adr-00000000000000000000000001-test-slug.md")
         assert not ADR_DEFAULT.filename_re.match("ADR-TEMPLATE.md")
         assert not ADR_DEFAULT.filename_re.match("readme.md")
-        assert not ADR_DEFAULT.filename_re.match("ADR-0001-test-slug.md")
+        assert not ADR_DEFAULT.filename_re.match("ADR-00000000000000000000000001-test-slug.md")
 
     def test_ref_re(self):
-        assert ADR_DEFAULT.ref_re.match("ADR-0001")
+        assert ADR_DEFAULT.ref_re.match("ADR-00000000000000000000000001")
         assert not ADR_DEFAULT.ref_re.match("0001")
-        assert not ADR_DEFAULT.ref_re.match("ADR-0001-slug.md")
+        assert not ADR_DEFAULT.ref_re.match("ADR-00000000000000000000000001-slug.md")
 
 
 class TestProjectConfig:
@@ -178,5 +178,5 @@ approved = []
 approve = "approved"
 """)
         monkeypatch.chdir(tmp_path)
-        assert find_doc_type("ADR-0001").name == "adr"
-        assert find_doc_type("PRD-001").name == "prd"
+        assert find_doc_type("ADR-00000000000000000000000001").name == "adr"
+        assert find_doc_type("PRD-00000000000000000000000001").name == "prd"

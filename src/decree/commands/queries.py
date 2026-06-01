@@ -1,10 +1,10 @@
 """`decree why` and `decree refs` — queries against the SQLite provenance index.
 
 Both commands are *read-only* against `.decree/index.sqlite`. They never re-parse
-markdown or walk frontmatter. If the index is missing they bail out with a clear
-message; if it's stale (drift detected) they print a warning and continue.
+markdown or walk frontmatter. If the index is missing or stale, they bail out
+with a clear message pointing at `decree index rebuild`.
 
-Library API (re-exported by SPEC-007's MCP server):
+Library API (re-exported by SPEC-01KT22NMRYJ4482K92AX9GJTMA's MCP server):
 
     why(db: IndexDB, path: str, *, limit: int = 20) -> list[GoverningDecision]
     refs(db: IndexDB, decision_id: str) -> RefsReport
@@ -19,21 +19,20 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import asdict, dataclass, field
-from enum import Enum
+from dataclasses import asdict, dataclass
+from enum import StrEnum
 from pathlib import Path
 
 import networkx as nx
 
 from decree.config import load_doc_types
 from decree.index_db import IndexDB, default_db_path
-from decree.log import error, info
-
+from decree.log import error
 
 # ── Public dataclasses ───────────────────────────────────────
 
 
-class MatchKind(str, Enum):
+class MatchKind(StrEnum):
     EXACT = "exact"
     PREFIX = "prefix"
 
@@ -330,7 +329,8 @@ def _resolve_root(project_arg: str | None) -> Path:
             raise FileNotFoundError(f"{path} has no decree.toml")
         return path
 
-    from decree.config import get_project_root, load_doc_types as _ldt
+    from decree.config import get_project_root
+    from decree.config import load_doc_types as _ldt
 
     get_project_root.cache_clear()
     _ldt.cache_clear()
@@ -342,7 +342,7 @@ def _open_db_or_error(project_arg: str | None) -> tuple[IndexDB | None, Path | N
 
     If the index is missing, prints an error and returns (None, root, 1).
     Otherwise returns (db, root, 0). Drift checking is the caller's
-    responsibility (printed as a warning, not an error).
+    responsibility and must fail closed before returning indexed results.
     """
     try:
         root = _resolve_root(project_arg)
@@ -353,7 +353,8 @@ def _open_db_or_error(project_arg: str | None) -> tuple[IndexDB | None, Path | N
     import os
 
     os.chdir(root)
-    from decree.config import get_project_root, load_doc_types as _ldt
+    from decree.config import get_project_root
+    from decree.config import load_doc_types as _ldt
 
     get_project_root.cache_clear()
     _ldt.cache_clear()
@@ -370,14 +371,19 @@ def _open_db_or_error(project_arg: str | None) -> tuple[IndexDB | None, Path | N
     return db, root, 0
 
 
-def _maybe_warn_stale(db: IndexDB, root: Path) -> None:
-    """Print a one-line warning if `verify()` reports drift."""
+def _ensure_fresh_index(db: IndexDB, root: Path) -> bool:
+    """Return False and print an error if `verify()` reports drift."""
     findings = db.verify(root)
     # `verify` returns one `index_missing` finding when there's no DB; in that
     # case we never reach here, but be defensive.
     real_drift = [f for f in findings if f.kind != "index_missing"]
     if real_drift:
-        info("queries", f"⚠ index is stale ({len(real_drift)} drift findings). Run `decree index rebuild` for current results.")
+        error(
+            "queries",
+            f"index is stale ({len(real_drift)} drift findings). Run `decree index rebuild` before querying.",
+        )
+        return False
+    return True
 
 
 # ── Formatters: why ─────────────────────────────────────────
@@ -398,9 +404,7 @@ def _format_why_human(
     lines = [f"{query} — {len(matches)} governing decision{'s' if len(matches) != 1 else ''}", ""]
     for m in matches:
         sym = f"#{m.symbol}" if m.symbol else ""
-        lines.append(
-            f"  ▸ {m.decision_id}  {m.status}  {m.date}  {m.match_kind.value}"
-        )
+        lines.append(f"  ▸ {m.decision_id}  {m.status}  {m.date}  {m.match_kind.value}")
         lines.append(f"    {m.title}")
         lines.append(f"    governs: {m.matched_path}{sym}")
     return "\n".join(lines)
@@ -482,7 +486,7 @@ def _format_refs_human(report: RefsReport) -> str:
         for c in report.commits:
             lines.append(f"    {c.sha[:8]}  {c.trailer_kind}  {c.summary}")
     else:
-        lines.append("    (none — populated by SPEC-006)")
+        lines.append("    (none — populated by SPEC-01KT22NMRY8YK9RP4323KX4RQG)")
     return "\n".join(lines)
 
 
@@ -502,7 +506,7 @@ def _format_refs_json(report: RefsReport) -> str:
 # ── CLI entry points ────────────────────────────────────────
 
 
-# ── SPEC-013 calibrated assessment ──────────────────────────
+# ── SPEC-01KT22NMS0VWCTYPFPHP8M8V36 calibrated assessment ──────────────────────────
 
 
 def _calibrated_assess(
@@ -515,10 +519,11 @@ def _calibrated_assess(
     """Run the calibrated method for a (kind, text) query; return abstention dict or None.
 
     Returns:
-        - ``None`` if calibration is unavailable (no JSON on disk).
         - A dict ``{"abstained": bool, "composite_score": float, "threshold": float,
           "signals": {name: score}, "signal_hints": {name: hint},
           "abstention_reason": str | None, "would_have_returned": [decision_id, ...]}``.
+        - Raises if calibration is unavailable or malformed. Callers must
+          surface that explicitly instead of silently disabling abstention.
     """
     from decree.eval.methods import KeywordCalibrated
     from decree.eval.schema import Query
@@ -529,12 +534,6 @@ def _calibrated_assess(
     query = Query(id=qid, kind=kind, query=text, relevant=[])
 
     method = KeywordCalibrated()
-
-    # If a target precision was requested but no matching calibration on disk,
-    # we still run the gates (so the user sees signals) but cannot abstain.
-    if target_precision is not None and method.threshold == 0:
-        # Best-effort: surface a note, but don't fail.
-        pass
 
     decision_ids = method.query(db, query, k=10)
     diag = method.last_diagnostics()
@@ -588,16 +587,14 @@ def _format_abstention_human(
     would = abstention.get("would_have_returned") or []
     if would:
         lines.append("")
-        lines.append(
-            f"  closest non-abstaining hit: {would[0]} (would have been returned without --with-abstention)"
-        )
+        lines.append(f"  closest non-abstaining hit: {would[0]} (would have been returned without --with-abstention)")
     return "\n".join(lines)
 
 
 def why_run(args: argparse.Namespace) -> int:
     """`decree why <path> [--json] [--with-abstention]` — print governing decisions.
 
-    With ``--with-abstention``, the query is routed through the SPEC-013
+    With ``--with-abstention``, the query is routed through the SPEC-01KT22NMS0VWCTYPFPHP8M8V36
     calibrated method (``keyword-v1-calibrated``). On a low-confidence
     answer the calibrated method returns ``[]`` and we print the abstention
     block (human) or the abstention shape (json).
@@ -607,7 +604,8 @@ def why_run(args: argparse.Namespace) -> int:
         return rc
     assert root is not None
 
-    _maybe_warn_stale(db, root)
+    if not _ensure_fresh_index(db, root):
+        return 1
 
     with_abstention = bool(getattr(args, "with_abstention", False))
     target_precision = getattr(args, "target_precision", None)
@@ -615,12 +613,16 @@ def why_run(args: argparse.Namespace) -> int:
     matches = why(db, args.path)
 
     if with_abstention:
-        abstention = _calibrated_assess(
-            db,
-            kind="file_path",
-            text=args.path,
-            target_precision=target_precision,
-        )
+        try:
+            abstention = _calibrated_assess(
+                db,
+                kind="file_path",
+                text=args.path,
+                target_precision=target_precision,
+            )
+        except Exception as e:
+            error("why", f"calibrated abstention unavailable: {e}")
+            return 1
         if getattr(args, "json", False):
             print(_format_why_json(args.path, matches, abstention=abstention))
         else:
@@ -650,18 +652,23 @@ def refs_run(args: argparse.Namespace) -> int:
         return rc
     assert root is not None
 
-    _maybe_warn_stale(db, root)
+    if not _ensure_fresh_index(db, root):
+        return 1
 
     with_abstention = bool(getattr(args, "with_abstention", False))
     target_precision = getattr(args, "target_precision", None)
 
     if with_abstention:
-        abstention = _calibrated_assess(
-            db,
-            kind="concept",
-            text=args.decision_id,
-            target_precision=target_precision,
-        )
+        try:
+            abstention = _calibrated_assess(
+                db,
+                kind="concept",
+                text=args.decision_id,
+                target_precision=target_precision,
+            )
+        except Exception as e:
+            error("refs", f"calibrated abstention unavailable: {e}")
+            return 1
         if abstention is not None and abstention.get("abstained"):
             if getattr(args, "json", False):
                 payload = {

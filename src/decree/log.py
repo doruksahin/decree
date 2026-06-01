@@ -13,6 +13,11 @@ def error(prefix: str, msg: str) -> None:
     print(f"[{prefix}] ERROR: {msg}", file=sys.stderr)
 
 
+def warn(prefix: str, msg: str) -> None:
+    """Print a prefixed warning line to stderr."""
+    print(f"[{prefix}] WARNING: {msg}", file=sys.stderr)
+
+
 def success(msg: str) -> None:
     """Print a success summary line to stderr."""
     print(f"\u2713 {msg}", file=sys.stderr)

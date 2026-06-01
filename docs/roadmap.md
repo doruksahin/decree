@@ -6,7 +6,7 @@ Feature ideas and open questions for decree. Items here are not committed — th
 
 ### DDD CLI Command & Proofshot Integration
 
-[PRD-002](../decree/prd/002-ddd-cli-command-and-proofshot-integration.md) — approved, needs ADRs.
+[PRD-01KT22NMRR0BX7KBF0F0N5ER6Z](../decree/prd/prd-01kt22nmrr0bx7kbf0f0n5er6z-ddd-cli-command-and-proofshot-integration.md) — implemented.
 
 - `decree ddd` — phase detection from the terminal, no Claude Code required
 - Completion reports — auditable proof when a SPEC reaches 100%
@@ -20,10 +20,10 @@ Feature ideas and open questions for decree. Items here are not committed — th
 
 **Industry terms:**
 
-- **LADR** (Lightweight Architecture Decision Record) — [coined by ThoughtWorks](https://www.thoughtworks.com/radar/techniques/lightweight-architecture-decision-records). A simplified ADR with just context, decision, and consequences. No options analysis, no deep rationale.
+- **LADR** (Lightweight Architecture Decision Record) — a simplified ADR with just context, decision, and consequences. No options analysis, no deep rationale. For ADR background, use the stable [ADR GitHub organization](https://adr.github.io/) and MADR links rather than vendor radar pages.
 - **Any Decision Record** — [proposed by Olaf Zimmermann](https://ozimmer.ch/practices/2021/04/23/AnyDecisionRecords.html). Extends ADR beyond architecture to design, process, and organizational decisions. MADR itself was renamed from "Markdown Architectural Decision Records" to "Markdown **Any** Decision Records" to reflect this.
 - **Decision Log** — [Microsoft's term](https://microsoft.github.io/code-with-engineering-playbook/design/design-reviews/decision-log/). The aggregate collection of all decisions, not a separate format. In decree terms, this is just `decree index` output.
-- **Y-Statement** — a [one-sentence decision format](https://medium.com/olzzio/y-statements-10eb07b5a177): "In the context of [situation], facing [concern], we decided for [option] to achieve [quality], accepting [downside]."
+- **Y-Statement** — a [one-sentence decision format](https://adr.github.io/adr-templates/#y-statement): "In the context of [situation], facing [concern], we decided for [option] to achieve [quality], accepting [downside]."
 
 **What it could look like in decree:**
 
@@ -31,7 +31,6 @@ Feature ideas and open questions for decree. Items here are not committed — th
 [types.decision]
 dir = "decree/decisions"
 prefix = "DEC"
-digits = 3
 initial_status = "proposed"
 statuses = ["proposed", "accepted", "rejected"]
 warn_on_reference = ["rejected"]

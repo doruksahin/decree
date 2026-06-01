@@ -6,22 +6,23 @@
 git clone https://github.com/doruksahin/decree.git
 cd decree
 uv sync --group dev
+brew install lychee  # or install lychee by another method and keep it on PATH
 uv run pre-commit install
 ```
 
-Pre-commit hooks run ruff (lint + format), lychee (link check), and pytest on every commit.
+Pre-commit hooks run ruff (lint + format), lychee (online markdown link check), and pytest on every commit.
 
 ## Development Loop
 
 ```bash
-uv run pytest -q               # run tests (175 total)
-uv run ruff check src/ tests/  # lint
-uv run ruff format src/ tests/ # format
-lychee '**/*.md'                # check markdown links
-uv run decree lint              # validate dogfood docs
+uv run pytest -q                                      # run tests
+uv run ruff check src/ tests/                         # lint
+uv run ruff format src/ tests/                        # format
+lychee --config .lychee.toml --no-progress '**/*.md'  # online markdown link check
+uv run decree lint                                    # validate dogfood docs
 ```
 
-All of these run automatically via pre-commit. CI runs the same checks on Python 3.11, 3.12, and 3.13.
+Pre-commit runs these checks locally. CI runs pytest on Python 3.11, 3.12, and 3.13, plus ruff and lychee.
 
 ## Rules
 
@@ -29,9 +30,9 @@ All of these run automatically via pre-commit. CI runs the same checks on Python
 
 All document type behavior comes from `decree.toml`. Don't add `if doc_type == "adr"` branches. Add a TOML field and read it in [config.py](src/decree/config.py).
 
-### parser.py is the only I/O module
+### parser.py is the only source-document I/O module
 
-Never call `open()`, `Path.read_text()`, or `frontmatter.load()` on document files outside of [parser.py](src/decree/parser.py). All other modules receive parsed `DocDocument` objects.
+Never call `open()`, `Path.read_text()`, or `frontmatter.load()` on source decision documents outside of [parser.py](src/decree/parser.py). Generated artifacts such as reports and indexes have their own command modules, but they should receive parsed `DocDocument` objects rather than reparsing source files.
 
 ### Validators are pure functions
 
@@ -57,7 +58,6 @@ No code changes needed. Add a `[types.<name>]` section to `decree.toml`:
 [types.rfc]
 dir = "docs/rfc"
 prefix = "RFC"
-digits = 3
 initial_status = "draft"
 statuses = ["draft", "review", "accepted", "rejected"]
 warn_on_reference = ["rejected"]
@@ -93,11 +93,11 @@ See [tests/CLAUDE.md](tests/CLAUDE.md) for test map and fixture documentation.
 
 ## Pull Requests
 
-- All checks must pass: `pytest`, `ruff check`, `ruff format --check`, `lychee`
+- All checks must pass: `pytest`, `ruff check`, `ruff format --check`, `lychee --config .lychee.toml --no-progress '**/*.md'`
 - Keep commits focused — one logical change per commit
 - Update `CHANGELOG.md` under `## Unreleased`
 - If you change CLI behavior, update `--help` text in [cli.py](src/decree/cli.py)
-- If you add/rename markdown files or sections, run `lychee '**/*.md'` to verify links
+- If you add/rename markdown files or sections, run `lychee --config .lychee.toml --no-progress '**/*.md'` to verify links
 
 ## Code Style
 

@@ -5,157 +5,41 @@ decree writes a markdown completion report alongside the document. The report
 captures the document chain, primary acceptance criteria, deferred / out-of-scope
 items, and a generation timestamp.
 
-The "primary vs. deferred" split is extracted here so PRD-003 R6's coherence
+The "primary vs. deferred" split is extracted here so PRD-01KT22NMRS4QGHSFDBZ858PP1T R6's coherence
 gate can later reuse the same section-classification logic.
 """
 
 from __future__ import annotations
 
-import re
+import argparse
+import os
 import tomllib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-# Default section-title patterns whose checkboxes are tracked as "deferred"
-# instead of counting toward primary acceptance-criteria progress.
-DEFAULT_DEFERRED_SECTION_PATTERNS = (
-    "What this does NOT do",
-    "Deferred",
-    "Future work",
-    "v2 backlog",
-    "Out of scope",
+from decree.checklists import (
+    DEFAULT_DEFERRED_SECTION_PATTERNS,
+    CheckboxItem,
+    ParsedAcs,
+    SectionAcs,
 )
+from decree.checklists import (
+    parse_checkboxes_by_section as _parse_checkboxes_by_section,
+)
+from decree.checklists import (
+    section_is_deferred as _section_is_deferred,
+)
+from decree.log import error, info, success
 
-# A heading line at any level (# … ######) — captures the title text after the hashes.
-_HEADING_RE = re.compile(r"^(#+)\s+(.+?)\s*$", re.MULTILINE)
-_CHECKBOX_RE = re.compile(r"^[\s]*[-*]\s+\[([ xX])\]\s+(.+)$")
-
-
-@dataclass(frozen=True)
-class CheckboxItem:
-    text: str
-    done: bool
-    section: str       # section title this checkbox belongs to (nearest heading above)
-    section_level: int  # heading level of `section` (1-6)
-
-
-@dataclass(frozen=True)
-class SectionAcs:
-    """All checkbox items in a section."""
-
-    title: str
-    level: int
-    items: tuple[CheckboxItem, ...]
-
-    @property
-    def done(self) -> int:
-        return sum(1 for i in self.items if i.done)
-
-    @property
-    def total(self) -> int:
-        return len(self.items)
-
-
-@dataclass(frozen=True)
-class ParsedAcs:
-    """Primary vs. deferred sections of a document, with the items inside each."""
-
-    primary: tuple[SectionAcs, ...]
-    deferred: tuple[SectionAcs, ...]
-
-    @property
-    def primary_done(self) -> int:
-        return sum(s.done for s in self.primary)
-
-    @property
-    def primary_total(self) -> int:
-        return sum(s.total for s in self.primary)
-
-    @property
-    def deferred_done(self) -> int:
-        return sum(s.done for s in self.deferred)
-
-    @property
-    def deferred_total(self) -> int:
-        return sum(s.total for s in self.deferred)
-
-
-# ── Section classification ─────────────────────────────────────
-
-
-def _section_is_deferred(section_title: str, patterns: tuple[str, ...]) -> bool:
-    """Return True if the section title matches any of the deferred-section patterns.
-
-    Matching is case-insensitive substring match — "What this does NOT do (deferred to v2)"
-    matches the pattern "What this does NOT do".
-    """
-    title_lower = section_title.lower()
-    return any(p.lower() in title_lower for p in patterns)
-
-
-def _parse_checkboxes_by_section(body: str, deferred_patterns: tuple[str, ...]) -> ParsedAcs:
-    """Walk the body, group checkboxes by their containing section, classify primary vs. deferred.
-
-    Checkboxes inside fenced code blocks (``` … ```) are *ignored* — they are
-    illustrative examples in documentation, not real acceptance criteria. This
-    is SPEC-008's gate-2 code-fence rule.
-    """
-    current_section: str = "(preamble)"
-    current_level: int = 0
-    items_by_section: list[tuple[str, int, list[CheckboxItem]]] = [(current_section, current_level, [])]
-    in_code_fence: bool = False
-
-    for line in body.splitlines():
-        stripped = line.lstrip()
-        # Toggle fence state on lines that begin with ``` (any info-string allowed).
-        # SPEC-008 gate 2: checkboxes inside fenced code blocks are illustrations,
-        # not acceptance criteria, and must not be counted.
-        if stripped.startswith("```"):
-            in_code_fence = not in_code_fence
-            continue
-        if in_code_fence:
-            continue
-        h_match = _HEADING_RE.match(line)
-        if h_match:
-            hashes, title = h_match.group(1), h_match.group(2).strip()
-            level = len(hashes)
-            current_section = title
-            current_level = level
-            items_by_section.append((current_section, current_level, []))
-            continue
-        c_match = _CHECKBOX_RE.match(line)
-        if c_match:
-            mark, text = c_match.group(1), c_match.group(2).strip()
-            done = mark in ("x", "X")
-            items_by_section[-1][2].append(
-                CheckboxItem(text=text, done=done, section=current_section, section_level=current_level)
-            )
-
-    # Build SectionAcs, dropping empty sections
-    primary: list[SectionAcs] = []
-    deferred: list[SectionAcs] = []
-
-    # Track which sections are deferred — once a deferred parent is hit, all sub-sections
-    # under it stay deferred too (so a "## Deferred" with "### sub-deferred" both count as deferred).
-    deferred_ancestor_level: int | None = None
-    for title, level, items in items_by_section:
-        if deferred_ancestor_level is not None and level <= deferred_ancestor_level:
-            deferred_ancestor_level = None  # left the deferred subtree
-        is_deferred_by_self = _section_is_deferred(title, deferred_patterns)
-        is_deferred_by_ancestor = deferred_ancestor_level is not None
-        if is_deferred_by_self and deferred_ancestor_level is None:
-            deferred_ancestor_level = level
-        if not items:
-            continue
-        section = SectionAcs(title=title, level=level, items=tuple(items))
-        if is_deferred_by_self or is_deferred_by_ancestor:
-            deferred.append(section)
-        else:
-            primary.append(section)
-
-    return ParsedAcs(primary=tuple(primary), deferred=tuple(deferred))
-
+__all__ = [
+    "DEFAULT_DEFERRED_SECTION_PATTERNS",
+    "CheckboxItem",
+    "ParsedAcs",
+    "SectionAcs",
+    "_parse_checkboxes_by_section",
+    "_section_is_deferred",
+]
 
 # ── Config reading ─────────────────────────────────────────────
 
@@ -166,6 +50,16 @@ class CompletionReportConfig:
     location_template: str
     deferred_section_patterns: tuple[str, ...]
     require_for_terminal_status: bool
+
+
+@dataclass(frozen=True)
+class ReportRegeneration:
+    """One regenerated, skipped, or dry-run completion report result."""
+
+    doc_id: str
+    path: Path | None
+    action: str
+    reason: str | None = None
 
 
 _DEFAULTS = CompletionReportConfig(
@@ -203,19 +97,21 @@ def resolve_report_path(doc, project_root: Path, template: str) -> Path:
 
     Available substitution variables:
     - {dir}: the type's directory (e.g., "decree/spec")
-    - {id}: the full document ID (e.g., "SPEC-001")
-    - {number_str}: the zero-padded number from the filename stem (e.g., "001")
-    - {slug}: the slug portion of the filename (e.g., "ddd-cli-completion-report-and-stop-hook")
+    - {id}: the full document ID (e.g., "SPEC-01KT22NMRWENYKC3MGRA50M7GE")
+    - {slug}: the slug portion of the filename after the canonical ID
     """
-    stem = doc.path.stem  # e.g., "001-ddd-cli-completion-report-and-stop-hook"
-    parts = stem.split("-", 1)
-    number_str = parts[0]
-    slug = parts[1] if len(parts) > 1 else ""
+    if "{number_str}" in template:
+        raise ValueError("report location variable {number_str} is no longer supported; use {id} instead")
+    stem = doc.path.stem
+    id_prefix = f"{doc.doc_id.lower()}-"
+    if stem.startswith(id_prefix):
+        slug = stem[len(id_prefix) :]
+    else:
+        raise ValueError(f"{doc.path}: filename must start with '{id_prefix}'")
     dir_str = doc.doc_type.dir if doc.doc_type else doc.path.parent.name
     rendered = template.format(
         dir=dir_str,
         id=doc.doc_id,
-        number_str=number_str,
         slug=slug,
     )
     candidate = Path(rendered)
@@ -323,18 +219,164 @@ def generate_report(doc, project_root: Path, transitioned_to: str, all_docs: lis
     if all_docs is None:
         from decree.parser import load_all_types
 
-        all_docs = load_all_types(strict=False)
+        all_docs = load_all_types()
 
     parsed = _parse_checkboxes_by_section(doc.body, cfg.deferred_section_patterns)
     chain = _build_chain_for(doc, all_docs)
 
-    when = datetime.now(timezone.utc)
+    when = datetime.now(UTC)
     body = _render_report(doc, chain, parsed, transitioned_to, when)
 
     out_path = resolve_report_path(doc, project_root, cfg.location_template)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(body, encoding="utf-8")
     return out_path
+
+
+def regenerate_reports(
+    project_root: Path,
+    *,
+    doc_ids: tuple[str, ...] = (),
+    all_terminal: bool = False,
+    existing_only: bool = False,
+    dry_run: bool = False,
+) -> tuple[ReportRegeneration, ...]:
+    """Regenerate completion reports for explicit IDs or all terminal-success docs.
+
+    `existing_only` is intentionally explicit. It is useful for refreshing committed
+    report snapshots without creating new report files for older terminal docs that
+    did not previously have a report.
+    """
+    from decree.parser import find_by_id, load_all_types
+
+    all_docs = load_all_types()
+
+    if all_terminal:
+        targets = [doc for doc in all_docs if is_terminal_success(doc.doc_type, doc.meta.status)]
+    else:
+        targets = [find_by_id(doc_id) for doc_id in doc_ids]
+
+    results: list[ReportRegeneration] = []
+    for doc in targets:
+        type_name = doc.doc_type.name if doc.doc_type else "adr"
+        if not is_terminal_success(doc.doc_type, doc.meta.status):
+            results.append(
+                ReportRegeneration(
+                    doc_id=doc.doc_id,
+                    path=None,
+                    action="skipped",
+                    reason=f"status '{doc.meta.status}' is not terminal-success",
+                )
+            )
+            continue
+
+        cfg = load_report_config(project_root, type_name)
+        if not cfg.enabled:
+            results.append(
+                ReportRegeneration(
+                    doc_id=doc.doc_id,
+                    path=None,
+                    action="skipped",
+                    reason=f"completion reports are disabled for type '{type_name}'",
+                )
+            )
+            continue
+
+        out_path = resolve_report_path(doc, project_root, cfg.location_template)
+        if existing_only and not out_path.exists():
+            results.append(
+                ReportRegeneration(
+                    doc_id=doc.doc_id,
+                    path=out_path,
+                    action="skipped",
+                    reason="report does not already exist",
+                )
+            )
+            continue
+
+        if dry_run:
+            results.append(ReportRegeneration(doc_id=doc.doc_id, path=out_path, action="would_write"))
+            continue
+
+        written = generate_report(doc, project_root, doc.meta.status, all_docs=all_docs)
+        results.append(ReportRegeneration(doc_id=doc.doc_id, path=written, action="written"))
+
+    return tuple(results)
+
+
+def _resolve_root(project_arg: str | None) -> Path:
+    """Resolve the project root from --project or cwd-walk."""
+    if project_arg:
+        path = Path(project_arg).resolve()
+        if not (path / "decree.toml").exists():
+            raise FileNotFoundError(f"{path} has no decree.toml")
+        return path
+
+    from decree.config import get_project_root, load_doc_types
+
+    get_project_root.cache_clear()
+    load_doc_types.cache_clear()
+    return get_project_root()
+
+
+def regenerate_run(args: argparse.Namespace) -> int:
+    """`decree report regenerate` — refresh completion report snapshots."""
+    prefix = "report"
+    doc_ids = tuple(getattr(args, "doc_ids", ()) or ())
+    all_terminal = bool(getattr(args, "all", False))
+
+    if all_terminal and doc_ids:
+        error(prefix, "pass either explicit DOC_ID values or --all, not both")
+        return 1
+    if not all_terminal and not doc_ids:
+        error(prefix, "pass at least one DOC_ID, or use --all")
+        return 1
+
+    try:
+        root = _resolve_root(getattr(args, "project", None))
+    except FileNotFoundError as e:
+        error(prefix, str(e))
+        return 1
+
+    os.chdir(root)
+    from decree.config import get_project_root, load_doc_types
+
+    get_project_root.cache_clear()
+    load_doc_types.cache_clear()
+
+    try:
+        results = regenerate_reports(
+            root,
+            doc_ids=doc_ids,
+            all_terminal=all_terminal,
+            existing_only=bool(getattr(args, "existing_only", False)),
+            dry_run=bool(getattr(args, "dry_run", False)),
+        )
+    except (FileNotFoundError, ValueError) as e:
+        error(prefix, str(e))
+        return 1
+
+    skipped = 0
+    written = 0
+    would_write = 0
+    for result in results:
+        path = result.path.relative_to(root) if result.path and result.path.is_relative_to(root) else result.path
+        if result.action == "written":
+            written += 1
+            info(prefix, f"wrote {result.doc_id} -> {path}")
+        elif result.action == "would_write":
+            would_write += 1
+            info(prefix, f"would write {result.doc_id} -> {path}")
+        else:
+            skipped += 1
+            info(prefix, f"skipped {result.doc_id}: {result.reason}")
+
+    if getattr(args, "dry_run", False):
+        success(f"report regenerate dry-run: would_write={would_write}, skipped={skipped}")
+    else:
+        success(f"report regenerate: written={written}, skipped={skipped}")
+
+    return 0 if not doc_ids or skipped == 0 else 1
 
 
 # ── Terminal-status detection ──────────────────────────────────

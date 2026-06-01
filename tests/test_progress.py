@@ -1,5 +1,6 @@
 """Tests for decree progress command."""
 
+import argparse
 import io
 import sys
 
@@ -125,9 +126,10 @@ approve = "approved"
 """)
         prd_dir = tmp_path / "decree" / "prd"
         prd_dir.mkdir(parents=True)
-        (prd_dir / "001-test.md").write_text(
-            "---\nstatus: draft\ndate: 2026-01-01\n---\n"
-            "# PRD-001 Test\n\n## Problem Statement\n\nP.\n\n"
+        prd_id = "PRD-00000000000000000000000001"
+        (prd_dir / "prd-00000000000000000000000001-test.md").write_text(
+            f"---\nid: {prd_id}\nstatus: draft\ndate: 2026-01-01\n---\n"
+            f"# {prd_id} Test\n\n## Problem Statement\n\nP.\n\n"
             "## Requirements\n\n- [x] Done\n- [ ] Todo\n\n"
             "## Success Criteria\n\n- [ ] Criterion\n"
         )
@@ -143,5 +145,75 @@ approve = "approved"
 
         assert result == 0
         output = captured.getvalue()
-        assert "PRD-001" in output
-        assert "(1/3)" in output
+        assert prd_id in output
+        assert "(1/3 primary)" in output
+
+    def test_deferred_checkboxes_are_separated(self):
+        body = """## Acceptance Criteria
+
+- [x] Primary one
+- [x] Primary two
+
+## What this does NOT do
+
+- [ ] Future item
+"""
+        assert _count_checkboxes(body) == (2, 2)
+
+    def test_invalid_doc_id_is_error(self, tmp_path, monkeypatch, capsys):
+        (tmp_path / "decree.toml").write_text("""\
+[types.adr]
+dir = "decree/adr"
+prefix = "ADR"
+digits = 4
+initial_status = "proposed"
+statuses = ["proposed", "accepted"]
+required_sections = []
+
+[types.adr.transitions]
+proposed = ["accepted"]
+accepted = []
+
+[types.adr.actions]
+accept = "accepted"
+""")
+        (tmp_path / "decree" / "adr").mkdir(parents=True)
+        monkeypatch.chdir(tmp_path)
+
+        result = run(argparse.Namespace(doc="ADR-0001", chain=None, governs=None, changed=False, base=None))
+
+        assert result == 1
+        assert "TYPE-ULID" in capsys.readouterr().err
+
+    def test_missing_scoped_doc_is_error(self, tmp_path, monkeypatch, capsys):
+        (tmp_path / "decree.toml").write_text("""\
+[types.adr]
+dir = "decree/adr"
+prefix = "ADR"
+digits = 4
+initial_status = "proposed"
+statuses = ["proposed", "accepted"]
+required_sections = []
+
+[types.adr.transitions]
+proposed = ["accepted"]
+accepted = []
+
+[types.adr.actions]
+accept = "accepted"
+""")
+        (tmp_path / "decree" / "adr").mkdir(parents=True)
+        monkeypatch.chdir(tmp_path)
+
+        result = run(
+            argparse.Namespace(
+                doc="ADR-00000000000000000000000001",
+                chain=None,
+                governs=None,
+                changed=False,
+                base=None,
+            )
+        )
+
+        assert result == 1
+        assert "document not found" in capsys.readouterr().err

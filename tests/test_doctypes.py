@@ -13,7 +13,6 @@ def test_adr_default_has_expected_statuses():
 
 def test_adr_default_prefix():
     assert ADR_DEFAULT.prefix == "ADR"
-    assert ADR_DEFAULT.digits == 4
 
 
 def test_adr_default_transitions():
@@ -22,12 +21,12 @@ def test_adr_default_transitions():
 
 
 def test_adr_default_ref_re():
-    assert ADR_DEFAULT.ref_re.match("ADR-0001")
-    assert not ADR_DEFAULT.ref_re.match("PRD-001")
+    assert ADR_DEFAULT.ref_re.match("ADR-00000000000000000000000001")
+    assert not ADR_DEFAULT.ref_re.match("PRD-00000000000000000000000001")
 
 
 def test_adr_default_filename_re():
-    assert ADR_DEFAULT.filename_re.match("0001-use-redis.md")
+    assert ADR_DEFAULT.filename_re.match("adr-00000000000000000000000001-use-redis.md")
     assert not ADR_DEFAULT.filename_re.match("001-use-redis.md")  # needs 4 digits
 
 
@@ -51,16 +50,6 @@ def test_adr_default_status_field_requirements():
     assert ADR_DEFAULT.status_field_requirements["proposed"] == ()
 
 
-def test_doctype_format_id():
-    assert ADR_DEFAULT.format_id(1) == "ADR-0001"
-    assert ADR_DEFAULT.format_id(42) == "ADR-0042"
-
-
-def test_doctype_parse_number_from_id():
-    assert ADR_DEFAULT.parse_number("ADR-0001") == 1
-    assert ADR_DEFAULT.parse_number("ADR-0042") == 42
-
-
 def test_doctype_terminal_statuses():
     """Statuses with no valid transitions are terminal."""
     assert "rejected" in ADR_DEFAULT.terminal_statuses
@@ -73,7 +62,7 @@ def test_prd_doctype():
     prd = DocType(
         name="prd",
         prefix="PRD",
-        digits=3,
+        legacy_digits=3,
         dir="docs/prd",
         initial_status="draft",
         statuses=("draft", "review", "approved", "implemented", "archived"),
@@ -92,7 +81,6 @@ def test_prd_doctype():
         },
         required_sections=("Problem Statement", "Requirements", "Success Criteria"),
     )
-    assert prd.ref_re.match("PRD-001")
-    assert not prd.ref_re.match("PRD-0001")  # 3 digits, not 4
-    assert prd.format_id(1) == "PRD-001"
-    assert prd.filename_re.match("001-user-auth.md")
+    assert prd.ref_re.match("PRD-00000000000000000000000001")
+    assert not prd.ref_re.match("PRD-0001")
+    assert prd.filename_re.match("prd-00000000000000000000000001-user-auth.md")
