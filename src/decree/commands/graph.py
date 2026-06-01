@@ -94,8 +94,67 @@ def _status_summary(docs: list, doc_type) -> str:
     return "\n".join(lines)
 
 
+def graph_json() -> dict:
+    """Assemble the full decision graph as JSON: documents + reference edges.
+
+    A stable, ULID-aware machine contract for external consumers (e.g. an editor
+    or app that renders the corpus). Each document carries its id, type, clean
+    title, project-relative path, and the ids it references; ``edges`` are the
+    valid cross-document references (a reference whose target is not a known
+    document id is dropped, mirroring graph rendering). Pure read; touches no
+    index.md.
+    """
+    from decree.config import get_project_root, load_doc_types
+    from decree.parser import load_all
+
+    root = get_project_root()
+    loaded: list[tuple[str, object]] = []
+    for dt in load_doc_types():
+        type_dir = root / dt.dir
+        if not type_dir.exists():
+            continue
+        for doc in load_all(doc_type=dt):
+            loaded.append((dt.name, doc))
+
+    known_ids = {doc.doc_id for _, doc in loaded}
+    documents: list[dict] = []
+    edges: list[dict] = []
+    for type_name, doc in loaded:
+        try:
+            rel = str(doc.path.relative_to(root))
+        except ValueError:
+            rel = str(doc.path)
+        title = doc.title
+        id_prefix = f"{doc.doc_id} "
+        if title.startswith(id_prefix):
+            title = title[len(id_prefix) :]
+        refs = list(doc.meta.references or [])
+        documents.append(
+            {
+                "id": doc.doc_id,
+                "type": type_name,
+                "title": title,
+                "relative_path": rel,
+                "references": refs,
+            }
+        )
+        for ref in refs:
+            if ref in known_ids:
+                edges.append({"from": doc.doc_id, "to": ref})
+
+    documents.sort(key=lambda d: d["id"])
+    edges.sort(key=lambda e: (e["from"], e["to"]))
+    return {"documents": documents, "edges": edges}
+
+
 def run(args: argparse.Namespace | None = None) -> int:
     prefix = "graph"
+    if getattr(args, "json", False):
+        import json
+
+        print(json.dumps(graph_json(), indent=2, sort_keys=False))
+        return 0
+
     from decree.config import get_project_root, load_doc_types
     from decree.parser import load_all
 

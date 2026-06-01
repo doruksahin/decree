@@ -163,11 +163,17 @@ def main() -> int:
     )
 
     # ── graph ────────────────────────────────────────────────
-    subparsers.add_parser(
+    p_graph = subparsers.add_parser(
         "graph",
         help="Generate Mermaid diagrams (timeline, supersede chain, status distribution)",
         description="Append Mermaid diagram blocks to each type's index.md. "
         "Preserves hand-authored content above the GENERATED marker.",
+    )
+    p_graph.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the full graph (documents + reference edges) as JSON to stdout "
+        "and write nothing. Stable machine contract for external consumers.",
     )
 
     # ── progress ─────────────────────────────────────────────

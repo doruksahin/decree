@@ -4,7 +4,7 @@ import argparse
 
 import pytest
 
-from decree.commands.graph import run
+from decree.commands.graph import graph_json, run
 from decree.commands.index import GRAPH_MARKER
 from decree.commands.index import run as index_run
 
@@ -52,6 +52,61 @@ def single_adr_project(project_dir, monkeypatch):
     )
     index_run(argparse.Namespace())
     return d
+
+
+class TestGraphJson:
+    def test_emits_documents_and_reference_edges(self, project_dir, monkeypatch):
+        monkeypatch.chdir(project_dir)
+        d = project_dir / "docs" / "adr"
+        (d / "adr-00000000000000000000000001-base.md").write_text(
+            "---\n"
+            "id: ADR-00000000000000000000000001\n"
+            "status: accepted\n"
+            "date: 2026-04-01\n"
+            "---\n\n"
+            "# ADR-00000000000000000000000001 Base Decision\n"
+        )
+        (d / "adr-00000000000000000000000002-derived.md").write_text(
+            "---\n"
+            "id: ADR-00000000000000000000000002\n"
+            "status: accepted\n"
+            "date: 2026-04-02\n"
+            "references: [ADR-00000000000000000000000001]\n"
+            "---\n\n"
+            "# ADR-00000000000000000000000002 Derived Decision\n"
+        )
+
+        result = graph_json()
+
+        assert [doc["id"] for doc in result["documents"]] == [
+            "ADR-00000000000000000000000001",
+            "ADR-00000000000000000000000002",
+        ]
+        derived = result["documents"][1]
+        assert derived["type"] == "adr"
+        assert derived["title"] == "Derived Decision"  # id prefix stripped
+        assert derived["relative_path"] == "docs/adr/adr-00000000000000000000000002-derived.md"
+        assert derived["references"] == ["ADR-00000000000000000000000001"]
+        assert result["edges"] == [{"from": "ADR-00000000000000000000000002", "to": "ADR-00000000000000000000000001"}]
+
+    def test_drops_edge_to_unknown_reference(self, project_dir, monkeypatch):
+        monkeypatch.chdir(project_dir)
+        d = project_dir / "docs" / "adr"
+        (d / "adr-00000000000000000000000001-only.md").write_text(
+            "---\n"
+            "id: ADR-00000000000000000000000001\n"
+            "status: accepted\n"
+            "date: 2026-04-01\n"
+            "references: [PRD-00000000000000000000000099]\n"
+            "---\n\n"
+            "# ADR-00000000000000000000000001 Only Decision\n"
+        )
+
+        result = graph_json()
+
+        assert len(result["documents"]) == 1
+        assert result["documents"][0]["references"] == ["PRD-00000000000000000000000099"]
+        assert result["edges"] == []
 
 
 class TestGraphCommand:
