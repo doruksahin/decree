@@ -71,7 +71,7 @@ title_format = "## v{version} - {project_date}"
 issue_format = "[#{issue}](https://github.com/doruksahin/decree/issues/{issue})"
 orphan_prefix = "+"
 wrap = true
-ignore = ["README.md"]
+ignore = ["AGENTS.md", "README.md"]
 
 [[tool.towncrier.type]]
 directory = "security"

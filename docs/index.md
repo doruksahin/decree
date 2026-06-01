@@ -156,6 +156,8 @@ lychee --config .lychee.toml --no-progress '**/*.md'
 
 ## Reference Docs
 
+- [Agent Onboarding](../AGENTS.md): contribution rules for LLM agents working
+  in this repository.
 - [README](../README.md): package overview and quick start.
 - [Usage](usage.md): command-by-command examples.
 - [Configuration](configuration.md): `decree.toml` schema.

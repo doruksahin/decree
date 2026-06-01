@@ -2,6 +2,11 @@
 
 Software decision lifecycle toolkit — PRDs, ADRs, SPECs with cross-type references, status enforcement, and validation.
 
+## Agent Entry Point
+
+Read [AGENTS.md](AGENTS.md) first. It is the tool-agnostic onboarding file for
+new LLM sessions. This CLAUDE file remains as a Claude-specific quick reference.
+
 ## Quick Reference
 
 ```bash
@@ -19,6 +24,7 @@ decree progress --changed --base origin/main  # scoped progress for parallel wor
 decree ddd --governs src/foo.py   # scoped lifecycle guidance
 decree why src/foo.py             # path -> governing decisions
 decree refs SPEC-01KT22NMS0D19VMD8VPK4D2MNX  # reverse graph for one decision
+decree --version                  # installed package version
 ```
 
 ## Architecture
@@ -56,10 +62,11 @@ uv run pytest -q                                      # tests
 uv run ruff check src/ tests/                         # lint
 uv run ruff format src/ tests/                        # format
 lychee --config .lychee.toml --no-progress '**/*.md'  # online markdown link check
+uv run towncrier check --staged                       # require changelog fragment for changes
 uv run decree lint                                    # validate dogfood docs
 ```
 
-Pre-commit runs ruff, lychee, and pytest automatically. CI runs pytest on Python 3.11-3.13, plus ruff and lychee.
+Pre-commit runs ruff, lychee, Towncrier, and pytest automatically. CI runs pytest on Python 3.11-3.13, plus ruff, lychee, and Towncrier checks.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for developer guidelines — rules for adding commands, extending config, writing tests, and code style.
 

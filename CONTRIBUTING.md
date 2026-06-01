@@ -10,7 +10,7 @@ brew install lychee  # or install lychee by another method and keep it on PATH
 uv run pre-commit install
 ```
 
-Pre-commit hooks run ruff (lint + format), lychee (online markdown link check), and pytest on every commit.
+Pre-commit hooks run ruff (lint + format), lychee (online markdown link check), Towncrier fragment checks, and pytest on every commit.
 
 ## Development Loop
 
@@ -22,7 +22,7 @@ lychee --config .lychee.toml --no-progress '**/*.md'  # online markdown link che
 uv run decree lint                                    # validate dogfood docs
 ```
 
-Pre-commit runs these checks locally. CI runs pytest on Python 3.11, 3.12, and 3.13, plus ruff and lychee.
+Pre-commit runs these checks locally. CI runs pytest on Python 3.11, 3.12, and 3.13, plus ruff, lychee, and Towncrier checks.
 
 ## Rules
 
@@ -95,9 +95,20 @@ See [tests/CLAUDE.md](tests/CLAUDE.md) for test map and fixture documentation.
 
 - All checks must pass: `pytest`, `ruff check`, `ruff format --check`, `lychee --config .lychee.toml --no-progress '**/*.md'`
 - Keep commits focused — one logical change per commit
-- Update `CHANGELOG.md` under `## Unreleased`
+- Add one Towncrier fragment in `changelog.d/` for each user-visible change
 - If you change CLI behavior, update `--help` text in [cli.py](src/decree/cli.py)
 - If you add/rename markdown files or sections, run `lychee --config .lychee.toml --no-progress '**/*.md'` to verify links
+
+## Changelog Fragments
+
+Do not edit `CHANGELOG.md` directly for normal development. Add a fragment:
+
+```bash
+uv run towncrier create +.feature --content "Add governed lookup for auth files."
+uv run towncrier check --staged
+```
+
+See [changelog.d/AGENTS.md](changelog.d/AGENTS.md) and [docs/release.md](docs/release.md).
 
 ## Code Style
 

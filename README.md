@@ -10,6 +10,10 @@ Start with the [Capability Index](docs/index.md) when integrating decree into
 another application or an LLM-agent workflow. It explains what decree can do,
 which commands own each responsibility, and the expected adoption sequence.
 
+LLM agents contributing to this repository should start with
+[AGENTS.md](AGENTS.md), then follow the narrower AGENTS files in the directory
+they are changing.
+
 ## Install
 
 ```bash
