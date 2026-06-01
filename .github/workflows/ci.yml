@@ -29,8 +29,14 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv python install 3.13
       - run: uv sync --group dev
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
       - run: uv run ruff check src/ tests/
       - run: uv run ruff format --check src/ tests/
+      - run: uv run decree lint
+      - run: uv run decree index verify
+      - run: uv run pre-commit run actionlint --all-files
 
   links:
     runs-on: ubuntu-latest

@@ -48,6 +48,7 @@ Decree is intentionally explicit:
 | Architecture modeling | `decree lint`, `decree graph` with `[types.<name>.c4]` | Validate and render C4 system/container/component relationships. |
 | Package versioning | `decree --version` | Expose the installed package version from `pyproject.toml` metadata. |
 | Changelog fragments | `uv run towncrier create`, `uv run towncrier build` | Capture release notes at change time and generate `CHANGELOG.md` at release time. |
+| Release automation | `.github/workflows/release.yml` | Validate tag releases, build distributions, publish to PyPI, and create GitHub Releases. |
 
 ## Integration Sequence
 

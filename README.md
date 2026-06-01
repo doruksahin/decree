@@ -367,7 +367,11 @@ version string in source files.
 
 Changelog entries are Towncrier fragments in `changelog.d/`. Agents should add
 one fragment with each user-visible change; release builds generate
-`CHANGELOG.md` from those fragments. See [docs/release.md](docs/release.md).
+`CHANGELOG.md` from those fragments.
+
+Pushing a `vX.Y.Z` tag runs the release workflow: validate, build, publish to
+PyPI through Trusted Publishing, and create a GitHub Release. See
+[docs/release.md](docs/release.md).
 
 ## Contributing
 

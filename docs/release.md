@@ -66,9 +66,10 @@ not reconstructed from git history later.
 Hatch supports dynamic version sources, including VCS-derived versions through
 `hatch-vcs`. That is useful once release tags are authoritative.
 
-This repository currently has no release tags or publish workflow, so
-tag-derived versions would add moving parts without providing a stronger source
-of truth. The current rule is simpler:
+Tag-derived versions would add moving parts without providing a stronger source
+of truth because release tags are created after `pyproject.toml`,
+`CHANGELOG.md`, and validation are already complete. The current rule is
+simpler:
 
 - `pyproject.toml` owns package version.
 - `CHANGELOG.md` owns human release notes.
@@ -103,29 +104,83 @@ uv run towncrier build --draft --version X.Y.Z
    uv run towncrier build --yes --version X.Y.Z
    ```
 
-6. Verify the exposed version.
+6. Commit the release-preparation changes.
+
+   ```bash
+   uv run decree commit -m "chore: prepare vX.Y.Z release" --no-infer
+   ```
+
+7. Verify the exposed version.
 
    ```bash
    uv run decree --version
    ```
 
-7. Run validation.
+8. Run validation.
 
    ```bash
    uv run pytest -q
    uv run pre-commit run --all-files
    ```
 
-8. Build artifacts.
+9. Build artifacts locally if you want a pre-tag smoke test.
 
    ```bash
    uv build
    ```
 
-9. Tag the release after validation.
+10. Tag the release after validation.
 
    ```bash
    git tag vX.Y.Z
+   git push origin vX.Y.Z
    ```
 
-10. Publish artifacts with the repository's chosen publishing workflow.
+11. GitHub Actions runs `.github/workflows/release.yml`.
+
+    The workflow validates the release, builds the source distribution and
+    wheel, publishes to PyPI through Trusted Publishing, and creates a GitHub
+    Release with the same artifacts.
+
+## Release Workflow
+
+The release workflow is tag-triggered:
+
+```yaml
+on:
+  push:
+    tags:
+      - "v*.*.*"
+```
+
+It fails closed unless all release readiness checks pass:
+
+- tag must be `vX.Y.Z`
+- tag version must equal `[project].version`
+- `CHANGELOG.md` must contain a `## vX.Y.Z` release section
+- `changelog.d/` must have no pending release fragments other than
+  `README.md` and `AGENTS.md`
+- ruff, format check, decree lint, index verify, tests, and lychee must pass
+
+Workflow YAML is statically validated by `actionlint` in both pre-commit and
+pull request CI. Do not add or change a workflow without that check passing.
+
+## PyPI Trusted Publishing Setup
+
+Before the first real publish, configure PyPI Trusted Publishing for this
+repository.
+
+Use these values in PyPI:
+
+| Field | Value |
+|-------|-------|
+| Owner | `doruksahin` |
+| Repository | `decree` |
+| Workflow | `release.yml` |
+| Environment | `pypi` |
+
+The workflow uses `pypa/gh-action-pypi-publish@release/v1` with GitHub OIDC.
+No PyPI API token should be stored in repository secrets.
+
+Create a GitHub Environment named `pypi` if you want environment protection
+rules or manual approval before publishing.

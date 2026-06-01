@@ -1,0 +1,169 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.13"
+
+jobs:
+  validate:
+    name: validate release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --group dev
+      - name: Validate tag, version, changelog, and fragments
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          export TAG VERSION
+          uv run python - <<'PY'
+          import os
+          import re
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          tag = os.environ["TAG"]
+          version = os.environ["VERSION"]
+          if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+              sys.exit(f"release tag must be vX.Y.Z, got {tag!r}")
+
+          pyproject_version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          if pyproject_version != version:
+              sys.exit(f"tag {tag!r} does not match pyproject.toml version {pyproject_version!r}")
+
+          changelog = Path("CHANGELOG.md").read_text()
+          if not re.search(rf"^## v{re.escape(version)}(?:\s|$)", changelog, re.MULTILINE):
+              sys.exit(f"CHANGELOG.md is missing a release section for v{version}")
+
+          ignored = {"AGENTS.md", "README.md"}
+          fragment_dir = Path("changelog.d")
+          pending = sorted(
+              path.name
+              for path in fragment_dir.iterdir()
+              if path.is_file() and not path.name.startswith(".") and path.name not in ignored
+          )
+          if pending:
+              sys.exit(
+                  "release has pending Towncrier fragments; run "
+                  f"`uv run towncrier build --yes --version {version}` before tagging: {pending}"
+              )
+          PY
+      - run: uv run decree --version
+      - run: uv run ruff check src/ tests/
+      - run: uv run ruff format --check src/ tests/
+      - run: uv run decree lint
+      - run: uv run decree index verify
+      - run: uv run pytest -q
+
+  links:
+    name: validate links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config .lychee.toml --no-progress '**/*.md'
+
+  build:
+    name: build distributions
+    runs-on: ubuntu-latest
+    needs: [validate, links]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/*
+          if-no-files-found: error
+
+  publish-pypi:
+    name: publish to PyPI
+    runs-on: ubuntu-latest
+    needs: build
+    environment: pypi
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  github-release:
+    name: create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build, publish-pypi]
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+      - name: Extract release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          export VERSION
+          python - <<'PY'
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          changelog = Path("CHANGELOG.md").read_text().splitlines()
+          start = None
+          for index, line in enumerate(changelog):
+              if re.fullmatch(rf"## v{re.escape(version)}(?:\s.*)?", line):
+                  start = index + 1
+                  break
+          if start is None:
+              sys.exit(f"CHANGELOG.md is missing a release section for v{version}")
+
+          end = len(changelog)
+          for index in range(start, len(changelog)):
+              if changelog[index].startswith("## "):
+                  end = index
+                  break
+
+          notes = "\n".join(changelog[start:end]).strip()
+          if not notes:
+              sys.exit(f"CHANGELOG.md release section for v{version} is empty")
+          Path("release-notes.md").write_text(notes + "\n")
+          PY
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --verify-tag \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file release-notes.md
