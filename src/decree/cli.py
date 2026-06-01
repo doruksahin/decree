@@ -515,6 +515,18 @@ def main() -> int:
         help="One or more repo-relative paths the plan will touch.",
     )
     p_ic.add_argument(
+        "--other-active-files",
+        default=None,
+        dest="other_active_files",
+        metavar="JSON",
+        help=(
+            "JSON object mapping other active session ids to the paths they plan "
+            'to touch, e.g. \'{"session-b": ["src/foo.py"]}\'. Planned files that '
+            "overlap a live session surface as live-session conflicts (parity with "
+            "the intent_check MCP tool's other_active_files parameter)."
+        ),
+    )
+    p_ic.add_argument(
         "--with-abstention",
         action="store_true",
         dest="with_abstention",

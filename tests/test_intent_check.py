@@ -407,6 +407,7 @@ class TestReportToDict:
             "stale_governance",
             "unchecked_acceptance_criteria",
             "conflicts",
+            "live_conflicts",
             "abstention",
             "recommended_actions",
         }
@@ -429,6 +430,47 @@ class TestReportToDict:
 # ── CLI tests ───────────────────────────────────────────────
 
 
+class TestLiveSessionConflicts:
+    """``other_active_files`` cross-session overlap detection (agentkith integration)."""
+
+    def test_absent_by_default(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        report = intent_check(db, root, "Plan", ["src/foo.py"])
+        assert report.live_conflicts == ()
+        assert report_to_dict(report)["live_conflicts"] == []
+        assert all(r.action != "isolate_session" for r in report.recommended_actions)
+
+    def test_overlap_surfaces_live_conflict_and_recommendation(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        report = intent_check(
+            db,
+            root,
+            "Plan",
+            ["src/foo.py", "src/only-mine.py"],
+            other_active_files={
+                "session-b": ["src/foo.py"],
+                "session-c": ["src/elsewhere.py"],
+            },
+        )
+        # Only the shared path is a live conflict; session-c claims nothing we plan.
+        assert [lc.path for lc in report.live_conflicts] == ["src/foo.py"]
+        assert report.live_conflicts[0].session_ids == ("session-b",)
+        assert any(r.action == "isolate_session" for r in report.recommended_actions)
+        payload = report_to_dict(report)
+        assert payload["live_conflicts"] == [{"path": "src/foo.py", "session_ids": ["session-b"]}]
+
+    def test_multiple_sessions_same_path_are_sorted(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        report = intent_check(
+            db,
+            root,
+            "Plan",
+            ["src/foo.py"],
+            other_active_files={"session-z": ["src/foo.py"], "session-a": ["src/foo.py"]},
+        )
+        assert report.live_conflicts[0].session_ids == ("session-a", "session-z")
+
+
 def _make_args(**kw) -> argparse.Namespace:
     defaults = dict(
         plan="",
@@ -437,12 +479,39 @@ def _make_args(**kw) -> argparse.Namespace:
         target_precision=None,
         json=False,
         project=None,
+        other_active_files=None,
     )
     defaults.update(kw)
     return argparse.Namespace(**defaults)
 
 
 class TestIntentCheckCLI:
+    def test_other_active_files_flag_surfaces_live_conflict(
+        self, basic_db_and_root: tuple[IndexDB, Path], capsys
+    ) -> None:
+        _db, root = basic_db_and_root
+        args = _make_args(
+            plan="Touch foo",
+            files=["src/foo.py"],
+            json=True,
+            project=str(root),
+            other_active_files='{"session-b": ["src/foo.py"]}',
+        )
+        rc = intent_check_run(args)
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["live_conflicts"] == [{"path": "src/foo.py", "session_ids": ["session-b"]}]
+        assert rc == 1  # a live-session overlap is a blocker
+
+    def test_other_active_files_invalid_json_exits_2(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        _db, root = basic_db_and_root
+        args = _make_args(
+            plan="Touch foo",
+            files=["src/foo.py"],
+            project=str(root),
+            other_active_files="{not valid json",
+        )
+        assert intent_check_run(args) == 2
+
     def test_clean_run_exit_0(self, basic_db_and_root: tuple[IndexDB, Path], capsys) -> None:
         _db, root = basic_db_and_root
         args = _make_args(
@@ -490,6 +559,7 @@ class TestIntentCheckCLI:
             "stale_governance",
             "unchecked_acceptance_criteria",
             "conflicts",
+            "live_conflicts",
             "abstention",
             "recommended_actions",
         }

@@ -285,19 +285,84 @@ class TestRefsTool:
 # ── Tool registry ───────────────────────────────────────────
 
 
+class TestProgressTool:
+    def test_all_documents(self, project_with_index: Path) -> None:
+        result = mcp_server.progress()
+        assert "error" not in result
+        assert result["scope"] == "all documents"
+        assert result["document_count"] >= 1
+        assert set(result["primary"].keys()) == {"done", "total", "percent"}
+        assert isinstance(result["documents"], list)
+
+    def test_single_doc_scope(self, project_with_index: Path) -> None:
+        result = mcp_server.progress(doc_id="SPEC-00000000000000000000000001")
+        assert "error" not in result
+        assert result["scope"] == "doc SPEC-00000000000000000000000001"
+        assert result["document_count"] == 1
+        assert result["documents"][0]["doc_id"] == "SPEC-00000000000000000000000001"
+
+    def test_unknown_doc_returns_error(self, project_with_index: Path) -> None:
+        result = mcp_server.progress(doc_id="SPEC-00000000000000000000000999")
+        assert "error" in result
+
+    def test_tool_has_full_docstring(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        desc = tools["progress"].description or ""
+        assert "Args:" in desc
+        assert "Returns:" in desc
+        assert "When to call:" in desc
+        assert "When not to call:" in desc
+
+
+class TestReportTool:
+    def test_dry_run_does_not_write(self, project_with_index: Path) -> None:
+        result = mcp_server.report(doc_ids=["SPEC-00000000000000000000000001"], dry_run=True)
+        assert "error" not in result
+        assert result["dry_run"] is True
+        assert result["written"] == []
+
+    def test_tool_has_full_docstring(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        desc = tools["report"].description or ""
+        assert "Args:" in desc
+        assert "Returns:" in desc
+        assert "When to call:" in desc
+        assert "When not to call:" in desc
+
+
+class TestIntentCheckLiveConflicts:
+    def test_other_active_files_surfaces_live_conflict(self, project_with_index: Path) -> None:
+        result = mcp_server.intent_check(
+            "Touch foo",
+            ["src/foo.py"],
+            other_active_files={"session-b": ["src/foo.py"]},
+        )
+        assert "error" not in result
+        assert result["live_conflicts"] == [{"path": "src/foo.py", "session_ids": ["session-b"]}]
+        assert any(a["action"] == "isolate_session" for a in result["recommended_actions"])
+
+    def test_single_session_mode_has_empty_live_conflicts(self, project_with_index: Path) -> None:
+        result = mcp_server.intent_check("Touch foo", ["src/foo.py"])
+        assert "error" not in result
+        assert result["live_conflicts"] == []
+
+
 class TestToolRegistry:
-    def test_exactly_six_tools_registered(self) -> None:
-        # SPEC-14 added `intent_check` to the SPEC-7/8/9 tool set.
+    def test_exactly_eight_tools_registered(self) -> None:
+        # SPEC-14 added `intent_check`; the agentkith integration added the
+        # closeout tools `progress` and `report`.
         tools = mcp._tool_manager.list_tools()
         names = sorted(t.name for t in tools)
         assert names == [
             "health",
             "intent_check",
             "intent_review",
+            "progress",
             "refs",
+            "report",
             "stale",
             "why",
-        ], f"Expected SPEC-7/8/9/14 tools; got {names}."
+        ], f"Expected the full decree MCP tool set; got {names}."
 
     def test_why_has_full_docstring(self) -> None:
         tools = {t.name: t for t in mcp._tool_manager.list_tools()}
@@ -339,12 +404,14 @@ class TestProtocol:
 
         tools = asyncio.run(go())
         names = sorted(t.name for t in tools)
-        # SPEC-14 added `intent_check` to the SPEC-7/8/9 tool set.
+        # Full decree MCP tool set (incl. closeout progress/report).
         assert names == [
             "health",
             "intent_check",
             "intent_review",
+            "progress",
             "refs",
+            "report",
             "stale",
             "why",
         ]

@@ -48,6 +48,22 @@ from decree.log import error, info
 
 
 @dataclass(frozen=True)
+class LiveSessionConflict:
+    """A planned path also claimed by another *currently-active* agent session.
+
+    Distinct from ``Conflict``, which is governance-level (multiple *decisions*
+    claim one path). This is operational: two live sessions plan to write the
+    same file *right now*. decree does not track session state itself — the
+    caller passes the paths claimed by other active sessions via
+    ``other_active_files`` and decree computes the overlap, so the "is anyone
+    else touching this?" answer lives in the same report as the governance map.
+    """
+
+    path: str
+    session_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class IntentCheckReport:
     """Top-level pre-code governance report.
 
@@ -67,6 +83,9 @@ class IntentCheckReport:
     conflicts: tuple[Conflict, ...]
     abstention: dict | None
     recommended_actions: tuple[Recommendation, ...]
+    # Operational overlap with other live sessions (opt-in via ``other_active_files``).
+    # Empty unless the caller passes the paths claimed by concurrently-running sessions.
+    live_conflicts: tuple[LiveSessionConflict, ...] = ()
 
 
 # ── Internal helpers ────────────────────────────────────────
@@ -111,12 +130,21 @@ def intent_check(
     *,
     with_abstention: bool = False,
     threshold_commits: int = 10,
+    other_active_files: dict[str, list[str]] | None = None,
 ) -> IntentCheckReport:
     """Compose an ``IntentCheckReport`` for a plan and planned files.
 
     Stitches the same prior-SPEC primitives SPEC-01KT22NMRYRZQ59EC88VJ5R0N6 used, plus optional
     SPEC-01KT22NMS0VWCTYPFPHP8M8V36 calibrated abstention. Structural conflicts are deterministic;
     provider-backed semantic judging belongs in agent/skill layers.
+
+    ``other_active_files`` is an optional mapping of *session id → paths that
+    session is currently planning to write*. decree does not track session
+    state itself; when a parallel-agent host (e.g. a canvas of concurrent
+    Claude/Codex sessions) passes the other live sessions' claimed paths, the
+    report's ``live_conflicts`` surfaces every planned file that another active
+    session is also about to touch — the "is anyone else editing this right
+    now?" signal that decision-level ``conflicts`` cannot answer.
     """
     # 0. Normalize planned_files: stable order, deduped.
     seen: dict[str, None] = {}
@@ -186,6 +214,27 @@ def intent_check(
     #    post-process this JSON if they want semantic conflict judging.
     conflicts: list[Conflict] = list(raw_conflicts)
 
+    # 5b. live_conflicts — planned paths also claimed by other active sessions.
+    #     Operational, not governance: decree does not own session state, so the
+    #     caller supplies it via ``other_active_files`` and we compute the
+    #     overlap here, keeping the "who else is touching this?" answer in the
+    #     same report as the governance map.
+    live_conflicts: list[LiveSessionConflict] = []
+    if other_active_files and paths:
+        planned_set = set(paths)
+        sessions_by_path: dict[str, set[str]] = {}
+        for session_id, session_paths in other_active_files.items():
+            for f in session_paths or ():
+                if f in planned_set:
+                    sessions_by_path.setdefault(f, set()).add(session_id)
+        for path in sorted(sessions_by_path):
+            live_conflicts.append(
+                LiveSessionConflict(
+                    path=path,
+                    session_ids=tuple(sorted(sessions_by_path[path])),
+                )
+            )
+
     # 6. abstention — populated when --with-abstention and all governance
     #    lookups returned nothing. We synthesize a single abstention block
     #    over the planned paths so the caller can see *why* the calibrator
@@ -213,6 +262,7 @@ def intent_check(
         stale_ids={s["decision_id"] for s in stale_governance},
         unchecked=unchecked,
         conflicts=conflicts,
+        live_conflicts=live_conflicts,
     )
 
     return IntentCheckReport(
@@ -224,6 +274,7 @@ def intent_check(
         conflicts=tuple(conflicts),
         abstention=abstention,
         recommended_actions=tuple(recommendations),
+        live_conflicts=tuple(live_conflicts),
     )
 
 
@@ -236,6 +287,7 @@ def _build_recommendations(
     stale_ids: set[str],
     unchecked: list[UncheckedAC],
     conflicts: list[Conflict],
+    live_conflicts: list[LiveSessionConflict] | None = None,
 ) -> list[Recommendation]:
     """Generate pre-code-phase recommendation verbs from collected signals.
 
@@ -248,13 +300,18 @@ def _build_recommendations(
       * ``check_ac`` — one per unchecked AC (informational; mirrors SPEC-01KT22NMRYRZQ59EC88VJ5R0N6).
       * ``update_decision`` — one per stale governance entry.
       * ``resolve_conflict_first`` — one per structural conflict.
+      * ``isolate_session`` — one per planned path another live session also
+        claims (parallel-agent overlap; emitted only when ``other_active_files``
+        was supplied to ``intent_check``).
     """
     recs: list[Recommendation] = []
+    live_conflicts = live_conflicts or []
 
     has_governance = bool(governing_decisions)
     has_conflicts = bool(conflicts)
     has_stale = bool(stale_ids)
     has_unchecked = bool(unchecked)
+    has_live = bool(live_conflicts)
 
     # proceed — only when all signals are clean.
     if (
@@ -262,6 +319,7 @@ def _build_recommendations(
         and not has_conflicts
         and not has_stale
         and not has_unchecked
+        and not has_live
         and not any(not path_to_decisions.get(p) for p in paths)
     ):
         # All paths are governed *and* clean. Rare for a real plan with files,
@@ -372,6 +430,20 @@ def _build_recommendations(
             )
         )
 
+    # isolate_session — one per planned path another live session also claims.
+    for lc in live_conflicts:
+        recs.append(
+            Recommendation(
+                action="isolate_session",
+                target_id=None,
+                detail=(
+                    f"{lc.path} is also planned by active session(s) "
+                    f"{', '.join(lc.session_ids)}. Run in a dedicated worktree, "
+                    f"or split this file out of one plan, before starting."
+                ),
+            )
+        )
+
     return recs
 
 
@@ -394,6 +466,7 @@ def report_to_dict(report: IntentCheckReport) -> dict:
             }
             for c in report.conflicts
         ],
+        "live_conflicts": [{"path": lc.path, "session_ids": list(lc.session_ids)} for lc in report.live_conflicts],
         "abstention": report.abstention,
         "recommended_actions": [asdict(r) for r in report.recommended_actions],
     }
@@ -507,6 +580,14 @@ def _format_human(report: IntentCheckReport) -> str:
     else:
         lines.append("  (none)")
 
+    lines.append("")
+    lines.append(f"Live-session conflicts ({len(report.live_conflicts)}):")
+    if report.live_conflicts:
+        for lc in report.live_conflicts:
+            lines.append(f"  ⇄ {lc.path}: also planned by {', '.join(lc.session_ids)}")
+    else:
+        lines.append("  (none)")
+
     if report.abstention is not None:
         lines.append("")
         lines.append("Calibrated abstention:")
@@ -535,9 +616,11 @@ def intent_check_run(args: argparse.Namespace) -> int:
     """`decree intent-check` — pre-PR governance report CLI entry point.
 
     Exit codes (SPEC-01KT22NMS0KTWGNKB36RR7K0JR):
-      * 0 — no structural conflicts and no stale governance.
-      * 1 — at least one conflict or stale governance entry surfaced.
-      * 2 — config error (e.g. missing or stale index).
+      * 0 — no conflicts (decision- or live-session-level) and no stale governance.
+      * 1 — at least one conflict, live-session overlap, or stale governance
+        entry surfaced. Live-session overlaps require ``--other-active-files``.
+      * 2 — config error (e.g. missing or stale index, or bad
+        ``--other-active-files`` JSON).
     """
     db, root, rc = _open_db_or_error(getattr(args, "project", None))
     if db is None:
@@ -549,12 +632,29 @@ def intent_check_run(args: argparse.Namespace) -> int:
 
     with_abstention = bool(getattr(args, "with_abstention", False))
 
+    other_active_files: dict[str, list[str]] | None = None
+    raw_other = getattr(args, "other_active_files", None)
+    if raw_other:
+        try:
+            parsed = json.loads(raw_other)
+        except json.JSONDecodeError as e:
+            error("intent-check", f"--other-active-files is not valid JSON: {e}")
+            return 2
+        if not isinstance(parsed, dict):
+            error(
+                "intent-check",
+                '--other-active-files must be a JSON object, e.g. {"session-b": ["src/foo.py"]}.',
+            )
+            return 2
+        other_active_files = {str(k): [str(p) for p in (v or [])] for k, v in parsed.items()}
+
     report = intent_check(
         db,
         root,
         plan,
         planned_files,
         with_abstention=with_abstention,
+        other_active_files=other_active_files,
     )
 
     if getattr(args, "json", False):
@@ -562,12 +662,12 @@ def intent_check_run(args: argparse.Namespace) -> int:
     else:
         print(_format_human(report))
 
-    # Exit 1 if any conflict or stale entry surfaced; else 0.
-    has_blockers = bool(report.conflicts) or bool(report.stale_governance)
+    # Exit 1 if any conflict (decision or live-session) or stale entry surfaced; else 0.
+    has_blockers = bool(report.conflicts) or bool(report.stale_governance) or bool(report.live_conflicts)
     if has_blockers:
         info(
             "intent-check",
-            "exit 1: findings present (conflicts or stale governance).",
+            "exit 1: findings present (conflicts, live-session overlaps, or stale governance).",
         )
         return 1
     return 0

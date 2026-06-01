@@ -140,6 +140,77 @@ def _changed_paths(base: str) -> set[str]:
     return changed
 
 
+def progress_for_scope(*, doc_id: str | None = None, chain_id: str | None = None) -> dict:
+    """Structured progress for one doc, a connected chain, or the whole corpus.
+
+    Library counterpart of ``decree progress`` with no stdout — used by the MCP
+    ``progress`` tool and any programmatic consumer (e.g. an agent host that
+    snapshots acceptance-criteria completion before and after a session).
+    Counts primary and deferred checkboxes per document and in aggregate,
+    mirroring the ``--doc`` / ``--chain`` scoping of the CLI.
+
+    Args:
+        doc_id: Restrict to this single document id (wins over ``chain_id``).
+        chain_id: Restrict to every document transitively connected to this id
+            via references / supersedes links.
+
+    Returns a JSON-serializable dict. Raises ``ValueError`` if a requested id
+    is unknown (callers at the protocol boundary convert that to an error dict).
+    """
+    docs = load_all_types()
+
+    if doc_id:
+        did = require_doc_id(doc_id)
+        selected = [d for d in docs if d.doc_id == did]
+        if not selected:
+            raise ValueError(f"document not found: {did}")
+        scope_label = f"doc {did}"
+    elif chain_id:
+        cid = require_doc_id(chain_id)
+        ids = _connected_doc_ids(docs, cid)
+        if not ids:
+            raise ValueError(f"chain root not found: {cid}")
+        selected = [d for d in docs if d.doc_id in ids]
+        scope_label = f"chain {cid}"
+    else:
+        selected = docs
+        scope_label = "all documents"
+
+    documents: list[dict] = []
+    primary_done = primary_total = deferred_done = deferred_total = 0
+    for doc in sorted(selected, key=lambda d: d.doc_id):
+        pdone, ptotal, ddone, dtotal = _doc_counts(doc)
+        primary_done += pdone
+        primary_total += ptotal
+        deferred_done += ddone
+        deferred_total += dtotal
+        documents.append(
+            {
+                "doc_id": doc.doc_id,
+                "title": doc.title,
+                "status": doc.meta.status,
+                "primary": {
+                    "done": pdone,
+                    "total": ptotal,
+                    "percent": round(pdone / ptotal * 100) if ptotal else None,
+                },
+                "deferred": {"done": ddone, "total": dtotal},
+            }
+        )
+
+    return {
+        "scope": scope_label,
+        "document_count": len(documents),
+        "primary": {
+            "done": primary_done,
+            "total": primary_total,
+            "percent": round(primary_done / primary_total * 100) if primary_total else None,
+        },
+        "deferred": {"done": deferred_done, "total": deferred_total},
+        "documents": documents,
+    }
+
+
 def run(args: argparse.Namespace | None = None) -> int:
     prefix = "progress"
 

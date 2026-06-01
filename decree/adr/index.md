@@ -7,5 +7,6 @@
 | ADR-01KT22NMRV7GMAXKWSBEEN68KE | Coupled C4 Module vs Plugin Architecture | accepted | 2026-04-05 |  |
 | ADR-01KT22NMRV9CP14X5982JJH161 | Index-First Architecture for Decree Queries | accepted | 2026-05-12 |  |
 | ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ | Use Distributed Frontmatter IDs for Parallel Work | accepted | 2026-06-01 |  |
+| ADR-01KT2JRPKC8ZWK48YFXXKS7ZGV | Cross-session live-conflict detection lives in intent-check | accepted | 2026-06-02 |  |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

@@ -631,6 +631,7 @@ def intent_check(
     plan: str,
     planned_files: list[str],
     with_abstention: bool = False,
+    other_active_files: dict[str, list[str]] | None = None,
 ) -> dict:
     """Pre-code governance check — what decisions apply to your plan?
 
@@ -655,6 +656,13 @@ def intent_check(
             all paths return empty governance the response includes an
             `abstention` block with signals and threshold so the caller
             can see *why* the calibrator deflected.
+        other_active_files: Optional mapping of *session id → paths that
+            session is currently planning to write*, e.g.
+            `{"session-b": ["src/app/Canvas.tsx"]}`. decree does not track
+            session state; pass the claimed paths of other concurrently-running
+            agent sessions and the response's `live_conflicts` will list every
+            planned file another active session is also about to touch. Defaults
+            to None (single-session mode — `live_conflicts` is empty).
 
     Returns:
         A dict with the same shape as `decree intent-check --json`:
@@ -685,6 +693,10 @@ def intent_check(
                                        "reasoning": str} | None},
                 ...
               ],
+              "live_conflicts": [
+                {"path": str, "session_ids": [str, ...]},
+                ...
+              ],
               "abstention": {"abstained": bool, "composite_score": float,
                              "threshold": float, "signals": {...},
                              ...} | None,
@@ -696,7 +708,12 @@ def intent_check(
 
         Recommendation `action` strings (planning-phase verbs):
         `proceed`, `add_governance`, `draft_adr_first`, `update_spec_first`,
-        `check_ac`, `update_decision`, `resolve_conflict_first`.
+        `check_ac`, `update_decision`, `resolve_conflict_first`,
+        `isolate_session` (emitted per `live_conflicts` entry).
+
+        `conflicts` is governance-level (multiple decisions claim one path);
+        `live_conflicts` is operational (another running session plans the same
+        path) and is non-empty only when `other_active_files` was supplied.
 
         Empty arrays are valid responses (abstention; do not confabulate).
         On a missing index the response is
@@ -742,8 +759,140 @@ def intent_check(
         plan,
         list(planned_files or []),
         with_abstention=with_abstention,
+        other_active_files=other_active_files or None,
     )
     return report_to_dict(report)
+
+
+@mcp.tool()
+def progress(doc_id: str | None = None, chain_id: str | None = None) -> dict:
+    """Acceptance-criteria completion for a decision, a chain, or the whole corpus.
+
+    Counts the primary and deferred `- [x]` / `- [ ]` checkboxes a SPEC (or any
+    decision) declares, so you can measure *objective* progress instead of
+    trusting a "looks done" self-report. The natural closeout signal: snapshot
+    the governing SPEC before a coding session, call again after, and compare —
+    a SPEC that went 0/36 → 11/36 is partially done, not implemented.
+
+    Args:
+        doc_id: Restrict to a single document id, e.g.
+            `SPEC-01KT22NMRWENYKC3MGRA50M7GE`. Wins over `chain_id` if both set.
+        chain_id: Restrict to every document transitively connected to this id
+            (its PRD → ADR → SPEC chain). Omit both to score the whole corpus.
+
+    Returns:
+        A dict with the same counts as `decree progress` (no stdout):
+
+            {
+              "scope": str,                 # "doc <id>" | "chain <id>" | "all documents"
+              "document_count": int,
+              "primary":  {"done": int, "total": int, "percent": int | None},
+              "deferred": {"done": int, "total": int},
+              "documents": [
+                {"doc_id": str, "title": str, "status": str,
+                 "primary": {"done": int, "total": int, "percent": int | None},
+                 "deferred": {"done": int, "total": int}},
+                ...
+              ],
+            }
+
+        On an unknown id the response is
+        `{"error": "document not found: <id>", "hint": "..."}`.
+
+    When to call:
+        - At session closeout, to verify the work actually advanced the SPEC's
+          acceptance criteria before marking anything complete.
+        - When deciding whether a SPEC is safe to transition to `implemented`.
+        - To report parallel-work progress scoped to one chain.
+
+    When not to call:
+        - As a substitute for reading the SPEC — this counts checkboxes, it does
+          not judge whether the implementation is correct.
+        - On every keystroke — call at meaningful boundaries (start/end of work).
+    """
+    from decree.commands.progress import progress_for_scope
+
+    # progress reads documents from disk via the parser (not the SQLite index),
+    # so there is no index check — a bad id is the only expected error.
+    try:
+        return progress_for_scope(doc_id=doc_id or None, chain_id=chain_id or None)
+    except ValueError as e:
+        return {"error": str(e), "hint": "Pass a valid TYPE-ULID document id."}
+    except Exception as e:  # pragma: no cover - defensive boundary
+        return {"error": "progress failed", "detail": str(e)}
+
+
+@mcp.tool()
+def report(
+    doc_ids: list[str] | None = None,
+    all_terminal: bool = False,
+    dry_run: bool = False,
+) -> dict:
+    """Regenerate completion-report artifacts for finished decisions (closeout evidence).
+
+    Writes the per-decision completion report markdown that turns a finished
+    SPEC into an auditable artifact tied to its acceptance criteria — the
+    handoff document a reviewer or release note can cite. This is the one MCP
+    tool that *writes files*; pass `dry_run=True` to preview what would be
+    written without touching disk.
+
+    Args:
+        doc_ids: Explicit list of decision ids to regenerate reports for, e.g.
+            `["SPEC-01KT22NMRWENYKC3MGRA50M7GE"]`. The common closeout call.
+        all_terminal: If True, regenerate for every decision currently in a
+            terminal-success status (bulk refresh). Ignored when `doc_ids` is
+            given.
+        dry_run: If True (default False), compute and return what *would* be
+            written without creating or modifying any file.
+
+    Returns:
+        A dict summarizing the regeneration:
+
+            {
+              "dry_run": bool,
+              "total": int,
+              "written":     [{"doc_id": str, "path": str}, ...],
+              "would_write": [{"doc_id": str, "path": str}, ...],   # dry-run only
+              "skipped":     [{"doc_id": str, "reason": str}, ...],
+            }
+
+    When to call:
+        - At session closeout, after `progress` confirms a SPEC is complete, to
+          emit its completion report as reviewable evidence.
+        - To bulk-refresh reports after a batch of decisions reached a terminal
+          status (`all_terminal=True`).
+
+    When not to call:
+        - On in-progress decisions — reports are for terminal-success docs; a
+          partial SPEC will be reported as `skipped`.
+        - As a read-only query — this writes files. Use `progress` to *measure*
+          completion without emitting an artifact.
+    """
+    from decree.commands.report import regenerate_reports
+
+    root = _PROJECT_ROOT if _PROJECT_ROOT is not None else _resolve_root(None)
+    try:
+        results = regenerate_reports(
+            root,
+            doc_ids=tuple(doc_ids or ()),
+            all_terminal=bool(all_terminal),
+            existing_only=False,
+            dry_run=bool(dry_run),
+        )
+    except Exception as e:  # pragma: no cover - defensive boundary
+        return {"error": "report regeneration failed", "detail": str(e)}
+
+    return {
+        "dry_run": bool(dry_run),
+        "total": len(results),
+        "written": [
+            {"doc_id": r.doc_id, "path": str(r.path) if r.path else None} for r in results if r.action == "written"
+        ],
+        "would_write": [
+            {"doc_id": r.doc_id, "path": str(r.path) if r.path else None} for r in results if r.action == "would_write"
+        ],
+        "skipped": [{"doc_id": r.doc_id, "reason": r.reason} for r in results if r.action == "skipped"],
+    }
 
 
 def mcp_serve_run(args: argparse.Namespace) -> int:
