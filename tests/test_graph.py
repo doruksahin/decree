@@ -89,6 +89,35 @@ class TestGraphJson:
         assert derived["references"] == ["ADR-00000000000000000000000001"]
         assert result["edges"] == [{"from": "ADR-00000000000000000000000002", "to": "ADR-00000000000000000000000001"}]
 
+    def test_emits_governs_paths(self, project_dir, monkeypatch):
+        monkeypatch.chdir(project_dir)
+        d = project_dir / "docs" / "adr"
+        (d / "adr-00000000000000000000000001-governing.md").write_text(
+            "---\n"
+            "id: ADR-00000000000000000000000001\n"
+            "status: accepted\n"
+            "date: 2026-04-01\n"
+            "governs: [src/foo.py, src/bar.py#Baz]\n"
+            "---\n\n"
+            "# ADR-00000000000000000000000001 Governing Decision\n"
+        )
+        (d / "adr-00000000000000000000000002-ungoverning.md").write_text(
+            "---\n"
+            "id: ADR-00000000000000000000000002\n"
+            "status: accepted\n"
+            "date: 2026-04-02\n"
+            "---\n\n"
+            "# ADR-00000000000000000000000002 Ungoverning Decision\n"
+        )
+
+        result = graph_json()
+
+        governing = result["documents"][0]
+        # `#symbol` suffixes are stripped to bare repo-relative paths.
+        assert governing["governs"] == ["src/foo.py", "src/bar.py"]
+        # Documents without a governs frontmatter expose an empty list, not None.
+        assert result["documents"][1]["governs"] == []
+
     def test_drops_edge_to_unknown_reference(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)
         d = project_dir / "docs" / "adr"

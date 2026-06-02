@@ -99,7 +99,8 @@ def graph_json() -> dict:
 
     A stable, ULID-aware machine contract for external consumers (e.g. an editor
     or app that renders the corpus). Each document carries its id, type, clean
-    title, project-relative path, and the ids it references; ``edges`` are the
+    title, project-relative path, the ids it references, and the repo-relative
+    paths it governs (``#symbol`` suffixes stripped to bare paths); ``edges`` are the
     valid cross-document references (a reference whose target is not a known
     document id is dropped, mirroring graph rendering). Pure read; touches no
     index.md.
@@ -129,6 +130,7 @@ def graph_json() -> dict:
         if title.startswith(id_prefix):
             title = title[len(id_prefix) :]
         refs = list(doc.meta.references or [])
+        governs = [entry.split("#", 1)[0] for entry in (doc.meta.governs or [])]
         documents.append(
             {
                 "id": doc.doc_id,
@@ -136,6 +138,7 @@ def graph_json() -> dict:
                 "title": title,
                 "relative_path": rel,
                 "references": refs,
+                "governs": governs,
             }
         )
         for ref in refs:
