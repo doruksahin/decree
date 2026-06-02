@@ -40,6 +40,14 @@ uv run decree progress --changed --base origin/main
 uv run decree progress --governs src/decree/parser.py
 ```
 
+When several agent sessions touch the same tree, pass the others' planned files
+so intent-check flags live overlaps before you start:
+
+```bash
+uv run decree intent-check --plan "Short plan" --files src/decree/parser.py \
+  --other-active-files '{"other-session": ["src/decree/parser.py"]}'
+```
+
 ## Progressive Disclosure
 
 Read only the files relevant to your task:

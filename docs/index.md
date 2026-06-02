@@ -40,7 +40,7 @@ Decree is intentionally explicit:
 | Generated tables and graphs | `decree index regenerate`, `decree graph` | Refresh document tables and Mermaid diagrams from frontmatter. |
 | Commit provenance | `decree commit` | Add `Implements:`, `Refs:`, and `Fixes:` trailers to git commits and sync them into the index. |
 | Health checks | `decree health`, `decree stale` | Detect stale decisions and high-churn files with no governing document. |
-| Pre-code planning guard | `decree intent-check` | Check a plan and planned file list against existing decisions before coding starts. |
+| Pre-code planning guard | `decree intent-check` | Check a plan and planned file list against existing decisions before coding starts; pass other live sessions' files (`--other-active-files`) to flag parallel `live_conflicts`. |
 | Post-code intent review | `decree intent-review` | Compare a diff against governed decisions before code review. |
 | Agent-assisted adoption | `decree migrate governs` | Analyze missing `governs:` links and apply explicit external suggestions for an existing decision corpus. |
 | Agent integration | `decree mcp serve`, Claude Code hook/plugin | Expose decree state to LLM agents through task-shaped tools and session-end snapshots. |

@@ -20,5 +20,6 @@
 | SPEC-01KT22NMS0KTWGNKB36RR7K0JR | decree intent-check — Pre-PR Planning-Phase Governance | implemented | 2026-05-12 |
 | SPEC-01KT22NMS0VWCTYPFPHP8M8V36 | Calibrated Abstention — Conformal Confidence Gates | implemented | 2026-05-12 |
 | SPEC-01KT22NMS0D19VMD8VPK4D2MNX | Parallel-Safe Document Identity and Scoped Progress | implemented | 2026-06-01 |
+| SPEC-01KT3M6NY02TXXPJCP52QEYFW1 | Agentkith parallel-session MCP support | implemented | 2026-06-02 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

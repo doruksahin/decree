@@ -14,8 +14,11 @@ behind FastMCP's stdio transport. No new query logic lives here — only:
 Each tool docstring follows the 5-section structure mandated by SPEC-01KT22NMRYJ4482K92AX9GJTMA:
 summary / Args / Returns / When to call / When not to call.
 
-Future SPECs (008 staleness/health, 009 intent_review) will add more
-`@mcp.tool()` functions here as their underlying library functions ship.
+The tool set covers governed-file lookup (`why`, `refs`), coherence signals
+(`stale`, `health`), pre/post-code governance (`intent_check` — including
+parallel-session `other_active_files` → `live_conflicts` — and `intent_review`),
+and closeout (`progress`, `report`). New tools wrap existing command-core
+library functions; no duplicate query logic lives here.
 """
 
 from __future__ import annotations

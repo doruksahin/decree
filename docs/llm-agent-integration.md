@@ -26,9 +26,14 @@ with the [Capability Index](index.md).
 
 1. Run `decree lint`.
 2. Run `decree index rebuild`.
-3. Before coding, run `decree intent-check --plan "..." --files ... --json`.
-4. If the response recommends `draft_adr_first`, `update_spec_first`, or
-   `resolve_conflict_first`, update decree documents before implementation.
+3. Before coding, run `decree intent-check --plan "..." --files ... --json`. When
+   other agent sessions run in parallel, also pass their planned paths via
+   `--other-active-files '{"session-id": ["path", ...]}'` so the report includes
+   `live_conflicts` (files another live session is about to write).
+4. If the response recommends `draft_adr_first`, `update_spec_first`,
+   `resolve_conflict_first`, or `isolate_session`, resolve it before
+   implementation. For `isolate_session`, run in a dedicated worktree or split
+   the overlapping file out of one plan.
 5. After code exists, run `decree intent-review --json` to compare the diff
    against the same governance corpus.
 6. Run `decree lint` again after changing decree documents.
@@ -105,6 +110,21 @@ owns schema validation, diff rendering, and writes.
 - `src/decree/commands/mcp_server.py`: MCP tool wrappers; no duplicate query
   logic.
 
+## MCP Tools
+
+`decree mcp serve` exposes the query/analysis surface to agents over stdio.
+Eight tools, all returning JSON (read-only except `report`):
+
+- `why`, `refs` — governed-file lookup and reverse reference graph.
+- `stale`, `health` — staleness and coherence signals.
+- `intent_check` — pre-code governance; accepts `other_active_files`
+  (`{session_id: [paths]}`) and returns `live_conflicts` for parallel sessions.
+- `intent_review` — post-code diff governance.
+- `progress` — acceptance-criteria completion for a doc / chain / corpus
+  (objective closeout signal).
+- `report` — regenerate completion-report artifacts (`dry_run` supported; the
+  only write tool).
+
 ## Useful Commands
 
 ```bash
@@ -116,6 +136,8 @@ decree why src/foo.py --json
 decree refs SPEC-01KT22NMS0D19VMD8VPK4D2MNX --json
 decree progress --changed --base origin/main
 decree intent-check --plan "..." --files src/foo.py --json
+decree intent-check --plan "..." --files src/foo.py \
+  --other-active-files '{"session-b": ["src/foo.py"]}' --json
 decree intent-review --json
 decree migrate ids --dry-run
 decree migrate audit-coherence --json

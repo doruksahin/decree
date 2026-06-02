@@ -409,9 +409,9 @@ def main() -> int:
         "mcp",
         help="Model Context Protocol server — expose decree's query API to agents",
         description="Run the Model Context Protocol server that exposes decree's "
-        "queries (currently `why` and `refs`) as agent-callable tools over stdio. "
-        "v1 ships two tools; future SPECs add `stale`, `health`, and `intent_review` "
-        "as their underlying library functions land.",
+        "query and analysis API as agent-callable tools over stdio: `why`, `refs`, "
+        "`stale`, `health`, `intent_check` (with parallel-session "
+        "`other_active_files`), `intent_review`, `progress`, and `report`.",
     )
     mcp_subs = p_mcp.add_subparsers(dest="mcp_action", required=True)
 

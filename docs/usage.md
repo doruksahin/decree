@@ -186,13 +186,28 @@ decree intent-check \
   --files src/auth/tokens.py tests/test_tokens.py
 ```
 
+When other agent sessions are running in parallel, pass their planned paths so
+intent-check also reports `live_conflicts` (files another live session is about
+to write) and emits an `isolate_session` recommendation:
+
+```bash
+decree intent-check \
+  --plan "Edit the canvas" \
+  --files src/canvas.tsx \
+  --other-active-files '{"session-b": ["src/canvas.tsx"]}'
+```
+
 `intent-check` is deterministic. It reports structural conflicts; semantic LLM
 judging can be implemented by an agent/skill that post-processes `--json`
 output.
 
 ### `decree mcp serve`
 
-Expose decree query tools over Model Context Protocol stdio for LLM agents.
+Expose decree's query and analysis API over Model Context Protocol stdio for LLM
+agents. Tools (all return JSON; read-only except `report`): `why`, `refs`,
+`stale`, `health`, `intent_check` (accepts `other_active_files` for
+parallel-session `live_conflicts`), `intent_review`, `progress`, and `report`
+(`dry_run` supported).
 
 ### `decree retrieval-eval`
 
