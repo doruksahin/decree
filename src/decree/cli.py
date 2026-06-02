@@ -195,6 +195,13 @@ def main() -> int:
         help="Show docs changed relative to --base (requires --base)",
     )
     p_progress.add_argument("--base", metavar="REF", help="Git base ref for --changed, e.g. origin/main")
+    p_progress.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit structured progress (per-doc + aggregate acceptance-criteria counts) "
+        "as JSON to stdout. Supports --doc / --chain scopes or the whole corpus; stable "
+        "machine contract for external consumers.",
+    )
 
     # ── report (sub-namespace: regenerate) ─────────────────
     p_report = subparsers.add_parser(

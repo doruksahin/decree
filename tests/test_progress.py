@@ -148,6 +148,46 @@ approve = "approved"
         assert prd_id in output
         assert "(1/3 primary)" in output
 
+    def test_json_output_shape(self, tmp_path, monkeypatch, capsys):
+        import json
+
+        (tmp_path / "decree.toml").write_text("""\
+[types.prd]
+dir = "decree/prd"
+prefix = "PRD"
+digits = 3
+initial_status = "draft"
+statuses = ["draft", "approved"]
+warn_on_reference = []
+required_sections = ["Problem Statement", "Requirements", "Success Criteria"]
+
+[types.prd.transitions]
+draft = ["approved"]
+approved = []
+
+[types.prd.actions]
+approve = "approved"
+""")
+        prd_dir = tmp_path / "decree" / "prd"
+        prd_dir.mkdir(parents=True)
+        prd_id = "PRD-00000000000000000000000001"
+        (prd_dir / "prd-00000000000000000000000001-test.md").write_text(
+            f"---\nid: {prd_id}\nstatus: draft\ndate: 2026-01-01\n---\n"
+            f"# {prd_id} Test\n\n## Problem Statement\n\nP.\n\n"
+            "## Requirements\n\n- [x] Done\n- [ ] Todo\n\n"
+            "## Success Criteria\n\n- [ ] Criterion\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        result = run(argparse.Namespace(json=True, doc=None, chain=None, governs=None, changed=False, base=None))
+
+        assert result == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["scope"] == "all documents"
+        assert payload["document_count"] == 1
+        assert payload["primary"] == {"done": 1, "total": 3, "percent": 33}
+        assert payload["documents"][0]["doc_id"] == prd_id
+
     def test_deferred_checkboxes_are_separated(self):
         body = """## Acceptance Criteria
 

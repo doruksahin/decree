@@ -214,6 +214,20 @@ def progress_for_scope(*, doc_id: str | None = None, chain_id: str | None = None
 def run(args: argparse.Namespace | None = None) -> int:
     prefix = "progress"
 
+    if getattr(args, "json", False):
+        import json
+
+        try:
+            payload = progress_for_scope(
+                doc_id=getattr(args, "doc", None),
+                chain_id=getattr(args, "chain", None),
+            )
+        except ValueError as e:
+            error(prefix, str(e))
+            return 1
+        print(json.dumps(payload, indent=2, sort_keys=False))
+        return 0
+
     try:
         docs = load_all_types()
         info(prefix, f"loaded {len(docs)} documents")
