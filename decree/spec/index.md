@@ -24,5 +24,6 @@
 | SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D | Observed-governs Index and Dead-governance Signal | implemented | 2026-06-03 |
 | SPEC-01KT6NCQC7DMJ3NG1MPWBGBVFQ | Missing governance suggestions from observed undeclared paths | implemented | 2026-06-03 |
 | SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5 | Point-of-change governs-gap suggestions in intent-check and intent-review | implemented | 2026-06-03 |
+| SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J | Trailer-coverage gate via decree commit-check | implemented | 2026-06-03 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

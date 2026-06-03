@@ -1,12 +1,12 @@
 ---
-id: SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J
-status: approved
-date: 2026-06-03
-references:
-  - ADR-01KT7E7RD6NYASNDWVE0PQ7J8G
+date: '2026-06-03'
 governs:
-  - src/decree/commands/commit_check.py
-  - src/decree/commands/mcp_server.py
+- src/decree/commands/commit_check.py
+- src/decree/commands/mcp_server.py
+id: SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J
+references:
+- ADR-01KT7E7RD6NYASNDWVE0PQ7J8G
+status: implemented
 ---
 
 # SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J Trailer-coverage gate via decree commit-check
