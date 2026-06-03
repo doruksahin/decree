@@ -22,5 +22,6 @@
 | SPEC-01KT22NMS0D19VMD8VPK4D2MNX | Parallel-Safe Document Identity and Scoped Progress | implemented | 2026-06-01 |
 | SPEC-01KT3M6NY02TXXPJCP52QEYFW1 | Agentkith parallel-session MCP support | implemented | 2026-06-02 |
 | SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D | Observed-governs Index and Dead-governance Signal | draft | 2026-06-03 |
+| SPEC-01KT6NCQC7DMJ3NG1MPWBGBVFQ | Missing governance suggestions from observed undeclared paths | draft | 2026-06-03 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

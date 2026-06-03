@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import re
 import subprocess
 from datetime import UTC
 from pathlib import Path
@@ -65,6 +66,32 @@ class DeadGovernance:
 
 
 @dataclasses.dataclass(frozen=True)
+class GovernanceCandidate:
+    """One observed-but-undeclared path proposed as a `governs:` addition
+    (SPEC-01KT6NCQC7DMJ3NG1MPWBGBVFQ)."""
+
+    path: str
+    commit_count: int  # distinct trailer-linked commits of the decision that touched it (>= 2)
+    distinct_decisions: int  # DF: how many decisions repeat-touch this path (cross-decision rarity)
+
+
+@dataclasses.dataclass(frozen=True)
+class MissingGovernance:
+    """A decision's repeat-touched paths it does not declare and nobody owns —
+    advisory governance suggestions (SPEC-01KT6NCQC7DMJ3NG1MPWBGBVFQ).
+
+    The inverse of `DeadGovernance` (observed minus declared, not declared minus
+    observed) and deliberately lower-authority: **advisory** — never affects
+    `decree health` exit status, and never read by `why()` / `intent-check`.
+    """
+
+    decision_id: str
+    linked_commit_count: int  # the decision's trailer-linked commits (honesty: spot squash committers)
+    observed_path_count: int  # how many paths those commits touched (honesty)
+    candidates: tuple[GovernanceCandidate, ...]
+
+
+@dataclasses.dataclass(frozen=True)
 class HealthReport:
     stale_decisions: tuple[StaleDecision, ...]
     ungoverned_hotspots: tuple[UngovernedHotspot, ...]
@@ -73,6 +100,7 @@ class HealthReport:
     dead_governance: tuple[DeadGovernance, ...] = ()
     unobserved_decision_ids: tuple[str, ...] = ()
     last_rebuilt_at: str | None = None
+    missing_governance: tuple[MissingGovernance, ...] = ()
 
 
 # ── git shellout helpers ───────────────────────────────────
@@ -369,6 +397,91 @@ def unobserved_decisions(db: IndexDB) -> list[str]:
     return sorted(did for did in declared if linked.get(did, 0) == 0)
 
 
+# Missing-governance (SPEC-01KT6NCQC7DMJ3NG1MPWBGBVFQ) — advisory tuning knobs.
+_MG_REPEAT_TOUCH_MIN = 2  # a path must be touched by >= this many of a decision's distinct commits
+_MG_SHARED_FLOOR = 3  # a path repeat-touched by >= this many decisions has no single owner
+_MG_TOP_CANDIDATES = 5  # human-output cap, candidates per decision
+_MG_TOP_DECISIONS = 10  # human-output cap, decisions
+
+
+def _is_structural_noise(path: str) -> bool:
+    """Path-based (therefore deterministic) exclusion of files a decision's
+    commits routinely touch but that are never `governs:` targets — tests and
+    changelog fragments. A decree-tuned, **known-incomplete** default: it will
+    not match every project layout (e.g. Rust inline `#[cfg(test)]`, or a
+    project that uses `spec/` for specifications), and it is the first candidate
+    for a `[health]`-config override (deferred). It reads only the stored path
+    string, never the working tree."""
+    segments = path.split("/")
+    base = segments[-1]
+    if "tests" in segments or "changelog.d" in segments:
+        return True
+    if base.startswith("test_") or re.search(r"_test\.", base):
+        return True
+    return ".test." in base or ".spec." in base
+
+
+def missing_governance(db: IndexDB) -> list[MissingGovernance]:
+    """Observed minus declared, per decision: repeat-touched paths a decision does
+    not declare and **nobody** owns — advisory `governs:` suggestions.
+
+    Pure index read — no git shellout and **no working-tree access**; reading the
+    tree would make the candidate set depend on checkout state rather than the
+    index (a determinism leak). Precision rests on **per-decision attribution
+    strength**, not cross-decision frequency: a path must be touched by >= 2 of
+    the decision's distinct trailer-linked commits (`commit_count >= 2`), which
+    drops single-commit squash over-attribution and abstains for thin-attribution
+    decisions. A secondary shared-infra floor drops paths repeat-touched by >= 3
+    decisions (no single owner). Never read by `why()` / `intent-check`, never
+    affects exit status. Returns the full set (caps are a human-output concern).
+    """
+    conn = db.db.conn  # type: ignore[attr-defined]
+    declared, linked = _declared_and_linked(db)
+    all_declared = [p for paths in declared.values() for p in paths]
+
+    observed: dict[str, list[tuple[str, int]]] = {}
+    for decision_id, path, commit_count in conn.execute("SELECT decision_id, path, commit_count FROM observed_governs"):
+        observed.setdefault(decision_id, []).append((path, commit_count))
+
+    # DF: distinct decisions that *repeat-touch* a path (cross-decision rarity).
+    df: dict[str, set[str]] = {}
+    for decision_id, rows in observed.items():
+        for path, commit_count in rows:
+            if commit_count >= _MG_REPEAT_TOUCH_MIN:
+                df.setdefault(path, set()).add(decision_id)
+
+    findings: list[MissingGovernance] = []
+    for decision_id, rows in observed.items():
+        own_declared = declared.get(decision_id, [])
+        candidates: list[GovernanceCandidate] = []
+        for path, commit_count in rows:
+            if commit_count < _MG_REPEAT_TOUCH_MIN:
+                continue  # thin attribution / squash over-attribution
+            if any(_path_covers(d, path) for d in own_declared):
+                continue  # already declared by this decision
+            if any(_path_covers(d, path) for d in all_declared):
+                continue  # owned by some decision — not a missing-governance gap
+            if _is_structural_noise(path):
+                continue
+            df_count = len(df.get(path, ()))
+            if df_count >= _MG_SHARED_FLOOR:
+                continue  # shared infra, no single owner
+            candidates.append(GovernanceCandidate(path=path, commit_count=commit_count, distinct_decisions=df_count))
+        if not candidates:
+            continue
+        candidates.sort(key=lambda c: (-c.commit_count, c.distinct_decisions, c.path))
+        findings.append(
+            MissingGovernance(
+                decision_id=decision_id,
+                linked_commit_count=linked.get(decision_id, 0),
+                observed_path_count=len(rows),
+                candidates=tuple(candidates),
+            )
+        )
+    findings.sort(key=lambda f: (-f.candidates[0].commit_count, f.decision_id))
+    return findings
+
+
 def health(
     db: IndexDB,
     project_root: Path,
@@ -384,6 +497,7 @@ def health(
         dead_governance=tuple(dead_governance(db)),
         unobserved_decision_ids=tuple(unobserved_decisions(db)),
         last_rebuilt_at=db.status().last_rebuilt_at,
+        missing_governance=tuple(missing_governance(db)),
     )
 
 
@@ -433,6 +547,35 @@ def _format_human(report: HealthReport) -> str:
         lines.append("Dead governance: none (every declared path with a commit basis was touched).")
         lines.append("")
 
+    if report.missing_governance:
+        shown = report.missing_governance[:_MG_TOP_DECISIONS]
+        decisions_suffix = (
+            f" (top {_MG_TOP_DECISIONS} of {len(report.missing_governance)} decisions)"
+            if len(report.missing_governance) > len(shown)
+            else ""
+        )
+        lines.append(
+            "Suggested governance (advisory — ungoverned files with a proposed owner; "
+            f"does not affect exit status){decisions_suffix}:"
+        )
+        lines.append("")
+        for mg in shown:
+            cands = mg.candidates[:_MG_TOP_CANDIDATES]
+            more = f"  (+{len(mg.candidates) - len(cands)} more)" if len(mg.candidates) > len(cands) else ""
+            lines.append(
+                f"  {mg.decision_id}   from {mg.linked_commit_count} linked commit(s) "
+                f"touching {mg.observed_path_count} path(s):{more}"
+            )
+            for c in cands:
+                shared = (
+                    "" if c.distinct_decisions <= 1 else f", shared with {c.distinct_decisions - 1} other decision(s)"
+                )
+                lines.append(f"    {c.path}  (touched in {c.commit_count} commits{shared})")
+        lines.append("")
+    else:
+        lines.append("Suggested governance: none (no repeat-touched undeclared paths).")
+        lines.append("")
+
     observed_as_of = report.last_rebuilt_at or "unknown"
     lines.append(
         f"  observed as of {observed_as_of}; "
@@ -472,6 +615,22 @@ def _report_to_dict(report: HealthReport) -> dict:
                 "linked_commit_count": dg.linked_commit_count,
             }
             for dg in report.dead_governance
+        ],
+        "missing_governance": [
+            {
+                "decision_id": mg.decision_id,
+                "linked_commit_count": mg.linked_commit_count,
+                "observed_path_count": mg.observed_path_count,
+                "candidates": [
+                    {
+                        "path": c.path,
+                        "commit_count": c.commit_count,
+                        "distinct_decisions": c.distinct_decisions,
+                    }
+                    for c in mg.candidates
+                ],
+            }
+            for mg in report.missing_governance
         ],
         "unobserved_decisions": list(report.unobserved_decision_ids),
         "observed_as_of": report.last_rebuilt_at,
