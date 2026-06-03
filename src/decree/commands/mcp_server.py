@@ -431,7 +431,7 @@ def stale(threshold_commits: int = 10) -> dict:
 
 @mcp.tool()
 def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
-    """Return the full coherence health report: stale decisions + ungoverned hotspots.
+    """Return the full coherence health report: stale decisions, ungoverned hotspots, and governance drift.
 
     Combines two PRD-01KT22NMRS4QGHSFDBZ858PP1T R7 signals into one response:
 
@@ -443,6 +443,14 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
          with **no** governing decision in the index. The Repowise
          inversion: instead of waiting for an ADR author to volunteer,
          the tool surfaces *where* a decision is missing.
+      3. **Dead governance** — declared `governs:` paths no trailer-linked
+         commit has ever touched (SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D); the
+         high-precision drift signal, counted as a finding.
+      4. **Suggested governance** (advisory) — files a decision's own commits
+         repeat-touch (>=2 commits) but it does not declare and nobody owns
+         (SPEC-01KT6NCQC7DMJ3NG1MPWBGBVFQ). Advisory only: surface it as a
+         hint to extend `governs:`, never as a governance fact — `why` never
+         reads it, and it never affects coherence exit status.
 
     Args:
         threshold_commits: Minimum commit count to flag either a stale
@@ -467,13 +475,26 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
                 {"path": str, "commit_count": int, "since_days": int},
                 ...
               ],
+              "dead_governance": [
+                {"decision_id": str, "paths": [str, ...],
+                 "linked_commit_count": int}, ...
+              ],
+              "missing_governance": [
+                {"decision_id": str, "linked_commit_count": int,
+                 "observed_path_count": int,
+                 "candidates": [{"path": str, "commit_count": int,
+                                 "distinct_decisions": int}, ...]}, ...
+              ],
+              "unobserved_decisions": [str, ...],
+              "observed_as_of": str | null,
               "threshold_commits": int,
               "threshold_days": int,
             }
 
-        Both arrays empty means the corpus is in coherence with the
-        codebase at the given thresholds. On a non-git project or
-        missing index the response is `{"error": "<reason>", "hint": "..."}`.
+        Empty findings arrays mean the corpus is in coherence with the
+        codebase at the given thresholds; `missing_governance` is advisory and
+        does not imply incoherence. On a non-git project or missing index the
+        response is `{"error": "<reason>", "hint": "..."}`.
 
     When to call:
         - As a periodic health check: "where is decree governance
@@ -491,7 +512,7 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
         - As a substitute for `lint` — health surfaces *coherence*
           signals, not malformed documents.
     """
-    from decree.commands.health import _is_git_repo
+    from decree.commands.health import _is_git_repo, _report_to_dict
     from decree.commands.health import health as _health_lib
 
     db, root = _get_db()
@@ -504,29 +525,12 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
             "hint": "decree health needs git history; initialize the project as a git repo first.",
         }
 
+    # Serialize through the CLI's own formatter so this payload and
+    # `decree health --json` never diverge — dead governance
+    # (SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D) and suggested/missing governance
+    # (SPEC-01KT6NCQC7DMJ3NG1MPWBGBVFQ) reach agents via the same shape.
     report = _health_lib(db, root, threshold_commits, threshold_days)
-    return {
-        "stale_decisions": [
-            {
-                "decision_id": sd.decision_id,
-                "type": sd.type,
-                "last_touched_ts": sd.last_touched_ts,
-                "churn_count": sd.churn_count,
-                "governed_paths": [{"path": p, "count": c} for (p, c) in sd.governed_paths],
-            }
-            for sd in report.stale_decisions
-        ],
-        "ungoverned_hotspots": [
-            {
-                "path": h.path,
-                "commit_count": h.commit_count,
-                "since_days": h.since_days,
-            }
-            for h in report.ungoverned_hotspots
-        ],
-        "threshold_commits": report.threshold_commits,
-        "threshold_days": report.threshold_days,
-    }
+    return _report_to_dict(report)
 
 
 @mcp.tool()

@@ -343,6 +343,20 @@ class TestAssessE2E:
         a = assess()
         assert a.phase == Phase.IDEATION
 
+    def test_governance_hints_render_when_present(self, monkeypatch, empty_corpus: Path):
+        import dataclasses
+
+        monkeypatch.chdir(empty_corpus)
+        a = assess()
+        # Fail-safe: a corpus with no index reports zero governance drift, never an error.
+        assert a.health.dead_governance == 0
+        assert a.health.missing_governance == 0
+        # When drift exists, the hint surfaces both signals (advisory framing for v2).
+        drifted = dataclasses.replace(a, health=dataclasses.replace(a.health, dead_governance=2, missing_governance=1))
+        out = format_human(drifted)
+        assert "2 decision(s) with dead governance" in out
+        assert "1 decision(s) with suggested governance (advisory)" in out
+
     def test_prd_only_is_architecture_decisions(self, monkeypatch, prd_only_corpus: Path):
         monkeypatch.chdir(prd_only_corpus)
         a = assess()

@@ -508,12 +508,20 @@ class TestHealthTool:
     def test_returns_combined_report(self, project_with_index: Path, monkeypatch) -> None:
         _git_init_and_commit(project_with_index)
         result = mcp_server.health(threshold_commits=10, threshold_days=30)
+        # The MCP payload mirrors `decree health --json` (no divergence): the v1/v2
+        # governance signals reach agents through the same keys.
         assert set(result.keys()) >= {
             "stale_decisions",
             "ungoverned_hotspots",
+            "dead_governance",
+            "missing_governance",
+            "unobserved_decisions",
+            "observed_as_of",
             "threshold_commits",
             "threshold_days",
         }
+        assert isinstance(result["dead_governance"], list)
+        assert isinstance(result["missing_governance"], list)
         assert result["threshold_commits"] == 10
         assert result["threshold_days"] == 30
 

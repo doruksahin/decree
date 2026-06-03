@@ -83,6 +83,8 @@ class Suggestion:
 class Health:
     lint_errors: int
     stale_docs: int
+    dead_governance: int = 0  # decisions with declared governs paths no linked commit touched (v1)
+    missing_governance: int = 0  # decisions with advisory governance suggestions (v2)
 
 
 @dataclass(frozen=True)
@@ -283,8 +285,11 @@ def _detect_phase(assessment_data: dict, chains: tuple[Chain, ...]) -> tuple[Pha
 # ── Health check ──────────────────────────────────────────────
 
 
-def _check_health() -> Health:
-    """Run lint and stale-state checks; return aggregate counts."""
+def _check_health(root: Path) -> Health:
+    """Run lint plus the cheap governance-drift index reads; return aggregate
+    counts. The governance signals are **pure index reads** (no git walk) and
+    **fail-safe**: with no index they report zero, never an error, so a
+    governance hint can never break `ddd`."""
     # Lint runs to stdout; capture exit code by running it.
     # We swallow output here — caller can run `decree lint` directly for details.
     import contextlib
@@ -297,7 +302,24 @@ def _check_health() -> Health:
         lint_args = argparse.Namespace(check_attachments=False)
         lint_exit = lint_run(lint_args)
 
-    return Health(lint_errors=1 if lint_exit != 0 else 0, stale_docs=0)
+    dead = missing = 0
+    try:
+        from decree.commands.health import dead_governance, missing_governance
+        from decree.index_db import IndexDB, default_db_path
+
+        db = IndexDB(default_db_path(root))
+        if db.status().exists:
+            dead = len(dead_governance(db))
+            missing = len(missing_governance(db))
+    except Exception:
+        pass  # governance hints are advisory; never let them break `ddd`
+
+    return Health(
+        lint_errors=1 if lint_exit != 0 else 0,
+        stale_docs=0,
+        dead_governance=dead,
+        missing_governance=missing,
+    )
 
 
 # ── Public API ────────────────────────────────────────────────
@@ -409,7 +431,7 @@ def assess(
     phase, suggestions = _detect_phase({"doc_count": len(docs)}, chains_for_phase)
 
     # Health
-    health = _check_health()
+    health = _check_health(root)
 
     return DDDAssessment(
         phase=phase,
@@ -471,6 +493,16 @@ def format_human(assessment: DDDAssessment, *, quiet: bool = False) -> str:
         lines.append(f"  Health: ⚠ {assessment.health.lint_errors} lint errors")
     else:
         lines.append("  Health: ✓ lint clean")
+    if assessment.health.dead_governance:
+        lines.append(
+            f"  Governance: ⚠ {assessment.health.dead_governance} decision(s) with dead governance "
+            "— run `decree health`"
+        )
+    if assessment.health.missing_governance:
+        lines.append(
+            f"  Governance: {assessment.health.missing_governance} decision(s) with suggested governance "
+            "(advisory) — run `decree health`"
+        )
     lines.append("")
 
     if not quiet and assessment.chains:
