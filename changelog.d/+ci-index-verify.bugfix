@@ -1,0 +1,1 @@
+CI and release workflows now run `decree index rebuild` before `decree index verify`, so the verify step no longer fails on a fresh checkout (the `.decree/index.sqlite` cache is gitignored and absent until rebuilt). The link check tolerates slow external reference links.

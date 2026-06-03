@@ -35,6 +35,7 @@ jobs:
       - run: uv run ruff check src/ tests/
       - run: uv run ruff format --check src/ tests/
       - run: uv run decree lint
+      - run: uv run decree index rebuild
       - run: uv run decree index verify
       - run: uv run pre-commit run actionlint --all-files
 
