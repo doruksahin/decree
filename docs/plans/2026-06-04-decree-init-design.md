@@ -109,3 +109,23 @@ It **states why** it skipped (existing config's types, non-empty type dir, etc.)
 Interactive prompts / a `--interactive` mode (revisit only if users ask), template
 management (`decree template list`), custom-type selection beyond the default trio
 (users edit `decree.toml`), and any generator-library dependency.
+
+## Post-approval refinements (final review)
+
+Two refinements landed after the maintainer's final review, both honoring the
+existing principles rather than expanding scope:
+
+1. **Respect an existing config's declared types.** The "leave a `decree.toml`
+   unchanged" promise (above) was only half-kept: init still scaffolded the
+   default `prd/adr/spec` dirs + examples even when an existing config declared
+   *different* types, leaving orphan directories the config never scans. Init now
+   derives the type dirs (and which examples to seed) from the existing config's
+   declared types at their configured dirs. A custom type with no bundled example
+   gets its directory but no doc. A malformed existing `decree.toml` is reported
+   clearly (naming the file), left untouched, and exits `2`.
+2. **`.gitignore` for the derived cache.** Init ensures `.decree/` is git-ignored
+   (creating `.gitignore`, or appending the rule if missing — never rewriting
+   existing lines), so a fresh `git add .` does not commit the rebuildable index
+   cache. This is consistent with decree's "the index is a derived cache" model.
+   Like the index, it is reported with its own verbs (`wrote` / `appended`) and
+   excluded from the corpus created/skipped counts.

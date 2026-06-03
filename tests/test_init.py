@@ -398,18 +398,36 @@ def test_cli_json_shape_run(tmp_path: Path) -> None:
     assert payload["summary"]["created"] == 7
     for a in payload["actions"]:
         assert set(a.keys()) == {"kind", "path", "action", "reason"}
-        assert a["kind"] in {"config", "dir", "example", "index"}
-        assert a["action"] in {"created", "skipped", "would-create", "rebuilt", "would-rebuild"}
+        assert a["kind"] in {"config", "dir", "example", "gitignore", "index"}
+        assert a["action"] in {
+            "created",
+            "skipped",
+            "would-create",
+            "wrote",
+            "would-write",
+            "appended",
+            "would-append",
+            "rebuilt",
+            "would-rebuild",
+        }
     # The index action is "rebuilt", and it is kept in actions[] with kind "index".
     index_actions = [a for a in payload["actions"] if a["kind"] == "index"]
     assert len(index_actions) == 1
     assert index_actions[0]["action"] == "rebuilt"
-    # The index is not counted among the created actions.
+    # The .gitignore is written (created) but reported with its own verb, not
+    # counted among the corpus "created" actions.
+    gi_actions = [a for a in payload["actions"] if a["kind"] == "gitignore"]
+    assert len(gi_actions) == 1
+    assert gi_actions[0]["action"] == "wrote"
+    # The corpus "created" actions are exactly config+dirs+examples = 7 (no index,
+    # no gitignore).
     created_actions = [a for a in payload["actions"] if a["action"] == "created"]
     assert len(created_actions) == payload["summary"]["created"] == 7
-    assert all(a["kind"] != "index" for a in created_actions)
-    # In a real (non-dry) run, nothing should be reported as would-create/would-rebuild.
-    assert all(a["action"] not in {"would-create", "would-rebuild"} for a in payload["actions"])
+    assert all(a["kind"] not in {"index", "gitignore"} for a in created_actions)
+    # In a real (non-dry) run, nothing should be reported as a "would-*" plan verb.
+    assert all(
+        a["action"] not in {"would-create", "would-write", "would-append", "would-rebuild"} for a in payload["actions"]
+    )
 
 
 def test_cli_json_shape_dry_run(tmp_path: Path) -> None:
@@ -417,14 +435,21 @@ def test_cli_json_shape_dry_run(tmp_path: Path) -> None:
     assert result.returncode == 0
     payload = json.loads(result.stdout)
     assert payload["dry_run"] is True
-    # counts the would-create steps (config+dirs+examples = 7), not the index.
+    # counts the would-create steps (config+dirs+examples = 7), not gitignore/index.
     assert payload["summary"]["created"] == 7
-    # Every actionable step is "would-create"/"would-rebuild" or "skipped" — none "created".
-    assert all(a["action"] in {"would-create", "would-rebuild", "skipped"} for a in payload["actions"])
+    # Every actionable step is a "would-*" plan verb or "skipped" — none past-tense.
+    assert all(
+        a["action"] in {"would-create", "would-write", "would-append", "would-rebuild", "skipped"}
+        for a in payload["actions"]
+    )
     # The index action becomes "would-rebuild" under --dry-run.
     index_actions = [a for a in payload["actions"] if a["kind"] == "index"]
     assert len(index_actions) == 1
     assert index_actions[0]["action"] == "would-rebuild"
+    # The .gitignore becomes "would-write" under --dry-run.
+    gi_actions = [a for a in payload["actions"] if a["kind"] == "gitignore"]
+    assert len(gi_actions) == 1
+    assert gi_actions[0]["action"] == "would-write"
     # Dry run wrote nothing.
     assert list(tmp_path.iterdir()) == []
 
@@ -439,3 +464,165 @@ def test_cli_project_flag_targets_other_dir(tmp_path: Path) -> None:
     assert (other / ".decree" / "index.sqlite").exists()
     # The cwd (tmp_path) is untouched.
     assert not (tmp_path / "decree.toml").exists()
+
+
+# ── Respecting an existing custom config (no orphan scaffold) ─
+
+# A valid decree.toml that declares a single, non-default type.
+_CUSTOM_CONFIG = """\
+[types.rfc]
+dir = "decree/rfc"
+prefix = "RFC"
+initial_status = "draft"
+statuses = ["draft", "accepted"]
+required_sections = ["Summary"]
+[types.rfc.transitions]
+draft = ["accepted"]
+accepted = []
+[types.rfc.actions]
+accept = "accepted"
+"""
+
+
+def test_plan_existing_config_uses_its_declared_types(tmp_path: Path) -> None:
+    """A custom config drives the dirs; the default trio is NOT scaffolded."""
+    from decree.commands.init import plan_init
+
+    (tmp_path / "decree.toml").write_text(_CUSTOM_CONFIG)
+
+    plan = plan_init(tmp_path)
+    dir_names = {a.path.name for a in plan if a.kind == "dir"}
+    assert dir_names == {"rfc"}
+    assert "prd" not in dir_names and "adr" not in dir_names and "spec" not in dir_names
+    # No bundled example exists for `rfc`, so no example is planted.
+    assert [a for a in plan if a.kind == "example"] == []
+
+
+def test_cli_existing_custom_config_no_orphans_lints_clean(tmp_path: Path) -> None:
+    """init on a custom-typed project creates only its dir and lints clean (0 docs)."""
+    (tmp_path / "decree.toml").write_text(_CUSTOM_CONFIG)
+
+    result = _init(cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+
+    # The declared type's dir is created; the default trio is NOT.
+    assert (tmp_path / "decree" / "rfc").is_dir()
+    for orphan in ("prd", "adr", "spec"):
+        assert not (tmp_path / "decree" / orphan).exists(), f"orphan decree/{orphan}/ created"
+
+    # No example docs were planted anywhere under decree/.
+    assert list((tmp_path / "decree").rglob("*.md")) == []
+
+    # The project lints clean (no orphan dirs/docs to choke on).
+    assert _run_decree("lint", cwd=tmp_path).returncode == 0
+
+
+# ── Malformed existing decree.toml: clear error, file untouched ─
+
+
+def test_cli_malformed_config_errors_and_leaves_file(tmp_path: Path) -> None:
+    broken = "this is = = not valid toml ["
+    (tmp_path / "decree.toml").write_text(broken)
+
+    result = _init(cwd=tmp_path)
+    assert result.returncode == 2
+    assert "malformed" in result.stderr.lower()
+    assert "decree.toml" in result.stderr
+    # init left the file exactly as it found it and created nothing.
+    assert (tmp_path / "decree.toml").read_text() == broken
+    assert not (tmp_path / "decree").exists()
+    assert not (tmp_path / ".decree").exists()
+
+
+# ── .gitignore for the derived index cache ──────────────────
+
+
+def test_cli_creates_gitignore_for_index_cache(tmp_path: Path) -> None:
+    result = _init(cwd=tmp_path)
+    assert result.returncode == 0
+    gi = tmp_path / ".gitignore"
+    assert gi.exists()
+    assert ".decree/" in gi.read_text()
+    assert "wrote .gitignore" in result.stderr
+
+
+def test_cli_appends_to_existing_gitignore_without_clobbering(tmp_path: Path) -> None:
+    gi = tmp_path / ".gitignore"
+    gi.write_text("node_modules/\n*.log\n")
+
+    result = _init(cwd=tmp_path)
+    assert result.returncode == 0
+    text = gi.read_text()
+    # Pre-existing rules survive; the cache rule is appended.
+    assert "node_modules/" in text
+    assert "*.log" in text
+    assert ".decree/" in text
+    assert "appended .gitignore" in result.stderr
+
+
+def test_cli_skips_gitignore_when_already_ignored(tmp_path: Path) -> None:
+    gi = tmp_path / ".gitignore"
+    gi.write_text("# mine\n.decree/\n")
+
+    result = _init(cwd=tmp_path)
+    assert result.returncode == 0
+    # Untouched (still exactly one .decree/ line) and reported as skipped.
+    assert gi.read_text() == "# mine\n.decree/\n"
+    assert "already ignored" in result.stderr
+
+
+# ── Never clobber a file that appears between plan and apply ─
+
+
+def test_apply_never_overwrites_file_created_after_planning(tmp_path: Path) -> None:
+    """A doc materializing between plan_init and apply_init is reported skipped, not clobbered."""
+    from decree.commands.init import apply_init, plan_init
+
+    plan = plan_init(tmp_path)
+    # Simulate a race: the prd example's destination appears after planning. It is
+    # a valid prd (so the end-of-apply index rebuild can parse the dir) but with
+    # distinct body content, proving apply does not clobber it.
+    example_step = next(a for a in plan if a.kind == "example" and a.path.parent.name == "prd")
+    example_step.path.parent.mkdir(parents=True, exist_ok=True)
+    sentinel = (
+        "---\n"
+        f"id: {PRD_ID}\n"
+        "status: draft\n"
+        "date: 2026-02-01\n"
+        "---\n\n"
+        f"# {PRD_ID} Raced PRD\n\n"
+        "## Problem Statement\n\n"
+        "Raced in — must survive.\n"
+    )
+    example_step.path.write_text(sentinel)
+
+    applied = apply_init(plan, no_examples=False)
+
+    # The raced file is untouched and reported skipped (not a false-positive "created").
+    assert example_step.path.read_text() == sentinel
+    raced = next(a for a in applied.actions if a.kind == "example" and a.path == example_step.path)
+    assert raced.action == "skipped"
+    assert raced.reason == "already present"
+
+
+def test_apply_never_overwrites_gitignore_created_after_planning(tmp_path: Path) -> None:
+    """A .gitignore materializing between plan and apply is appended to, never clobbered."""
+    from decree.commands.init import apply_init, plan_init
+
+    # Planning sees no .gitignore, so it plans a "write".
+    plan = plan_init(tmp_path)
+    gi_step = next(a for a in plan if a.kind == "gitignore")
+    assert gi_step.action == "write"
+
+    # Race: the user creates a .gitignore with their own rules before apply runs.
+    user_rules = "IMPORTANT_USER_RULE/\nsecret.key\n"
+    gi_step.path.write_text(user_rules)
+
+    apply_init(plan, no_examples=False)
+
+    text = gi_step.path.read_text()
+    # Every user line survives; the cache rule is appended, not substituted.
+    assert "IMPORTANT_USER_RULE/" in text
+    assert "secret.key" in text
+    assert ".decree/" in text
+    assert text.startswith(user_rules)

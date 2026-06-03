@@ -16,6 +16,8 @@ It creates, reporting every action with a reason:
 - the `decree/<type>/` directories,
 - a worked PRD→ADR→SPEC example chain (mutually consistent, so the project
   lints clean immediately — learn from it or delete it),
+- a `.gitignore` rule for `.decree/` (the derived index cache is rebuildable and
+  should not be committed),
 - a built `.decree/index.sqlite` query cache.
 
 ```bash
@@ -24,18 +26,29 @@ decree lint   # the scaffolded project lints clean immediately
 ```
 
 **Idempotent.** Re-running never overwrites your files: anything already
-present is left untouched and reported as skipped with a reason. The index is a
-derived cache, so it is *rebuilt* (not "created") on every run — it is never
-counted as a creation. A re-run on a fully set-up project prints
+present is left untouched and reported as skipped with a reason. The only file
+init ever *modifies* is `.gitignore`, and only by appending a missing `.decree/`
+rule — never rewriting your existing lines. The index is a derived cache, so it
+is *rebuilt* (not "created") on every run — it is never counted as a creation. A
+re-run on a fully set-up project prints
 `Already initialized — nothing to create (index refreshed).` and exits 0.
+
+**Respects an existing config.** If a `decree.toml` is already present, init
+leaves it untouched and scaffolds *its* declared types (at their configured
+dirs) rather than imposing the default trio — so it never litters a custom
+corpus with orphan `decree/prd|adr|spec` directories. A custom type with no
+bundled example gets its directory but no seeded doc. If the existing
+`decree.toml` is malformed, init reports it clearly (naming the file), leaves it
+unchanged, and exits `2`.
 
 Flags:
 
 - `--dry-run` — report the plan without touching disk (index shown as
   *would rebuild*).
 - `--json` — machine-readable report (`actions[]` with `created` / `skipped` /
-  `rebuilt`, plus a `summary.created` / `summary.skipped` that counts only real
-  file/dir creations, not the index).
+  `wrote` / `appended` / `rebuilt`, plus a `summary.created` / `summary.skipped`
+  that counts only real corpus file/dir creations — not the `.gitignore` or the
+  index).
 - `--no-examples` — scaffold the config and directories but seed no example docs.
 - `--project DIR` — target another directory instead of the current one.
 
