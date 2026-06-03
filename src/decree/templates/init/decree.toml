@@ -1,0 +1,44 @@
+[types.prd]
+dir = "decree/prd"
+prefix = "PRD"
+initial_status = "draft"
+statuses = ["draft", "approved", "implemented", "archived"]
+required_sections = ["Problem Statement"]
+[types.prd.transitions]
+draft = ["approved"]
+approved = ["implemented", "archived"]
+implemented = ["archived"]
+archived = []
+[types.prd.actions]
+approve = "approved"
+implement = "implemented"
+archive = "archived"
+
+[types.adr]
+dir = "decree/adr"
+prefix = "ADR"
+initial_status = "proposed"
+statuses = ["proposed", "accepted", "rejected", "superseded"]
+required_sections = ["Context and Problem Statement", "Considered Options", "Decision Outcome"]
+[types.adr.transitions]
+proposed = ["accepted", "rejected"]
+accepted = ["superseded"]
+rejected = []
+superseded = []
+[types.adr.actions]
+accept = "accepted"
+reject = "rejected"
+
+[types.spec]
+dir = "decree/spec"
+prefix = "SPEC"
+initial_status = "draft"
+statuses = ["draft", "approved", "implemented"]
+required_sections = ["Overview"]
+[types.spec.transitions]
+draft = ["approved"]
+approved = ["implemented"]
+implemented = []
+[types.spec.actions]
+approve = "approved"
+implement = "implemented"

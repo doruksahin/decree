@@ -517,6 +517,40 @@ def main() -> int:
         "(--diff/--diff-base); invalid id exits 2.",
     )
 
+    # ── init ─────────────────────────────────────────────────
+    p_init = subparsers.add_parser(
+        "init",
+        help="Scaffold a project: decree.toml, type dirs, a worked example chain, and a built index",
+        description="Deterministic, idempotent project scaffolder. Ensures the "
+        "target has a canonical decree.toml, the decree/<type>/ directories, a "
+        "worked PRD→ADR→SPEC example chain, and a built .decree/index.sqlite — "
+        "creating only what is missing, never overwriting, reporting every "
+        "action (created / skipped-with-reason / would-create). Safe to re-run. "
+        "Exit 0 on success (including a fully-present project); exit 2 on IO/config error.",
+    )
+    p_init.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Report exactly what it would do; write nothing (no files, no index).",
+    )
+    p_init.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit the plan/result as a stable JSON machine contract on stdout.",
+    )
+    p_init.add_argument(
+        "--no-examples",
+        action="store_true",
+        dest="no_examples",
+        help="Scaffold config + dirs + index only; do not seed the example chain.",
+    )
+    p_init.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
     # ── commit-check (SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J) ─────────────────────────────
     p_cc = subparsers.add_parser(
         "commit-check",
@@ -851,6 +885,7 @@ def main() -> int:
     from decree.commands import health as health_cmd
     from decree.commands import hook as hook_cmd
     from decree.commands import index_db_cli
+    from decree.commands import init as init_cmd
     from decree.commands import intent_check as intent_check_cmd
     from decree.commands import intent_review as intent_review_cmd
     from decree.commands import mcp_server as mcp_cmd
@@ -898,6 +933,7 @@ def main() -> int:
 
     commands = {
         "new": new.run,
+        "init": init_cmd.run,
         "status": status.run,
         "lint": lint.run,
         "index": _index_dispatch,

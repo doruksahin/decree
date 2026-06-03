@@ -1,0 +1,1 @@
+Add `decree init`: a deterministic, idempotent project scaffolder that creates a canonical `decree.toml`, the type directories, a worked PRD→ADR→SPEC example chain, and a built index — reporting every action (created / skipped-with-reason), with `--dry-run`, `--json`, and `--no-examples`. The scaffolded project lints clean immediately.
