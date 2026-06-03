@@ -517,6 +517,64 @@ def main() -> int:
         "(--diff/--diff-base); invalid id exits 2.",
     )
 
+    # ── commit-check (SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J) ─────────────────────────────
+    p_cc = subparsers.add_parser(
+        "commit-check",
+        help="Trailer-coverage gate for in-flight governed changes (SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J)",
+        description="Deterministic gate: of the changed paths governed by an "
+        "in-flight decision, how many carry a matching "
+        "`Implements:/Refs:/Fixes:` trailer? Resolve changed paths from a diff "
+        "(--diff / --diff-base) or git staged/working-tree; resolve trailers "
+        "from --diff-base (CI mode, squash-safe across REF..HEAD) or --message "
+        "(commit-msg hook mode). Reads only the declared layer; no LLM. "
+        "Advisory by default (exit 0); --strict or --min-coverage make it "
+        "gateable (exit 1 when coverage is below threshold). Exit 2 on config "
+        "error or missing trailer source.",
+    )
+    p_cc.add_argument(
+        "--diff-base",
+        default=None,
+        metavar="REF",
+        dest="diff_base",
+        help="Compute changed paths via `git diff REF...HEAD` and gather trailers "
+        "across REF..HEAD (squash-safe CI mode).",
+    )
+    p_cc.add_argument(
+        "--diff",
+        default=None,
+        metavar="PATH",
+        help="Unified-diff file path, or `-` to read from stdin (paths only; trailers still come from --message).",
+    )
+    p_cc.add_argument(
+        "--message",
+        default=None,
+        metavar="PATH",
+        help="Commit-message file to read trailers from (commit-msg hook mode).",
+    )
+    p_cc.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit 1 if any governed change lacks a matching trailer.",
+    )
+    p_cc.add_argument(
+        "--min-coverage",
+        type=int,
+        default=None,
+        dest="min_coverage",
+        metavar="N",
+        help="Exit 1 if trailer coverage percentage is below N (0-100).",
+    )
+    p_cc.add_argument(
+        "--json",
+        action="store_true",
+        help="Emit JSON for programmatic consumers.",
+    )
+    p_cc.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
     # ── intent-check (SPEC-01KT22NMS0KTWGNKB36RR7K0JR) ─────────────────────────────
     p_ic = subparsers.add_parser(
         "intent-check",
@@ -787,6 +845,7 @@ def main() -> int:
 
     args = parser.parse_args()
     from decree.commands import commit as commit_cmd
+    from decree.commands import commit_check as commit_check_cmd
     from decree.commands import ddd as ddd_cmd
     from decree.commands import eval as eval_cmd
     from decree.commands import health as health_cmd
@@ -856,6 +915,7 @@ def main() -> int:
         "stale": health_cmd.stale_run,
         "intent-review": intent_review_cmd.intent_review_run,
         "intent-check": intent_check_cmd.intent_check_run,
+        "commit-check": commit_check_cmd.commit_check_run,
         "migrate": _migrate_dispatch,
         "retrieval-eval": eval_cmd.eval_run,
     }

@@ -205,3 +205,224 @@ class TestCoverage:
         assert result.uncovered == []
         # No divide-by-zero; vacuously fully covered.
         assert result.fraction == 1.0
+
+
+# ── Phase 2: CLI (commit_check_run) ─────────────────────────
+
+
+import argparse  # noqa: E402
+import json  # noqa: E402
+
+from decree.commands.commit_check import commit_check_run  # noqa: E402
+
+
+def _args(**kw) -> argparse.Namespace:
+    """Build a commit-check args namespace with sane defaults."""
+    base = {
+        "diff": None,
+        "diff_base": None,
+        "message": None,
+        "strict": False,
+        "min_coverage": None,
+        "json": False,
+        "project": None,
+    }
+    base.update(kw)
+    return argparse.Namespace(**base)
+
+
+def _commit_touching(project: Path, rel: str, msg: str) -> str:
+    """Create + commit a file (creating parent dirs); return the new HEAD sha."""
+    target = project / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("content\n")
+    _git(project, "add", rel)
+    _git(project, "commit", "-m", msg)
+    return _git(project, "rev-parse", "HEAD").stdout.strip()
+
+
+def _run(project: Path, capsys, **kw) -> tuple[int, str]:
+    """Run commit_check_run from inside `project`; return (exit_code, stdout)."""
+    import os
+
+    cwd = os.getcwd()
+    os.chdir(project)
+    try:
+        from decree.config import get_project_root, load_doc_types
+
+        get_project_root.cache_clear()
+        load_doc_types.cache_clear()
+        rc = commit_check_run(_args(project=str(project), **kw))
+    finally:
+        os.chdir(cwd)
+    out = capsys.readouterr().out
+    return rc, out
+
+
+class TestCommitCheckCLI:
+    # ── 2.1 input-mode resolution ──────────────────────────
+
+    def test_staged_without_message_or_base_exits_2(self, git_project: Path, capsys):
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _index(git_project)
+        rc, _out = _run(git_project, capsys)
+        assert rc == 2
+
+    def test_missing_index_exits_2(self, git_project: Path, capsys):
+        # No _index() call → no SQLite cache built.
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        rc, _out = _run(git_project, capsys, message="ignored")
+        assert rc == 2
+
+    def test_bad_project_exits_2(self, tmp_path: Path, capsys):
+        # A directory with no decree.toml.
+        import os
+
+        cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            rc = commit_check_run(_args(project=str(tmp_path), message="x"))
+        finally:
+            os.chdir(cwd)
+        assert rc == 2
+
+    # ── 2.2 report + exit codes (diff-base / CI mode) ──────
+
+    def test_covered_diff_base_exit_0(self, git_project: Path, capsys):
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(
+            git_project,
+            "src/a.py",
+            "feat: a\n\nImplements: SPEC-00000000000000000000000001\n",
+        )
+        rc, out = _run(git_project, capsys, diff_base=base)
+        assert rc == 0
+        assert "1/1" in out
+
+    def test_uncovered_advisory_exit_0(self, git_project: Path, capsys):
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(git_project, "src/a.py", "feat: a (no trailer)")
+        rc, out = _run(git_project, capsys, diff_base=base)
+        assert rc == 0
+        assert "0/1" in out
+        assert "SPEC-00000000000000000000000001" in out
+        assert "src/a.py" in out
+        assert "decree commit --implements SPEC-00000000000000000000000001" in out
+
+    def test_uncovered_strict_exit_1(self, git_project: Path, capsys):
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(git_project, "src/a.py", "feat: a (no trailer)")
+        rc, _out = _run(git_project, capsys, diff_base=base, strict=True)
+        assert rc == 1
+
+    def test_min_coverage_thresholds(self, git_project: Path, capsys):
+        # Two governed paths, one covered → 1/2 = 50%.
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000002", "approved", ["src/b.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(
+            git_project,
+            "src/a.py",
+            "feat: a\n\nImplements: SPEC-00000000000000000000000001\n",
+        )
+        _commit_touching(git_project, "src/b.py", "feat: b (no trailer)")
+
+        # 50% coverage: >= 50 passes, 51 fails, 0 passes, 100 fails.
+        assert _run(git_project, capsys, diff_base=base, min_coverage=50)[0] == 0
+        assert _run(git_project, capsys, diff_base=base, min_coverage=51)[0] == 1
+        assert _run(git_project, capsys, diff_base=base, min_coverage=0)[0] == 0
+        assert _run(git_project, capsys, diff_base=base, min_coverage=100)[0] == 1
+
+    def test_ungoverned_only_exit_0(self, git_project: Path, capsys):
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(git_project, "src/unrelated.py", "chore: unrelated")
+        rc, out = _run(git_project, capsys, diff_base=base, strict=True)
+        assert rc == 0
+        assert "no governed changes" in out.lower()
+
+    def test_terminal_spec_governed_no_trailer_exit_0(self, git_project: Path, capsys):
+        # implemented (terminal) SPEC → not in-flight → no governed change.
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "implemented", ["src/a.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(git_project, "src/a.py", "feat: a (no trailer)")
+        rc, out = _run(git_project, capsys, diff_base=base, strict=True)
+        assert rc == 0
+        assert "no governed changes" in out.lower()
+
+    # ── 2.1 message mode (commit-msg hook) ─────────────────
+
+    def test_message_mode_covered(self, git_project: Path, capsys):
+        # Paths come from a diff file; trailers come from --message.
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _index(git_project)
+        diff_path = git_project / "change.diff"
+        diff_path.write_text("diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -0,0 +1 @@\n+x\n")
+        msg_path = git_project / "COMMIT_MSG"
+        msg_path.write_text("feat: a\n\nImplements: SPEC-00000000000000000000000001\n")
+        rc, out = _run(git_project, capsys, diff=str(diff_path), message=str(msg_path))
+        assert rc == 0
+        assert "1/1" in out
+
+    # ── 2.3 JSON contract ──────────────────────────────────
+
+    def test_json_contract(self, git_project: Path, capsys):
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000002", "approved", ["src/b.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(
+            git_project,
+            "src/a.py",
+            "feat: a\n\nImplements: SPEC-00000000000000000000000001\n",
+        )
+        _commit_touching(git_project, "src/b.py", "feat: b (no trailer)")
+
+        rc, out = _run(git_project, capsys, diff_base=base, json=True)
+        payload = json.loads(out)
+
+        assert set(payload.keys()) == {
+            "coverage",
+            "governed_changes",
+            "uncovered",
+            "mode",
+            "strict",
+            "min_coverage",
+            "exit",
+        }
+        assert set(payload["coverage"].keys()) == {"covered", "total", "fraction"}
+        assert payload["coverage"] == {"covered": 1, "total": 2, "fraction": 0.5}
+        assert payload["mode"] == "diff-base"
+        assert payload["strict"] is False
+        assert payload["min_coverage"] is None
+        assert payload["exit"] == rc == 0
+
+        gcs = sorted(payload["governed_changes"], key=lambda g: g["path"])
+        assert gcs[0] == {
+            "path": "src/a.py",
+            "decision_id": "SPEC-00000000000000000000000001",
+            "type": "spec",
+            "covered": True,
+        }
+        # governed_changes entries carry path/decision_id/type/covered only.
+        assert set(gcs[1].keys()) == {"path", "decision_id", "type", "covered"}
+        assert gcs[1]["path"] == "src/b.py"
+        assert gcs[1]["decision_id"] == "SPEC-00000000000000000000000002"
+        assert gcs[1]["covered"] is False
+
+        # Exactly one uncovered entry, carrying path/decision_id/title only.
+        assert len(payload["uncovered"]) == 1
+        unc = payload["uncovered"][0]
+        assert set(unc.keys()) == {"path", "decision_id", "title"}
+        assert unc["path"] == "src/b.py"
+        assert unc["decision_id"] == "SPEC-00000000000000000000000002"
+        assert unc["title"]  # non-empty title from the SPEC heading
