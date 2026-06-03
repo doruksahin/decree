@@ -426,3 +426,186 @@ class TestCommitCheckCLI:
         assert unc["path"] == "src/b.py"
         assert unc["decision_id"] == "SPEC-00000000000000000000000002"
         assert unc["title"]  # non-empty title from the SPEC heading
+
+
+# ── SPEC matrix: end-to-end coverage of the documented 15-case table ─────────
+#
+# These drive the real gate path (`commit_check_run` end-to-end, or `coverage`
+# over `governed_changes`) rather than asserting on `trailer_ids` in isolation,
+# so the matrix is exercised through the same code a real invocation hits.
+
+
+class TestSpecMatrixEndToEnd:
+    def test_case5_refs_trailer_covers_governed(self, git_project: Path, capsys):
+        """Case 5: a `Refs:` (not `Implements:`) trailer covers a governed change."""
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(
+            git_project,
+            "src/a.py",
+            "feat: a\n\nRefs: SPEC-00000000000000000000000001\n",
+        )
+        rc, out = _run(git_project, capsys, diff_base=base, strict=True)
+        assert rc == 0
+        assert "1/1" in out
+
+    def test_case5b_fixes_trailer_covers_governed(self, git_project: Path, capsys):
+        """Case 5 (variant): a `Fixes:` trailer also covers a governed change."""
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(
+            git_project,
+            "src/a.py",
+            "fix: a\n\nFixes: SPEC-00000000000000000000000001\n",
+        )
+        rc, out = _run(git_project, capsys, diff_base=base, strict=True)
+        assert rc == 0
+        assert "1/1" in out
+
+    def test_case6_wrong_spec_trailer_leaves_uncovered(self, git_project: Path, capsys):
+        """Case 6: a trailer naming the WRONG SPEC leaves the governed change uncovered."""
+        # SPEC-…01 governs src/a.py (in-flight). SPEC-…99 exists but does not.
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000099", "approved", ["src/other.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(
+            git_project,
+            "src/a.py",
+            "feat: a\n\nImplements: SPEC-00000000000000000000000099\n",
+        )
+        rc, out = _run(git_project, capsys, diff_base=base, strict=True)
+        assert rc == 1
+        assert "0/1" in out
+        assert "SPEC-00000000000000000000000001" in out
+
+    def test_case7_multivalue_trailer_member_covers(self, git_project: Path, capsys):
+        """Case 7: `Implements: A, B` covers a governed change whose decision is B."""
+        # Only SPEC-…02 (=B) is in-flight + governs src/b.py; the trailer lists
+        # both A and B comma-separated on a single commit. Message mode lets us
+        # carry the multi-value trailer cleanly.
+        _write_spec(git_project, "SPEC-00000000000000000000000002", "approved", ["src/b.py"])
+        _index(git_project)
+        diff_path = git_project / "change.diff"
+        diff_path.write_text("diff --git a/src/b.py b/src/b.py\n--- a/src/b.py\n+++ b/src/b.py\n@@ -0,0 +1 @@\n+x\n")
+        msg_path = git_project / "COMMIT_MSG"
+        msg_path.write_text(
+            "feat: ab\n\nImplements: SPEC-00000000000000000000000001, SPEC-00000000000000000000000002\n"
+        )
+        rc, out = _run(git_project, capsys, diff=str(diff_path), message=str(msg_path), strict=True)
+        assert rc == 0
+        assert "1/1" in out
+
+    def test_case11_two_governors_one_cited_is_partial(self, git_project: Path, capsys):
+        """Case 11: file governed by TWO in-flight decisions, only one cited → 1/2."""
+        # Both SPECs are in-flight and govern the same path src/a.py.
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000002", "approved", ["src/a.py"])
+        db = _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(
+            git_project,
+            "src/a.py",
+            "feat: a\n\nImplements: SPEC-00000000000000000000000001\n",
+        )
+
+        # Sanity: governed_changes yields two pairs for the single path.
+        governed = governed_changes(db, ["src/a.py"])
+        assert len(governed) == 2
+        cov = coverage(governed, {"SPEC-00000000000000000000000001"})
+        assert (cov.covered, cov.total) == (1, 2)
+        assert [gc.decision_id for gc in cov.uncovered] == ["SPEC-00000000000000000000000002"]
+
+        # End-to-end: 1/2, the uncovered governor listed, exit 1 under --strict.
+        rc, out = _run(git_project, capsys, diff_base=base, strict=True)
+        assert rc == 1
+        assert "1/2" in out
+        assert "SPEC-00000000000000000000000002" in out
+
+    def test_case12_directory_prefix_governance(self, git_project: Path, capsys):
+        """Case 12: a decision governing `src/auth/` covers each touched file under it."""
+        # Prefix governance: a `governs:` entry ending in `/` matches every path
+        # below it (see queries.why prefix_sql).
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/auth/"])
+        db = _index(git_project)
+
+        # Two distinct files under the governed directory each become a pair.
+        governed = governed_changes(db, ["src/auth/tokens.py", "src/auth/session.py"])
+        assert len(governed) == 2
+        assert {gc.path for gc in governed} == {"src/auth/tokens.py", "src/auth/session.py"}
+        assert {gc.decision_id for gc in governed} == {"SPEC-00000000000000000000000001"}
+
+        # End-to-end: both touched files uncovered without the trailer → exit 1.
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(git_project, "src/auth/tokens.py", "feat: tokens (no trailer)")
+        _commit_touching(git_project, "src/auth/session.py", "feat: session (no trailer)")
+        rc, out = _run(git_project, capsys, diff_base=base, strict=True)
+        assert rc == 1
+        assert "0/2" in out
+
+    def test_case15_scalability_smoke(self, git_project: Path, capsys):
+        """Case 15 (light): ~50 governed paths complete and report the right total."""
+        # One in-flight SPEC governing 50 distinct files; a single commit touches
+        # them all and cites the SPEC → all covered, exit 0, total == 50.
+        paths = [f"src/mod_{i:02d}.py" for i in range(50)]
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", paths)
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+
+        for p in paths:
+            target = git_project / p
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("content\n")
+        _git(git_project, "add", "src")
+        _git(
+            git_project,
+            "commit",
+            "-m",
+            "feat: bulk\n\nImplements: SPEC-00000000000000000000000001\n",
+        )
+
+        rc, out = _run(git_project, capsys, diff_base=base)
+        assert rc == 0
+        assert "50/50" in out
+
+
+# ── FIX 4: displayed percentage must never contradict the gate ───────────────
+
+
+class TestDisplayPercentConsistency:
+    def test_two_thirds_display_floors_and_matches_gate(self, git_project: Path, capsys):
+        """2/3 = 66.67% must display "66%" (floor) so it never implies passing 67."""
+        # Three in-flight SPECs each governing one path; two covered → 2/3.
+        _write_spec(git_project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000002", "approved", ["src/b.py"])
+        _write_spec(git_project, "SPEC-00000000000000000000000003", "approved", ["src/c.py"])
+        _index(git_project)
+        base = _commit_touching(git_project, "seed.txt", "base")
+        _commit_touching(
+            git_project,
+            "src/a.py",
+            "feat: a\n\nImplements: SPEC-00000000000000000000000001\n",
+        )
+        _commit_touching(
+            git_project,
+            "src/b.py",
+            "feat: b\n\nImplements: SPEC-00000000000000000000000002\n",
+        )
+        _commit_touching(git_project, "src/c.py", "feat: c (no trailer)")
+
+        # Human output floors 66.67% → "66%", never "67%".
+        rc_human, out = _run(git_project, capsys, diff_base=base)
+        assert rc_human == 0
+        assert "2/3" in out
+        assert "66%" in out
+        assert "67%" not in out
+
+        # The displayed 66% must not contradict the gate: at --min-coverage 67
+        # the gate FAILS (66.67 < 67), consistent with a floored "66%".
+        rc_gate = _run(git_project, capsys, diff_base=base, min_coverage=67)[0]
+        assert rc_gate == 1
+        # And at --min-coverage 66 it passes (66.67 >= 66), also consistent.
+        rc_pass = _run(git_project, capsys, diff_base=base, min_coverage=66)[0]
+        assert rc_pass == 0

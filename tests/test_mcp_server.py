@@ -828,6 +828,45 @@ class TestCommitCheckTool:
         assert mcp_payload["mode"] == "diff-base"
         assert mcp_payload["exit"] == 0
 
+    def test_mcp_payload_equals_cli_json_message_mode(self, commit_check_project: Path, capsys, monkeypatch) -> None:
+        """Parity in message mode: paths from a `diff`, trailers from `message`.
+
+        The CLI reads `diff`/`message` from *files*; the MCP tool takes the diff
+        and message as *strings*. Same corpus, same inputs → identical payload
+        (and `mode == "diff"`, the documented combined-source mode).
+        """
+        project = commit_check_project
+        _cc_write_spec(project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _cc_write_spec(project, "SPEC-00000000000000000000000002", "approved", ["src/b.py"])
+        _cc_index(project, monkeypatch)
+
+        # A diff that touches both governed paths; message covers only SPEC-…01.
+        diff_text = (
+            "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -0,0 +1 @@\n+x\n"
+            "diff --git a/src/b.py b/src/b.py\n--- a/src/b.py\n+++ b/src/b.py\n@@ -0,0 +1 @@\n+y\n"
+        )
+        message_text = "feat: ab\n\nImplements: SPEC-00000000000000000000000001\n"
+
+        diff_path = project / "change.diff"
+        diff_path.write_text(diff_text)
+        msg_path = project / "COMMIT_MSG"
+        msg_path.write_text(message_text)
+
+        cli_payload = _cli_json(project, capsys, diff=str(diff_path), message=str(msg_path))
+
+        mcp_server._set_project_root(project)
+        try:
+            monkeypatch.chdir(project)
+            mcp_payload = mcp_server.commit_check(diff=diff_text, message=message_text)
+        finally:
+            mcp_server._set_project_root(None)  # type: ignore[arg-type]
+
+        assert mcp_payload == cli_payload
+        # Sanity: combined source reports mode "diff"; 1/2 covered, advisory.
+        assert mcp_payload["mode"] == "diff"
+        assert mcp_payload["coverage"] == {"covered": 1, "total": 2, "fraction": 0.5}
+        assert mcp_payload["exit"] == 0
+
     def test_covered_case_exit_zero(self, commit_check_project: Path, monkeypatch) -> None:
         project = commit_check_project
         _cc_write_spec(project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])

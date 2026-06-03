@@ -267,7 +267,8 @@ exec decree commit-check --message "$1" --strict
 Expose decree's query and analysis API over Model Context Protocol stdio for LLM
 agents. Tools (all return JSON; read-only except `report`): `why`, `refs`,
 `stale`, `health`, `intent_check` (accepts `other_active_files` for
-parallel-session `live_conflicts`), `intent_review`, `progress`, and `report`
+parallel-session `live_conflicts`), `intent_review`, `commit_check`
+(deterministic trailer-coverage gate), `progress`, and `report`
 (`dry_run` supported).
 
 ### `decree retrieval-eval`

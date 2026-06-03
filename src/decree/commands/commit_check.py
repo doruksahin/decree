@@ -331,7 +331,11 @@ def _format_human(cov: Coverage, mode: str) -> str:
     """Render the human-readable trailer-coverage report."""
     lines: list[str] = []
     lines.append(f"Commit check — {mode}")
-    pct = round(cov.fraction * 100)
+    # Floor (not round) so the displayed % never contradicts the gate, which
+    # compares the unrounded `fraction*100 < min_coverage` in `_gate_exit`.
+    # 2/3 = 66.67% must show "66%", not "67%", or it would imply passing
+    # `--min-coverage 67` while the gate actually fails.
+    pct = int(cov.fraction * 100)
     lines.append(f"Trailer coverage ({cov.covered}/{cov.total}, {pct}%)")
 
     if cov.total == 0:
