@@ -65,6 +65,7 @@ Read only the files relevant to your task:
 | Changelog/release notes | [changelog.d/AGENTS.md](changelog.d/AGENTS.md) and [docs/release.md](docs/release.md) |
 | Release/versioning | [docs/release.md](docs/release.md) |
 | Architecture overview | [docs/architecture.md](docs/architecture.md) |
+| Git provenance, determinism, and how far to trust it | [docs/provenance-model.md](docs/provenance-model.md) |
 | Project contribution rules | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Non-Negotiable Rules
@@ -79,6 +80,11 @@ Read only the files relevant to your task:
   fragment in `changelog.d/`.
 - Do not claim governance when `decree why`, `decree refs`, or
   `intent-check` returns no match.
+- Treat git-derived signals (`commits`, staleness, observed/dead governance) as
+  advisory and coverage-gated. git guarantees which files a commit changed; the
+  commit→decision link is the trailer *convention*, not a git guarantee. Keep
+  such signals fail-safe and coverage-honest, and never let them feed `why()`.
+  See [docs/provenance-model.md](docs/provenance-model.md).
 - Keep CLI help, docs, tests, and changelog fragments in sync with behavior.
 
 ## Standard Change Loop

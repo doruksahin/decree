@@ -51,11 +51,28 @@ class UngovernedHotspot:
 
 
 @dataclasses.dataclass(frozen=True)
+class DeadGovernance:
+    """A decision's declared `governs:` paths that no trailer-linked commit has
+    ever touched — aspirational/abandoned scope (SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D).
+
+    Only emitted when the decision HAS an observation basis (`linked_commit_count`
+    >= 1); a decision with no trailer-linked commits is "unobserved", not dead.
+    """
+
+    decision_id: str
+    paths: tuple[str, ...]
+    linked_commit_count: int
+
+
+@dataclasses.dataclass(frozen=True)
 class HealthReport:
     stale_decisions: tuple[StaleDecision, ...]
     ungoverned_hotspots: tuple[UngovernedHotspot, ...]
     threshold_commits: int
     threshold_days: int
+    dead_governance: tuple[DeadGovernance, ...] = ()
+    unobserved_decision_ids: tuple[str, ...] = ()
+    last_rebuilt_at: str | None = None
 
 
 # ── git shellout helpers ───────────────────────────────────
@@ -284,18 +301,89 @@ def ungoverned_hotspots(
     return findings
 
 
+def _path_covers(declared: str, observed: str) -> bool:
+    """Dead-check path matching (SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D).
+
+    A declared `governs:` path covers an observed file if they are equal or the
+    file lives under the declared directory — including a directory written
+    WITHOUT a trailing slash. This deliberately diverges from `why()`'s matching
+    (`queries.py`, which prefix-matches only paths ending in `/`); sharing one
+    predicate would either leak this permissiveness into `why()` (forbidden) or
+    falsely flag a live slashless directory as dead. See docs/provenance-model.md.
+    """
+    if declared == observed:
+        return True
+    return observed.startswith(declared.rstrip("/") + "/")
+
+
+def _declared_and_linked(db: IndexDB) -> tuple[dict[str, list[str]], dict[str, int]]:
+    """(declared file-path governs per decision, trailer-linked commit count per
+    decision). Symbol-scoped `governs` entries (`path#symbol`) are skipped — a
+    file-grained observation can never cover a symbol, so they are unobservable
+    at this grain, not dead."""
+    conn = db.db.conn  # type: ignore[attr-defined]
+    declared: dict[str, list[str]] = {}
+    for decision_id, path, symbol in conn.execute("SELECT decision_id, path, symbol FROM governs"):
+        if symbol:
+            continue
+        declared.setdefault(decision_id, []).append(path)
+    linked: dict[str, int] = {
+        row[0]: row[1]
+        for row in conn.execute("SELECT decision_id, COUNT(DISTINCT sha) FROM commits GROUP BY decision_id")
+    }
+    return declared, linked
+
+
+def dead_governance(db: IndexDB) -> list[DeadGovernance]:
+    """Declared `governs:` paths that no trailer-linked commit has touched.
+
+    Pure index read (no git shellout — attribution was computed at index time
+    into `observed_governs`). Precision gate: a decision with zero trailer-linked
+    commits is "unobserved", not dead, and is omitted here (see
+    `unobserved_decisions`). Never consulted by `why()`.
+    """
+    conn = db.db.conn  # type: ignore[attr-defined]
+    declared, linked = _declared_and_linked(db)
+    observed: dict[str, set[str]] = {}
+    for decision_id, path in conn.execute("SELECT decision_id, path FROM observed_governs"):
+        observed.setdefault(decision_id, set()).add(path)
+
+    findings: list[DeadGovernance] = []
+    for decision_id, paths in declared.items():
+        n_linked = linked.get(decision_id, 0)
+        if n_linked == 0:
+            continue  # unobserved, not dead
+        obs = observed.get(decision_id, set())
+        dead = sorted(p for p in paths if not any(_path_covers(p, f) for f in obs))
+        if dead:
+            findings.append(DeadGovernance(decision_id=decision_id, paths=tuple(dead), linked_commit_count=n_linked))
+    findings.sort(key=lambda f: f.decision_id)
+    return findings
+
+
+def unobserved_decisions(db: IndexDB) -> list[str]:
+    """Decision IDs that declare `governs:` paths but have no trailer-linked
+    commit, so their governance cannot be observed (not dead — unobservable).
+    Surfaced for coverage honesty alongside `dead_governance`."""
+    declared, linked = _declared_and_linked(db)
+    return sorted(did for did in declared if linked.get(did, 0) == 0)
+
+
 def health(
     db: IndexDB,
     project_root: Path,
     threshold_commits: int,
     threshold_days: int,
 ) -> HealthReport:
-    """Compose the full health report — stale decisions + ungoverned hotspots."""
+    """Compose the full health report — stale, ungoverned, and dead governance."""
     return HealthReport(
         stale_decisions=tuple(stale_decisions(db, project_root, threshold_commits)),
         ungoverned_hotspots=tuple(ungoverned_hotspots(db, project_root, threshold_commits, threshold_days)),
         threshold_commits=threshold_commits,
         threshold_days=threshold_days,
+        dead_governance=tuple(dead_governance(db)),
+        unobserved_decision_ids=tuple(unobserved_decisions(db)),
+        last_rebuilt_at=db.status().last_rebuilt_at,
     )
 
 
@@ -333,6 +421,26 @@ def _format_human(report: HealthReport) -> str:
         lines.append("Ungoverned hotspots: none above threshold.")
         lines.append("")
 
+    if report.dead_governance:
+        lines.append("Dead governance (declared governs paths no trailer-linked commit has touched):")
+        lines.append("")
+        for dg in report.dead_governance:
+            lines.append(f"  {dg.decision_id}   untouched by its {dg.linked_commit_count} linked commit(s):")
+            for p in dg.paths:
+                lines.append(f"    {p}")
+        lines.append("")
+    else:
+        lines.append("Dead governance: none (every declared path with a commit basis was touched).")
+        lines.append("")
+
+    observed_as_of = report.last_rebuilt_at or "unknown"
+    lines.append(
+        f"  observed as of {observed_as_of}; "
+        f"{len(report.unobserved_decision_ids)} decision(s) have no trailer-linked "
+        "commits (governance unobservable)."
+    )
+    lines.append("")
+
     lines.append(f"Thresholds: --threshold-commits={report.threshold_commits} --threshold-days={report.threshold_days}")
     return "\n".join(lines)
 
@@ -357,6 +465,16 @@ def _report_to_dict(report: HealthReport) -> dict:
             }
             for h in report.ungoverned_hotspots
         ],
+        "dead_governance": [
+            {
+                "decision_id": dg.decision_id,
+                "paths": list(dg.paths),
+                "linked_commit_count": dg.linked_commit_count,
+            }
+            for dg in report.dead_governance
+        ],
+        "unobserved_decisions": list(report.unobserved_decision_ids),
+        "observed_as_of": report.last_rebuilt_at,
         "threshold_commits": report.threshold_commits,
         "threshold_days": report.threshold_days,
     }
@@ -420,7 +538,7 @@ def health_run(args: argparse.Namespace) -> int:
     else:
         print(_format_human(report))
 
-    has_findings = bool(report.stale_decisions or report.ungoverned_hotspots)
+    has_findings = bool(report.stale_decisions or report.ungoverned_hotspots or report.dead_governance)
     if has_findings:
         return 1
     if not getattr(args, "json", False):

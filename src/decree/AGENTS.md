@@ -27,6 +27,12 @@ implementation code.
 - Generated artifacts are explicit: index rebuild, markdown index regenerate,
   graph generation, and report regeneration are separate commands.
 - LLM-backed behavior must expose provider choice and per-call errors.
+- Git-derived provenance is two-layered: git guarantees commit→files
+  (deterministic); commit→decision is the trailer *convention*. Signals built on
+  it (`commits` / `observed_governs` in `index_db.py`, staleness / dead-governance
+  in `commands/health.py`) stay advisory, fail-safe, and coverage-honest, and must
+  never feed `queries.py` (`why` / `refs`). See
+  [../../docs/provenance-model.md](../../docs/provenance-model.md).
 
 ## Output Rules
 

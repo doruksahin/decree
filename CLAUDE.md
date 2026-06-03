@@ -53,6 +53,7 @@ All config in `decree.toml` (not pyproject.toml). See [docs/configuration.md](do
 - Canonical document IDs are frontmatter `TYPE-ULID`; `decree migrate ids` converts legacy numeric corpora.
 - `warn_on_reference` (dead statuses) != terminal statuses — "implemented" is terminal but healthy to reference
 - Staleness is direct-only, not transitive
+- Provenance is two-layered: git guarantees commit→files (deterministic, content-addressed); commit→decision is the `Implements:/Refs:/Fixes:` trailer **convention**, not a git guarantee. Git-derived signals (`commits`, staleness, observed/dead governance) are deterministic to compute but advisory + coverage-honest, and never feed `why()` ([docs/provenance-model.md](docs/provenance-model.md))
 - C4 is coupled in `c4.py`, not pluggable ([decree/adr/adr-01kt22nmrv7gmaxkwsbeen68ke-coupled-c4-module-vs-plugin-architecture.md](decree/adr/adr-01kt22nmrv7gmaxkwsbeen68ke-coupled-c4-module-vs-plugin-architecture.md))
 
 ## Development

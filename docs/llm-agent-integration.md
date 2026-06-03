@@ -103,6 +103,8 @@ owns schema validation, diff rendering, and writes.
 - `src/decree/llm_io.py`: fenced JSON parsing only. Provider execution belongs
   outside core decree.
 - `src/decree/index_db.py`: deterministic derived index and git trailer sync.
+  Provenance is convention-bounded — commit→files is git-guaranteed, commit→decision
+  is the trailer convention; see [provenance-model.md](provenance-model.md).
 - `src/decree/commands/queries.py`: `why` and `refs` library/CLI behavior.
 - `src/decree/commands/intent_check.py`: pre-code governance reports.
 - `src/decree/commands/intent_review.py`: post-code diff governance reports.

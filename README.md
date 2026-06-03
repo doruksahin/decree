@@ -77,6 +77,13 @@ recommended command loop, see [LLM Agent Integration](docs/llm-agent-integration
 For agent-side `governs:` suggestion generation, use the portable
 [decree-governs-suggest skill](skills/decree-governs-suggest/SKILL.md).
 
+decree's provenance is git-grounded but **convention-bounded**: git guarantees
+which files a commit changed, while the commit→decision link is the
+`Implements:/Refs:/Fixes:` trailer *convention*, not a git guarantee. The
+git-derived signals are therefore deterministic to compute, advisory, and
+coverage-honest — never certainties. See the
+[provenance & determinism model](docs/provenance-model.md).
+
 ## Features
 
 ### Lint — validate everything

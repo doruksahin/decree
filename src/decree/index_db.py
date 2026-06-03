@@ -41,6 +41,7 @@ class RebuildStats:
     commits: int = 0
     git_sync_ms: int = 0
     invalid_git_trailers: int = 0
+    observed_governs: int = 0
 
 
 @dataclass(frozen=True)
@@ -157,6 +158,21 @@ class IndexDB:
                 pk=("sha", "decision_id", "trailer_kind"),
             )
             self.db["commits"].create_index(["decision_id"], if_not_exists=True)
+
+        # observed_governs: files a decision's trailer-linked commits actually
+        # touched (SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D). A derived read-cache for the
+        # dead-governance health signal; NEVER read by why()/intent-check.
+        if "observed_governs" not in self.db.table_names():
+            self.db["observed_governs"].create(  # type: ignore[attr-defined]
+                {
+                    "decision_id": str,
+                    "path": str,
+                    "commit_count": int,
+                    "last_seen_at": str,
+                },
+                pk=("decision_id", "path"),
+            )
+            self.db["observed_governs"].create_index(["decision_id"], if_not_exists=True)
 
         # index_meta: key-value bookkeeping
         if "index_meta" not in self.db.table_names():
@@ -325,6 +341,7 @@ class IndexDB:
             commits=commits_count,
             git_sync_ms=git_sync_ms,
             invalid_git_trailers=invalid_git_trailers,
+            observed_governs=self.last_observed_governs_rows,
         )
 
     # ── Read-only: status ───────────────────────────────────
@@ -431,6 +448,7 @@ class IndexDB:
 
         start = time.monotonic()
         self.last_invalid_git_trailers = 0
+        self.last_observed_governs_rows = 0
 
         # Non-git project → no commit-trailer source to index.
         try:
@@ -467,6 +485,7 @@ class IndexDB:
             self.init_schema()
             with self.db.conn:  # type: ignore[attr-defined]
                 self.db.conn.execute("DELETE FROM commits")  # type: ignore[attr-defined]
+                self.db.conn.execute("DELETE FROM observed_governs")  # type: ignore[attr-defined]
             return 0, int((time.monotonic() - start) * 1000)
 
         self.init_schema()
@@ -539,16 +558,164 @@ class IndexDB:
                         }
                     )
 
-        # Wipe rows whose SHA no longer exists in git log (rebase / amend),
-        # then insert the freshly-parsed rows. Doing a full wipe-and-insert
-        # is simpler than diffing — SPEC says incremental sync is v2.
+        # SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D: record which files each decision's
+        # trailer-linked commits actually touched, for the dead-governance signal.
+        observed_rows = self._observed_governs_rows(rows, project_root)
+        self.last_observed_governs_rows = len(observed_rows)
+
+        # Wipe rows whose SHA no longer exists in git log (rebase / amend), then
+        # insert the freshly-parsed rows. `commits` and `observed_governs` are
+        # wiped and reinserted together so the two never desync. Full
+        # wipe-and-insert is simpler than diffing — SPEC says incremental sync
+        # is v2.
         with self.db.conn:  # type: ignore[attr-defined]
             self.db.conn.execute("DELETE FROM commits")  # type: ignore[attr-defined]
+            self.db.conn.execute("DELETE FROM observed_governs")  # type: ignore[attr-defined]
         if rows:
             self.db["commits"].insert_all(rows, replace=True)  # type: ignore[attr-defined]
+        if observed_rows:
+            self.db["observed_governs"].insert_all(observed_rows, replace=True)  # type: ignore[attr-defined]
         self.db.conn.commit()  # type: ignore[attr-defined]
 
         return len(rows), int((time.monotonic() - start) * 1000)
+
+    def _observed_governs_rows(self, commit_rows: list[dict], project_root: Path) -> list[dict]:
+        """Rows for `observed_governs`: the files each decision's trailer-linked
+        commits actually touched, minus decree corpus docs and lockfiles.
+
+        SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D. A derived read-cache for the
+        dead-governance health signal; never consulted by ``why()``.
+        """
+        if not commit_rows:
+            return []
+
+        # decision_id -> distinct SHAs; sha -> committed_at (ISO+UTC, sortable).
+        linked: dict[str, set[str]] = {}
+        committed_at_by_sha: dict[str, str] = {}
+        for row in commit_rows:
+            linked.setdefault(row["decision_id"], set()).add(row["sha"])
+            committed_at_by_sha[row["sha"]] = row["committed_at"]
+
+        files_by_sha = _commit_files_by_sha(project_root, sorted(committed_at_by_sha))
+
+        # `decisions` is populated before this runs during a full rebuild; on a
+        # bare commit-only sync it may be empty, which only loosens the filter
+        # (it never invents observations).
+        decision_doc_paths = {
+            row[0]
+            for row in self.db.conn.execute("SELECT path FROM decisions")  # type: ignore[attr-defined]
+        }
+        # Exclude every doc-type directory, derived from the decision paths
+        # themselves — no config lookup, and it survives doc renames: a commit's
+        # historical path for a since-renamed decision still lives under its dir.
+        corpus_dirs = {p.rsplit("/", 1)[0] for p in decision_doc_paths if "/" in p}
+
+        observed: dict[tuple[str, str], dict] = {}
+        for decision_id, shas in linked.items():
+            for sha in shas:
+                committed_at = committed_at_by_sha[sha]
+                for rel_path in files_by_sha.get(sha, ()):
+                    if not _observable_path(rel_path, corpus_dirs, decision_doc_paths):
+                        continue
+                    key = (decision_id, rel_path)
+                    entry = observed.get(key)
+                    if entry is None:
+                        observed[key] = {
+                            "decision_id": decision_id,
+                            "path": rel_path,
+                            "commit_count": 1,
+                            "last_seen_at": committed_at,
+                        }
+                    else:
+                        entry["commit_count"] += 1
+                        if committed_at > entry["last_seen_at"]:
+                            entry["last_seen_at"] = committed_at
+        return list(observed.values())
+
+
+# ── Observed-governs helpers (SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D) ───
+
+_LOCKFILE_NAMES = frozenset(
+    {
+        "uv.lock",
+        "poetry.lock",
+        "Pipfile.lock",
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "Cargo.lock",
+        "Gemfile.lock",
+        "composer.lock",
+        "go.sum",
+    }
+)
+
+
+def _observable_path(rel_path: str, corpus_dirs: set[str], decision_doc_paths: set[str]) -> bool:
+    """True if a touched file is real governed code worth recording.
+
+    Drops decree corpus documents (the decisions themselves, including
+    since-renamed ones, via their directories), decree-generated ``index.md`` /
+    completion-report files, and dependency lockfiles.
+    """
+    if rel_path in decision_doc_paths:
+        return False
+    for corpus_dir in corpus_dirs:
+        if rel_path == corpus_dir or rel_path.startswith(corpus_dir + "/"):
+            return False
+    base = rel_path.rsplit("/", 1)[-1]
+    if base == "index.md":
+        return False
+    if "/reports/" in f"/{rel_path}":
+        return False
+    return base not in _LOCKFILE_NAMES
+
+
+def _commit_files_by_sha(project_root: Path, shas: list[str]) -> dict[str, list[str]]:
+    """Map each given SHA to the repo-relative files it touched.
+
+    A single batched ``git log --no-walk --name-only`` over exactly the given
+    commits (the batched pattern ``health._recent_file_churn`` uses, scoped to
+    the linked commits). ``git log`` emits the root commit's files and shows no
+    files for a merge — whose constituent changes are already attributed to its
+    child commits — so neither is silently dropped or double-counted.
+    """
+    if not shas:
+        return {}
+
+    import subprocess
+
+    files_by_sha: dict[str, list[str]] = {}
+    # Chunk to stay under ARG_MAX on corpora with many trailer-linked commits.
+    for offset in range(0, len(shas), 500):
+        chunk = shas[offset : offset + 500]
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(project_root),
+                "log",
+                "--no-walk",
+                "--name-only",
+                "--format=%x01%H",
+                *chunk,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            continue
+        current: str | None = None
+        for raw in result.stdout.splitlines():
+            if raw.startswith("\x01"):
+                current = raw[1:].strip()
+                files_by_sha.setdefault(current, [])
+            elif current is not None:
+                rel = raw.strip()
+                if rel:
+                    files_by_sha[current].append(rel)
+    return files_by_sha
 
 
 # ── Path resolution ─────────────────────────────────────────

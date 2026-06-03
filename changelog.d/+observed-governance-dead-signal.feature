@@ -1,0 +1,1 @@
+`decree health` now reports **dead governance** — declared `governs:` paths that no trailer-linked commit has ever touched — backed by a new `observed_governs` index. Advisory and fail-safe: a decision with no trailer-linked commits is reported "unobserved", not dead, and the output is coverage-honest (per-decision linked-commit counts and an "as of last index sync" timestamp).
