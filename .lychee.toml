@@ -4,10 +4,8 @@ include_verbatim = false
 extensions = ["md"]
 glob_ignore_case = true
 exclude_path = ["^\\.venv/"]
-# The project's own homepage is excluded: CI must not flake on our own deploy
-# (cold starts / deploy windows return 503), and the canonical URL is set once.
-exclude = ["^https://decree\\.doruk\\.uk"]
-# Tolerate slow external reference links (e.g. personal blogs) so CI doesn't flake.
+# Tolerate slow external reference links (e.g. personal blogs) and our own site's
+# cold-start/deploy windows so CI doesn't flake.
 timeout = 30
 max_retries = 4
 retry_wait_time = 3

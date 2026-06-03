@@ -401,9 +401,10 @@ Changelog entries are Towncrier fragments in `changelog.d/`. Agents should add
 one fragment with each user-visible change; release builds generate
 `CHANGELOG.md` from those fragments.
 
-Pushing a `vX.Y.Z` tag runs the release workflow: validate, build, publish to
-PyPI through Trusted Publishing, and create a GitHub Release. See
-[docs/release.md](docs/release.md).
+Pushing a `vX.Y.Z` tag runs the release workflow: validate, build the wheel and
+sdist, create a GitHub Release with those artifacts, and bump the Homebrew tap.
+decree is not published to PyPI (the name there is an unrelated third-party
+project). See [docs/release.md](docs/release.md).
 
 ## Contributing
 

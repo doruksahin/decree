@@ -1,0 +1,1 @@
+Correct stale "publishes to PyPI" release-automation wording in the README and capability index — decree distributes via GitHub Releases and a Homebrew tap, not PyPI. The link check now verifies the project homepage (decree.doruk.uk) instead of excluding it.
