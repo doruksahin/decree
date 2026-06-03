@@ -32,6 +32,10 @@ uv run decree why src/decree/cli.py
 uv run decree intent-check --plan "Short plan" --files src/decree/cli.py
 ```
 
+To surface governance drift across the corpus — stale decisions, ungoverned
+hotspots, dead governance (findings), and advisory suggested governance — run
+`uv run decree health` (see [docs/health-signals.md](docs/health-signals.md)).
+
 Use narrower progress scopes when working in parallel:
 
 ```bash
@@ -66,6 +70,7 @@ Read only the files relevant to your task:
 | Release/versioning | [docs/release.md](docs/release.md) |
 | Architecture overview | [docs/architecture.md](docs/architecture.md) |
 | Git provenance, determinism, and how far to trust it | [docs/provenance-model.md](docs/provenance-model.md) |
+| Governance & coherence drift signals (`decree health`) | [docs/health-signals.md](docs/health-signals.md) |
 | Project contribution rules | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ## Non-Negotiable Rules

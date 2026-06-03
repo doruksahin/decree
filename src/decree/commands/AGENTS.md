@@ -35,6 +35,7 @@ Applies to command modules under `src/decree/commands/`.
 
 - `index_db_cli.py`: SQLite index rebuild/status/verify.
 - `queries.py`: `why` and `refs`; index-backed governance queries.
+- `health.py`: `health` / `stale` — coherence drift (stale, ungoverned hotspots, dead-governance, advisory suggested-governance); reads `observed_governs`, never feeds `queries.py`. See [../../../docs/health-signals.md](../../../docs/health-signals.md).
 - `intent_check.py`: pre-code plan governance; opt-in `other_active_files` adds cross-session `live_conflicts`.
 - `intent_review.py`: post-code diff governance.
 - `migrate.py`: explicit corpus migrations and agent-assisted backfills.

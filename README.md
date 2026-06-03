@@ -84,6 +84,11 @@ git-derived signals are therefore deterministic to compute, advisory, and
 coverage-honest — never certainties. See the
 [provenance & determinism model](docs/provenance-model.md).
 
+decree surfaces **governance drift** — decisions whose declared scope has
+diverged from where the code actually changed — through `decree health` and the
+MCP `health` tool: stale decisions, ungoverned hotspots, dead governance, and
+advisory suggested governance. See [Health Signals](docs/health-signals.md).
+
 ## Features
 
 ### Lint — validate everything

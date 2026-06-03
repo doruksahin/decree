@@ -39,6 +39,12 @@ with the [Capability Index](index.md).
 6. Run `decree lint` again after changing decree documents.
 7. Add or verify a `changelog.d/` Towncrier fragment for user-visible changes.
 
+Between the rebuild (step 2) and planning (step 3), run `decree health --json`
+(or the MCP `health` tool) to surface governance drift — stale decisions,
+ungoverned hotspots, dead governance, and advisory suggested governance — and
+resolve dead governance before it compounds. See
+[health-signals.md](health-signals.md) for the detect → interpret → act flow.
+
 ## Agent-Owned LLM Calls
 
 Core decree does not resolve models, read provider API keys, shell out to
@@ -118,7 +124,10 @@ owns schema validation, diff rendering, and writes.
 Eight tools, all returning JSON (read-only except `report`):
 
 - `why`, `refs` — governed-file lookup and reverse reference graph.
-- `stale`, `health` — staleness and coherence signals.
+- `stale`, `health` — staleness and coherence drift. `health` returns four
+  signals: stale decisions, ungoverned hotspots, **dead governance** (findings,
+  exit 1) and advisory **suggested governance** (exit 0, never feeds `why`); see
+  [health-signals.md](health-signals.md).
 - `intent_check` — pre-code governance; accepts `other_active_files`
   (`{session_id: [paths]}`) and returns `live_conflicts` for parallel sessions.
 - `intent_review` — post-code diff governance.
@@ -133,6 +142,8 @@ Eight tools, all returning JSON (read-only except `report`):
 decree --help
 decree lint
 decree index rebuild
+decree health --json
+decree stale --json
 decree report regenerate --all --existing-only
 decree why src/foo.py --json
 decree refs SPEC-01KT22NMS0D19VMD8VPK4D2MNX --json

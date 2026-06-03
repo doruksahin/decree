@@ -29,6 +29,7 @@ Each file in `commands/` is one CLI subcommand. All export a `run(args)` functio
 | `ddd` | [commands/ddd.py](commands/ddd.py) | Lifecycle assessment and next action; supports doc/chain/changed/governs scopes |
 | `report` | [commands/report.py](commands/report.py) | Explicit completion-report regeneration; no hidden refresh during lint |
 | `commit` | [commands/commit.py](commands/commit.py) | Git commit wrapper for canonical `Implements:`/`Refs:`/`Fixes:` trailers |
+| `health` / `stale` | [commands/health.py](commands/health.py) | Stale decisions, ungoverned hotspots, dead-governance (findings), advisory suggested-governance — reads `observed_governs`; never feeds `queries.py`. See [health-signals.md](../../docs/health-signals.md) |
 | `why` / `refs` | [commands/queries.py](commands/queries.py) | SQLite-index-backed governance queries; never silently re-parse markdown |
 | `mcp serve` | [commands/mcp_server.py](commands/mcp_server.py) | FastMCP server exposing `why`/`refs`/`stale`/`health`/`intent_check`/`intent_review`/`progress`/`report` as agent tools; thin wrappers over command cores, no duplicate query logic |
 

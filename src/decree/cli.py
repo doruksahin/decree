@@ -257,8 +257,9 @@ def main() -> int:
         help="Decree Driven Development — show current phase and next action",
         description="Run a phase assessment: read the corpus, identify which lifecycle phase "
         "the project is in (ideation / architecture decisions / technical design / planning / "
-        "implementation / completion / done), "
-        "and print the suggested next action. Offline, no LLM calls.",
+        "implementation / completion / done), and print the suggested next action. Includes a "
+        "governance-drift hint (dead and suggested governance counts; run `decree health` for "
+        "detail). Offline, no LLM calls.",
     )
     p_ddd.add_argument("--json", action="store_true", help="Emit JSON for programmatic consumers")
     p_ddd.add_argument(
@@ -456,11 +457,15 @@ def main() -> int:
 
     p_health = subparsers.add_parser(
         "health",
-        help="Show stale decisions and ungoverned hotspots (SPEC-01KT22NMRYNFYM7EN80WS2HD6F)",
-        description="Surface coherence and churn health: decisions whose governed "
-        "files have churned without the decision being touched (stale), and high-churn "
-        "files that no decision governs (ungoverned hotspots). Exit 0 if clean, 1 if "
-        "findings.",
+        help="Governance & coherence drift: stale, ungoverned hotspots, dead & suggested governance",
+        description="Surface four git-derived coherence signals: (1) STALE decisions whose "
+        "governed files churned without the decision being touched; (2) UNGOVERNED HOTSPOTS — "
+        "high-churn files no decision governs; (3) DEAD GOVERNANCE — declared `governs:` paths "
+        "no trailer-linked commit ever touched (high-precision); and (4) SUGGESTED GOVERNANCE "
+        "(advisory) — files a decision's own commits repeat-touch (>=2 commits) but it does not "
+        "declare and nobody owns. Exit 1 if stale, ungoverned, or dead-governance findings exist; "
+        "suggested governance is advisory and never affects the exit code. Read-only and "
+        "deterministic; never feeds `why`. Details: docs/health-signals.md.",
     )
     _add_health_args(p_health)
 

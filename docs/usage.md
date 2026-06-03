@@ -87,7 +87,9 @@ future scope.
 ### `decree ddd`
 
 Assess the current Decree Driven Development phase and print the next action.
-Scope it the same way as progress when an agent or worktree owns one slice:
+The assessment includes a governance-drift hint — dead and suggested governance
+counts (run `decree health` for detail). Scope it the same way as progress when
+an agent or worktree owns one slice:
 
 ```bash
 decree ddd --doc SPEC-01KT22NMS0D19VMD8VPK4D2MNX
@@ -167,8 +169,19 @@ run `decree index rebuild`, pass `--implements`, or pass `--no-infer`.
 
 ### `decree health`
 
-Report stale decisions and ungoverned hotspots using the SQLite index and git
-history. `decree stale` is an alias.
+Report four git-derived coherence signals using the SQLite index and git
+history: **stale decisions**, **ungoverned hotspots**, **dead governance**
+(declared `governs:` paths no trailer-linked commit ever touched), and advisory
+**suggested governance** (files a decision's own commits repeat-touch but it does
+not declare). `decree stale` is an alias. Exit 1 on stale/ungoverned/dead
+findings; suggested governance is advisory (exit 0) and never feeds `why`. See
+[health-signals.md](health-signals.md) for the detect → interpret → act flow.
+
+```bash
+decree health
+decree health --json
+decree health --threshold-commits 10 --threshold-days 30
+```
 
 ### `decree intent-review`
 
@@ -330,6 +343,18 @@ git commit -m "docs(adr): supersede Redis with Valkey"
 ```bash
 decree lint  # exit 0 = clean, exit 1 = errors
 ```
+
+### Auditing governance drift
+
+```bash
+decree index rebuild
+decree health --json   # stale + ungoverned + dead governance (findings); suggested governance (advisory)
+```
+
+Act on each finding: update stale decisions, write ADRs for ungoverned hotspots,
+fix or repoint dead `governs:` paths, and consider adding suggested paths to a
+decision's `governs:`. See [health-signals.md](health-signals.md) for the full
+detect → interpret → act flow.
 
 ### Onboarding someone
 

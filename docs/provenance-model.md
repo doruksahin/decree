@@ -5,7 +5,7 @@
 > *which decision* a commit implements — that link is the
 > `Implements:/Refs:/Fixes:` **trailer convention**, written by `decree commit`
 > or by hand. So every git-derived signal (`commits`, staleness, observed
-> governance, dead-governance) is a **deterministic computation over a
+> governance, dead- and suggested-governance) is a **deterministic computation over a
 > convention-grade input**. decree never presents it as certainty: the signals
 > are advisory, fail-safe, and coverage-honest, and they never feed `why()`.
 
@@ -82,6 +82,17 @@ Because Layer 2 is convention-grade, every decree signal built on it:
   from the **declared** `governs:` frontmatter. Mixing them would be exactly the
   silent fallback decree forbids.
 
+The two governance-drift signals embody this directly. **Dead governance**
+(declared ∖ observed) is high-precision — a declared path either was touched or
+it wasn't — so it counts as a finding. **Suggested governance** (observed ∖
+declared) is the lower-precision inverse — a file a decision's commits
+repeat-touch but it doesn't declare — so it is **advisory only**: it never
+changes the exit code, never feeds `why()`, and is presented as a suggestion to
+consider, not a fact. Its precision rests on per-decision **repeat-touch**
+(a squash commit over-attributes once, so its files never qualify), not on
+cross-decision frequency. See [health-signals.md](health-signals.md) for how to
+read and act on both.
+
 The system's integrity comes from *admitting* the uncertainty and surfacing it,
 not from hiding it.
 
@@ -119,8 +130,10 @@ enforces it.** This cuts both ways:
 - `src/decree/index_db.py` — `sync_commits_from_git` (Layer 2 ingestion from
   trailers) and `observed_governs` (the Layer 1 file-touch join). A derived
   read-cache; never authoritative.
-- `src/decree/commands/health.py` — staleness, ungoverned hotspots, and
-  dead-governance: the advisory, coverage-honest surfaces.
+- `src/decree/commands/health.py` — staleness, ungoverned hotspots,
+  dead-governance, and advisory suggested-governance: the coverage-honest
+  surfaces. See [health-signals.md](health-signals.md) for their operational
+  semantics and the detect → interpret → act flow.
 - `src/decree/commands/queries.py` — `why` / `refs`: the **authoritative** layer,
   answering only from declared `governs:`. It must stay isolated from the
   convention layer.

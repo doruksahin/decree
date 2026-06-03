@@ -433,7 +433,9 @@ def stale(threshold_commits: int = 10) -> dict:
 def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
     """Return the full coherence health report: stale decisions, ungoverned hotspots, and governance drift.
 
-    Combines two PRD-01KT22NMRS4QGHSFDBZ858PP1T R7 signals into one response:
+    Combines four git-derived coherence signals into one response (the two
+    PRD-01KT22NMRS4QGHSFDBZ858PP1T R7 signals — stale and ungoverned — plus the
+    two governance-drift signals):
 
       1. **Stale decisions** — same as `stale`: decisions whose
          `governs:` paths have churned by >`threshold_commits` commits

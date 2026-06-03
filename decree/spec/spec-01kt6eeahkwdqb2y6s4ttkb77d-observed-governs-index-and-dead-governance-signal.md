@@ -11,7 +11,7 @@ references:
 - SPEC-01KT22NMRYNFYM7EN80WS2HD6F
 - SPEC-01KT22NMRXFWNE61NSETKATHBA
 - SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S
-status: draft
+status: implemented
 ---
 
 # SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D Observed-governs Index and Dead-governance Signal
@@ -147,18 +147,18 @@ covered by an explicit external-style test, never by corpus validation alone.
 
 ## v1 Acceptance Criteria
 
-- [ ] `observed_governs(decision_id, path, commit_count, last_seen_at)` table created in `init_schema`, raw file grain, pk `(decision_id, path)`, indexed on `decision_id`.
-- [ ] Populated in `sync_commits_from_git` from a single batched `git log --name-only` pass joined to trailer-linked commits — never per-sha `git diff-tree` (root- and merge-commit safe).
-- [ ] Root-commit and merge-commit file touches are attributed, not dropped.
-- [ ] Touched-file filters applied: decision documents (`decisions.path`), decree-generated `index.md` / completion-report files, and dependency lockfiles — so only real governed code is recorded.
-- [ ] `observed_governs` is wiped/inserted in the same transaction as `commits`; every `commits` wipe/no-op path (non-git, empty/broken repo) performs the identical wipe for `observed_governs`.
-- [ ] `dead_governance(db)` reports declared `governs:` paths no linked commit touched, using a dead-check-local cover predicate where a directory path covers files beneath it even without a trailing slash; `why()` is unchanged.
-- [ ] Symbol-scoped `governs` entries (`path#symbol`) are excluded from the dead signal and never flagged dead.
-- [ ] A decision with zero trailer-linked commits produces no dead claims; its paths are reported "unobserved" with the reason.
-- [ ] `decree health` gains a "Dead governance" human section and a `dead_governance` key in `--json` with per-decision `linked_commit_count` and an "as of `<last_rebuilt_at>`" honesty line.
-- [ ] `dead_governance` reads `observed_governs` as-is (stale-tolerant); `decree health` never triggers an index rebuild.
-- [ ] `observed_governs` is never read by `why()` or `intent-check` — those answer only from declared `governs:` (no silent fallback).
-- [ ] Tests cover root/merge commits, slashless-directory not-dead, symbol-never-dead, unobserved-not-dead, filter behaviour, and the `--json` shape.
+- [x] `observed_governs(decision_id, path, commit_count, last_seen_at)` table created in `init_schema`, raw file grain, pk `(decision_id, path)`, indexed on `decision_id`.
+- [x] Populated in `sync_commits_from_git` from a single batched `git log --name-only` pass joined to trailer-linked commits — never per-sha `git diff-tree` (root- and merge-commit safe).
+- [x] Root-commit and merge-commit file touches are attributed, not dropped.
+- [x] Touched-file filters applied: decision documents (`decisions.path`), decree-generated `index.md` / completion-report files, and dependency lockfiles — so only real governed code is recorded.
+- [x] `observed_governs` is wiped/inserted in the same transaction as `commits`; every `commits` wipe/no-op path (non-git, empty/broken repo) performs the identical wipe for `observed_governs`.
+- [x] `dead_governance(db)` reports declared `governs:` paths no linked commit touched, using a dead-check-local cover predicate where a directory path covers files beneath it even without a trailing slash; `why()` is unchanged.
+- [x] Symbol-scoped `governs` entries (`path#symbol`) are excluded from the dead signal and never flagged dead.
+- [x] A decision with zero trailer-linked commits produces no dead claims; its paths are reported "unobserved" with the reason.
+- [x] `decree health` gains a "Dead governance" human section and a `dead_governance` key in `--json` with per-decision `linked_commit_count` and an "as of `<last_rebuilt_at>`" honesty line.
+- [x] `dead_governance` reads `observed_governs` as-is (stale-tolerant); `decree health` never triggers an index rebuild.
+- [x] `observed_governs` is never read by `why()` or `intent-check` — those answer only from declared `governs:` (no silent fallback).
+- [x] Tests cover root/merge commits, slashless-directory not-dead, symbol-never-dead, unobserved-not-dead, filter behaviour, and the `--json` shape.
 
 ## Deferred
 

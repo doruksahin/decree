@@ -9,7 +9,7 @@ references:
 - SPEC-01KT22NMRYNFYM7EN80WS2HD6F
 - SPEC-01KT22NMRXFWNE61NSETKATHBA
 - SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S
-status: draft
+status: implemented
 ---
 
 # SPEC-01KT6NCQC7DMJ3NG1MPWBGBVFQ Missing governance suggestions from observed undeclared paths
@@ -233,18 +233,18 @@ then, when incremental history exists.
 
 ## Acceptance Criteria
 
-- [ ] `missing_governance(db)` returns, per decision, repeat-touched paths (`observed_governs.commit_count ≥ 2`) not covered by its own declared `governs:` (reusing v1's `_path_covers`), computed as a pure index read with no git shellout and no working-tree access.
-- [ ] Candidates covered by **any** decision's declared `governs:` (owned elsewhere) are excluded.
-- [ ] Structural noise (`tests/`, `test_*`/`*_test.*`, `*.test.*`/`*.spec.*`, `changelog.d/`) is excluded by a path-based (deterministic) heuristic; no read-time content sniffing (`_is_generated_artifact` is **not** used) — generated-artifact filtering stays the index-time path filter from v1.
-- [ ] `DF(path)` = distinct decisions with `commit_count ≥ 2` for that path; candidates with `DF ≥ 3` are dropped, and survivors rank by `(commit_count desc, DF asc, path asc)`.
-- [ ] Output is capped to top `K` candidates per decision and top `M` decisions, with any truncation stated explicitly (no silent caps).
-- [ ] `HealthReport.missing_governance` carries per decision `decision_id`, `linked_commit_count`, `observed_path_count`, and candidates with `path`, `commit_count`, `distinct_decisions`; `--json` exposes a `missing_governance` key with a stable candidate ordering.
-- [ ] `decree health` gains a "Suggested governance (advisory)" human section, framed as "ungoverned files with a proposed owner," stating it does not affect exit status.
-- [ ] `missing_governance` is excluded from `has_findings`: `decree health` exits `0` when missing-governance is the only signal; dead-governance still exits `1`.
-- [ ] The candidate set is **deterministic** with respect to the working tree (changing/removing an observed path on disk does not change `health` output without a rebuild) — covered by a test.
-- [ ] `missing_governance` is never read by `why()` or `intent-check` (no silent fallback) — covered by a test.
-- [ ] Tests cover repeat-touch-surfaced, single-commit-suppressed, declared-excluded (slash + slashless), owned-elsewhere-excluded, shared-infra floor, structural exclusions, determinism, advisory exit `0`, and `--json` shape/order.
-- [ ] **Dogfood gate met:** on the decree corpus the signal yields ≤ 10 candidates, each manually confirmed plausible, 0 implausible; the count is recorded. If exceeded, the breadth gate is added before closing this SPEC.
+- [x] `missing_governance(db)` returns, per decision, repeat-touched paths (`observed_governs.commit_count ≥ 2`) not covered by its own declared `governs:` (reusing v1's `_path_covers`), computed as a pure index read with no git shellout and no working-tree access.
+- [x] Candidates covered by **any** decision's declared `governs:` (owned elsewhere) are excluded.
+- [x] Structural noise (`tests/`, `test_*`/`*_test.*`, `*.test.*`/`*.spec.*`, `changelog.d/`) is excluded by a path-based (deterministic) heuristic; no read-time content sniffing (`_is_generated_artifact` is **not** used) — generated-artifact filtering stays the index-time path filter from v1.
+- [x] `DF(path)` = distinct decisions with `commit_count ≥ 2` for that path; candidates with `DF ≥ 3` are dropped, and survivors rank by `(commit_count desc, DF asc, path asc)`.
+- [x] Output is capped to top `K` candidates per decision and top `M` decisions, with any truncation stated explicitly (no silent caps).
+- [x] `HealthReport.missing_governance` carries per decision `decision_id`, `linked_commit_count`, `observed_path_count`, and candidates with `path`, `commit_count`, `distinct_decisions`; `--json` exposes a `missing_governance` key with a stable candidate ordering.
+- [x] `decree health` gains a "Suggested governance (advisory)" human section, framed as "ungoverned files with a proposed owner," stating it does not affect exit status.
+- [x] `missing_governance` is excluded from `has_findings`: `decree health` exits `0` when missing-governance is the only signal; dead-governance still exits `1`.
+- [x] The candidate set is **deterministic** with respect to the working tree (changing/removing an observed path on disk does not change `health` output without a rebuild) — covered by a test.
+- [x] `missing_governance` is never read by `why()` or `intent-check` (no silent fallback) — covered by a test.
+- [x] Tests cover repeat-touch-surfaced, single-commit-suppressed, declared-excluded (slash + slashless), owned-elsewhere-excluded, shared-infra floor, structural exclusions, determinism, advisory exit `0`, and `--json` shape/order.
+- [x] **Dogfood gate met:** on the decree corpus the signal yields ≤ 10 candidates, each manually confirmed plausible, 0 implausible; the count is recorded. If exceeded, the breadth gate is added before closing this SPEC.
 
 ## Deferred
 

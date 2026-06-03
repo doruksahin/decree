@@ -30,9 +30,10 @@ implementation code.
 - Git-derived provenance is two-layered: git guarantees commit→files
   (deterministic); commit→decision is the trailer *convention*. Signals built on
   it (`commits` / `observed_governs` in `index_db.py`, staleness / dead-governance
-  in `commands/health.py`) stay advisory, fail-safe, and coverage-honest, and must
-  never feed `queries.py` (`why` / `refs`). See
-  [../../docs/provenance-model.md](../../docs/provenance-model.md).
+  / advisory suggested-governance in `commands/health.py`) stay advisory,
+  fail-safe, and coverage-honest, and must never feed `queries.py` (`why` /
+  `refs`). See [../../docs/provenance-model.md](../../docs/provenance-model.md)
+  and [../../docs/health-signals.md](../../docs/health-signals.md).
 
 ## Output Rules
 
