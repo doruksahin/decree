@@ -410,6 +410,9 @@ class TestReportToDict:
             "live_conflicts",
             "abstention",
             "recommended_actions",
+            "under_decision",
+            "under_error",
+            "governs_gaps",
         }
         # Round-trip through JSON.
         s = json.dumps(payload)
@@ -562,6 +565,9 @@ class TestIntentCheckCLI:
             "live_conflicts",
             "abstention",
             "recommended_actions",
+            "under_decision",
+            "under_error",
+            "governs_gaps",
         }
         assert rc == 0
 

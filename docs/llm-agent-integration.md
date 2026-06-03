@@ -29,7 +29,9 @@ with the [Capability Index](index.md).
 3. Before coding, run `decree intent-check --plan "..." --files ... --json`. When
    other agent sessions run in parallel, also pass their planned paths via
    `--other-active-files '{"session-id": ["path", ...]}'` so the report includes
-   `live_conflicts` (files another live session is about to write).
+   `live_conflicts` (files another live session is about to write). In a governed
+   session, pass `--under <your-decision>` so the report also surfaces
+   `governs_gaps` — files your decision repeat-touches but doesn't declare.
 4. If the response recommends `draft_adr_first`, `update_spec_first`,
    `resolve_conflict_first`, or `isolate_session`, resolve it before
    implementation. For `isolate_session`, run in a dedicated worktree or split
@@ -130,7 +132,11 @@ Eight tools, all returning JSON (read-only except `report`):
   [health-signals.md](health-signals.md).
 - `intent_check` — pre-code governance; accepts `other_active_files`
   (`{session_id: [paths]}`) and returns `live_conflicts` for parallel sessions.
-- `intent_review` — post-code diff governance.
+  In a governed session, also pass `under` (the decision you work under) to get
+  `governs_gaps` — files it repeat-touches but doesn't declare, advisory.
+- `intent_review` — post-code diff governance; also accepts `under` for
+  `governs_gaps` (point-of-change counterpart to `health`'s suggested governance;
+  see [health-signals.md](health-signals.md)).
 - `progress` — acceptance-criteria completion for a doc / chain / corpus
   (objective closeout signal).
 - `report` — regenerate completion-report artifacts (`dry_run` supported; the

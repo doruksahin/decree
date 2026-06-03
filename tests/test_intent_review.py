@@ -451,6 +451,9 @@ class TestReportToDict:
             "unchecked_acceptance_criteria",
             "conflicts",
             "recommended_actions",
+            "under_decision",
+            "under_error",
+            "governs_gaps",
         }
         # Round-trip through JSON.
         s = json.dumps(payload)
@@ -536,6 +539,9 @@ class TestIntentReviewCLI:
             "unchecked_acceptance_criteria",
             "conflicts",
             "recommended_actions",
+            "under_decision",
+            "under_error",
+            "governs_gaps",
         }
         assert rc == 0
 

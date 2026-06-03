@@ -83,6 +83,16 @@ class Recommendation:
 
 
 @dataclass(frozen=True)
+class GovernsGap:
+    """A path the active decision's own commits repeat-touch (commit_count >= 2)
+    but it does not declare — an advisory suggestion to add it to that decision's
+    `governs:` (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5). Read-only; never feeds `why()`."""
+
+    path: str
+    commit_count: int
+
+
+@dataclass(frozen=True)
 class IntentReport:
     """Top-level diff-aware governance report."""
 
@@ -92,6 +102,10 @@ class IntentReport:
     unchecked_acceptance_criteria: tuple[UncheckedAC, ...]
     conflicts: tuple[Conflict, ...]
     recommended_actions: tuple[Recommendation, ...]
+    # Point-of-change governs gaps for an active `under` decision (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5).
+    under_decision: str | None = None
+    under_error: str | None = None
+    governs_gaps: tuple[GovernsGap, ...] = ()
 
 
 # ── Diff parser — minimal in-house ──────────────────────────
@@ -198,12 +212,62 @@ def _stale_decision_to_dict(sd) -> dict:
     }
 
 
+def compute_governs_gaps(db: IndexDB, under: str | None, paths: list[str]) -> tuple[tuple[GovernsGap, ...], str | None]:
+    """Active-decision governs gaps (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5).
+
+    Returns ``(governs_gaps, under_error)``. A gap is a path in ``paths`` that
+    ``under``'s own trailer-linked commits repeat-touch
+    (``observed_governs.commit_count >= 2`` — squash-immune) but ``under`` does
+    not declare and that is not structural noise. Pure index read; reuses v1
+    ``_path_covers`` and v2 ``_is_structural_noise`` (imported from health).
+    The *known* ``under`` deliberately replaces v2's cross-decision precision
+    controls (owned-elsewhere / shared-infra floor): under a chosen decision, a
+    path it repeat-touches and does not declare is a gap even if other decisions
+    also touch or govern it. Never read by ``why()``.
+
+    A malformed or non-existent ``under`` returns ``((), error)`` — validated by
+    corpus presence, not just id format.
+    """
+    if not under:
+        return (), None
+    conn = db.db.conn  # type: ignore[attr-defined]
+    if conn.execute("SELECT 1 FROM decisions WHERE id = ?", (under,)).fetchone() is None:
+        return (), f"--under decision not found in corpus: {under}"
+
+    from decree.commands.health import _is_structural_noise, _path_covers
+
+    observed: dict[str, int] = dict(
+        conn.execute(
+            "SELECT path, commit_count FROM observed_governs WHERE decision_id = ? AND commit_count >= 2",
+            (under,),
+        )
+    )
+    declared = [
+        path
+        for path, symbol in conn.execute("SELECT path, symbol FROM governs WHERE decision_id = ?", (under,))
+        if not symbol  # symbol-scoped entries can't cover a file observation (parity with dead-governance)
+    ]
+    gaps: list[GovernsGap] = []
+    for p in paths:
+        cc = observed.get(p)
+        if cc is None:
+            continue  # not repeat-touched by `under`
+        if any(_path_covers(d, p) for d in declared):
+            continue  # already declared (note arg order: _path_covers(declared, observed))
+        if _is_structural_noise(p):
+            continue  # tests / changelog / documentation
+        gaps.append(GovernsGap(path=p, commit_count=cc))
+    gaps.sort(key=lambda g: (-g.commit_count, g.path))
+    return tuple(gaps), None
+
+
 def intent_review(
     db: IndexDB,
     project_root: Path,
     changed_paths: list[str],
     *,
     threshold_commits: int = 10,
+    under: str | None = None,
 ) -> IntentReport:
     """Compose an IntentReport for the given changed paths.
 
@@ -285,6 +349,24 @@ def intent_review(
         conflicts=conflicts,
     )
 
+    # 6. governs gaps for the active decision (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5).
+    #    Appended AFTER _build_recommendations so `declare_governs` never enters
+    #    the proceed/blocker logic — it is advisory and exit-code-neutral.
+    governs_gaps, under_error = compute_governs_gaps(db, under, paths)
+    if governs_gaps:
+        gap_paths = ", ".join(g.path for g in governs_gaps)
+        recommendations.append(
+            Recommendation(
+                action="declare_governs",
+                target_id=under,
+                detail=(
+                    f"{under}'s commits repeat-touch {gap_paths}, "
+                    f"{'which are' if len(governs_gaps) > 1 else 'which is'} not in its "
+                    "`governs:`. Consider declaring it (advisory)."
+                ),
+            )
+        )
+
     return IntentReport(
         changed_paths=tuple(paths),
         governing_decisions=governing_decisions,
@@ -292,6 +374,9 @@ def intent_review(
         unchecked_acceptance_criteria=tuple(unchecked),
         conflicts=tuple(conflicts),
         recommended_actions=tuple(recommendations),
+        under_decision=under,
+        under_error=under_error,
+        governs_gaps=governs_gaps,
     )
 
 
@@ -390,32 +475,40 @@ def report_to_dict(report: IntentReport) -> dict:
         "unchecked_acceptance_criteria": [asdict(a) for a in report.unchecked_acceptance_criteria],
         "conflicts": [{"path": c.path, "decision_ids": list(c.decision_ids)} for c in report.conflicts],
         "recommended_actions": [asdict(r) for r in report.recommended_actions],
+        "under_decision": report.under_decision,
+        "under_error": report.under_error,
+        "governs_gaps": [{"path": g.path, "commit_count": g.commit_count} for g in report.governs_gaps],
     }
 
 
 # ── Diff source resolution ──────────────────────────────────
 
 
-def _read_diff_source(args: argparse.Namespace, project_root: Path) -> tuple[list[str], str]:
-    """Resolve the diff source and return (changed_paths, mode_description).
+def _read_diff_source(args: argparse.Namespace, project_root: Path) -> tuple[list[str], str, bool]:
+    """Resolve the diff source and return (changed_paths, mode_description, structured).
+
+    ``structured`` is True when the source carries add/delete structure (parsed
+    via ``parse_diff``, which strips deletions) and False for the name-only
+    default modes (a deletion is indistinguishable from an edit). The
+    governs-gap check (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5) runs only when structured.
 
     Modes:
-      1. --diff '-'  → read unified diff from stdin.
-      2. --diff PATH → read unified diff from file.
-      3. --diff-base REF → run `git diff REF...HEAD`.
+      1. --diff '-'  → read unified diff from stdin (structured).
+      2. --diff PATH → read unified diff from file (structured).
+      3. --diff-base REF → run `git diff REF...HEAD` (structured).
       4. Default → `git diff --cached --name-only`, fall back to working-tree
-         names if staged is empty. Returns paths directly (no parse_diff).
+         names if staged is empty (name-only, not structured).
     """
     diff_arg = getattr(args, "diff", None)
     diff_base = getattr(args, "diff_base", None)
 
     if diff_arg == "-":
         text = sys.stdin.read()
-        return parse_diff(text), "stdin"
+        return parse_diff(text), "stdin", True
 
     if diff_arg:
         text = Path(diff_arg).read_text()
-        return parse_diff(text), f"file:{diff_arg}"
+        return parse_diff(text), f"file:{diff_arg}", True
 
     if diff_base:
         result = subprocess.run(
@@ -426,9 +519,9 @@ def _read_diff_source(args: argparse.Namespace, project_root: Path) -> tuple[lis
         )
         if result.returncode != 0:
             raise RuntimeError(f"git diff failed (exit {result.returncode}): {result.stderr.strip()}")
-        return parse_diff(result.stdout), f"git diff {diff_base}...HEAD"
+        return parse_diff(result.stdout), f"git diff {diff_base}...HEAD", True
 
-    # Default: staged first, then working-tree.
+    # Default: staged first, then working-tree. Name-only — no add/delete structure.
     staged = subprocess.run(
         ["git", "-C", str(project_root), "diff", "--cached", "--name-only"],
         capture_output=True,
@@ -437,7 +530,7 @@ def _read_diff_source(args: argparse.Namespace, project_root: Path) -> tuple[lis
     )
     staged_paths = [p for p in staged.stdout.splitlines() if p.strip()]
     if staged_paths:
-        return staged_paths, "git diff --cached"
+        return staged_paths, "git diff --cached", False
 
     worktree = subprocess.run(
         ["git", "-C", str(project_root), "diff", "--name-only"],
@@ -446,7 +539,7 @@ def _read_diff_source(args: argparse.Namespace, project_root: Path) -> tuple[lis
         check=False,
     )
     worktree_paths = [p for p in worktree.stdout.splitlines() if p.strip()]
-    return worktree_paths, "git diff"
+    return worktree_paths, "git diff", False
 
 
 # ── CLI plumbing ────────────────────────────────────────────
@@ -561,7 +654,7 @@ def intent_review_run(args: argparse.Namespace) -> int:
     assert root is not None
 
     try:
-        changed_paths, mode = _read_diff_source(args, root)
+        changed_paths, mode, structured = _read_diff_source(args, root)
     except FileNotFoundError as e:
         error("intent-review", f"diff source not found: {e}")
         return 1
@@ -569,14 +662,28 @@ def intent_review_run(args: argparse.Namespace) -> int:
         error("intent-review", str(e))
         return 1
 
-    report = intent_review(db, root, changed_paths)
+    # The governs-gap check needs a structured diff to exclude deletions (a
+    # name-only source can't tell a deletion from an edit, and the check forbids
+    # working-tree reads). Skip it in name-only mode rather than propose
+    # declaring a just-deleted file (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5).
+    under = getattr(args, "under", None)
+    if under and not structured:
+        info("intent-review", "governs-gap suggestions need a structured diff (--diff/--diff-base); skipped.")
+        under = None
+
+    report = intent_review(db, root, changed_paths, under=under)
 
     if getattr(args, "json", False):
         print(json.dumps(report_to_dict(report), indent=2, sort_keys=False))
     else:
         print(_format_human(report, mode))
 
-    # CI-suitable exit: 1 if any blocking findings, else 0.
+    if report.under_error:
+        error("intent-review", report.under_error)
+        return 2
+
+    # CI-suitable exit: 1 if any blocking findings, else 0. Governs gaps are
+    # advisory and never affect the exit code.
     has_blockers = bool(report.conflicts) or bool(report.stale_governance)
     if has_blockers:
         info(

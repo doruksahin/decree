@@ -91,8 +91,11 @@ Weigh each finding against the honesty fields above before acting.
   discipline — see the [provenance model](provenance-model.md)).
 - **Suggested governance** *(advisory)* → the decision keeps editing a file it
   doesn't claim. If it should own that file, add it to the decision's `governs:`.
-  This is exactly the candidate set `decree migrate governs --analyze` consumes.
-  Never add it blindly — confirm it is a real ownership relationship first.
+  This is the *batch* surface; the *point-of-change* counterpart is
+  `decree intent-check`/`intent-review --under <decision>`, which surfaces the
+  same gap for the decision a governed session works under, at the moment of the
+  edit (`governs_gaps`). Never add it blindly — confirm it is a real ownership
+  relationship first.
 
 ## JSON payload
 

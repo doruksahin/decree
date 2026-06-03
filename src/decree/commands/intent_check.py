@@ -34,10 +34,12 @@ from decree.commands.health import stale_decisions
 from decree.commands.intent_review import (
     Conflict,
     GoverningSnapshot,
+    GovernsGap,
     Recommendation,
     UncheckedAC,
     _governing_snapshot_from,
     _stale_decision_to_dict,
+    compute_governs_gaps,
 )
 from decree.commands.queries import _calibrated_assess, why
 from decree.config import load_doc_types
@@ -86,6 +88,10 @@ class IntentCheckReport:
     # Operational overlap with other live sessions (opt-in via ``other_active_files``).
     # Empty unless the caller passes the paths claimed by concurrently-running sessions.
     live_conflicts: tuple[LiveSessionConflict, ...] = ()
+    # Point-of-change governs gaps for an active `under` decision (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5).
+    under_decision: str | None = None
+    under_error: str | None = None
+    governs_gaps: tuple[GovernsGap, ...] = ()
 
 
 # ── Internal helpers ────────────────────────────────────────
@@ -131,6 +137,7 @@ def intent_check(
     with_abstention: bool = False,
     threshold_commits: int = 10,
     other_active_files: dict[str, list[str]] | None = None,
+    under: str | None = None,
 ) -> IntentCheckReport:
     """Compose an ``IntentCheckReport`` for a plan and planned files.
 
@@ -265,6 +272,24 @@ def intent_check(
         live_conflicts=live_conflicts,
     )
 
+    # 8. governs gaps for the active decision (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5) —
+    #    appended after _build_recommendations so it stays out of the proceed guard.
+    governs_gaps, under_error = compute_governs_gaps(db, under, paths)
+    if governs_gaps:
+        gap_paths = ", ".join(g.path for g in governs_gaps)
+        recommendations = [
+            *recommendations,
+            Recommendation(
+                action="declare_governs",
+                target_id=under,
+                detail=(
+                    f"{under}'s commits repeat-touch {gap_paths}, "
+                    f"{'which are' if len(governs_gaps) > 1 else 'which is'} not in its "
+                    "`governs:`. Consider declaring it (advisory)."
+                ),
+            ),
+        ]
+
     return IntentCheckReport(
         plan=plan or "",
         planned_files=tuple(paths),
@@ -275,6 +300,9 @@ def intent_check(
         abstention=abstention,
         recommended_actions=tuple(recommendations),
         live_conflicts=tuple(live_conflicts),
+        under_decision=under,
+        under_error=under_error,
+        governs_gaps=governs_gaps,
     )
 
 
@@ -469,6 +497,9 @@ def report_to_dict(report: IntentCheckReport) -> dict:
         "live_conflicts": [{"path": lc.path, "session_ids": list(lc.session_ids)} for lc in report.live_conflicts],
         "abstention": report.abstention,
         "recommended_actions": [asdict(r) for r in report.recommended_actions],
+        "under_decision": report.under_decision,
+        "under_error": report.under_error,
+        "governs_gaps": [{"path": g.path, "commit_count": g.commit_count} for g in report.governs_gaps],
     }
 
 
@@ -655,6 +686,7 @@ def intent_check_run(args: argparse.Namespace) -> int:
         planned_files,
         with_abstention=with_abstention,
         other_active_files=other_active_files,
+        under=getattr(args, "under", None),
     )
 
     if getattr(args, "json", False):
@@ -662,7 +694,12 @@ def intent_check_run(args: argparse.Namespace) -> int:
     else:
         print(_format_human(report))
 
+    if report.under_error:
+        error("intent-check", report.under_error)
+        return 2
+
     # Exit 1 if any conflict (decision or live-session) or stale entry surfaced; else 0.
+    # Governs gaps are advisory and never affect the exit code.
     has_blockers = bool(report.conflicts) or bool(report.stale_governance) or bool(report.live_conflicts)
     if has_blockers:
         info(

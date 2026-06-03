@@ -536,7 +536,7 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
 
 
 @mcp.tool()
-def intent_review(diff: str | None = None, changed_paths: list[str] | None = None) -> dict:
+def intent_review(diff: str | None = None, changed_paths: list[str] | None = None, under: str | None = None) -> dict:
     """Diff-aware governance report — what decisions does this change affect?
 
     Given a unified diff (or an explicit list of changed paths), return a
@@ -553,6 +553,12 @@ def intent_review(diff: str | None = None, changed_paths: list[str] | None = Non
         changed_paths: List of repo-relative paths the change touches.
             Optional if `diff` is given; if both are present, `changed_paths`
             wins (caller is expected to know the diff's contents).
+        under: Optional id of the decision this governed session works under.
+            When a changed file is one that decision's own commits repeat-touch
+            (>=2 commits) but it doesn't declare, the response adds an advisory
+            `governs_gaps` list and a `declare_governs` recommendation
+            (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5). Pass deletion-free paths. An
+            unknown id sets `under_error`. Defaults to None.
 
     Returns:
         A dict with the same shape as `decree intent-review --json`:
@@ -630,7 +636,11 @@ def intent_review(diff: str | None = None, changed_paths: list[str] | None = Non
     else:
         paths = []
 
-    report = _intent_review_lib(db, root, paths)
+    # `under` (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5): when a governed session passes the
+    # decision it works under, the payload adds `governs_gaps` — changed files that
+    # decision's own commits repeat-touch but it doesn't declare (advisory; the
+    # caller is expected to pass deletion-free `changed_paths`/`diff`).
+    report = _intent_review_lib(db, root, paths, under=under)
     payload = report_to_dict(report)
     return payload
 
@@ -641,6 +651,7 @@ def intent_check(
     planned_files: list[str],
     with_abstention: bool = False,
     other_active_files: dict[str, list[str]] | None = None,
+    under: str | None = None,
 ) -> dict:
     """Pre-code governance check — what decisions apply to your plan?
 
@@ -672,6 +683,12 @@ def intent_check(
             agent sessions and the response's `live_conflicts` will list every
             planned file another active session is also about to touch. Defaults
             to None (single-session mode — `live_conflicts` is empty).
+        under: Optional id of the decision this governed session works under.
+            When a planned file is one that decision's own commits repeat-touch
+            (>=2 commits) but it doesn't declare, the response adds an advisory
+            `governs_gaps` list and a `declare_governs` recommendation
+            (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5). An unknown id sets `under_error`.
+            Advisory: never changes governance facts. Defaults to None.
 
     Returns:
         A dict with the same shape as `decree intent-check --json`:
@@ -762,6 +779,10 @@ def intent_check(
     if stale is not None:
         return stale
 
+    # `under` (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5): the governed session's decision.
+    # When a planned file is one that decision's own commits repeat-touch but it
+    # doesn't declare, the payload adds an advisory `governs_gaps` + a
+    # `declare_governs` recommendation. `under_error` is set for an unknown id.
     report = _intent_check_lib(
         db,
         root,
@@ -769,6 +790,7 @@ def intent_check(
         list(planned_files or []),
         with_abstention=with_abstention,
         other_active_files=other_active_files or None,
+        under=under,
     )
     return report_to_dict(report)
 

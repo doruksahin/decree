@@ -507,6 +507,15 @@ def main() -> int:
         default=None,
         help="Operate on the project at this path (default: cwd).",
     )
+    p_ir.add_argument(
+        "--under",
+        default=None,
+        metavar="ID",
+        help="Active decision id (a governed session's decision). When a changed file is one "
+        "this decision's own commits repeat-touch (>=2) but it does not declare, surface an "
+        "advisory governs: gap (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5). Needs a structured diff "
+        "(--diff/--diff-base); invalid id exits 2.",
+    )
 
     # ── intent-check (SPEC-01KT22NMS0KTWGNKB36RR7K0JR) ─────────────────────────────
     p_ic = subparsers.add_parser(
@@ -567,6 +576,14 @@ def main() -> int:
         "--project",
         default=None,
         help="Operate on the project at this path (default: cwd).",
+    )
+    p_ic.add_argument(
+        "--under",
+        default=None,
+        metavar="ID",
+        help="Active decision id (a governed session's decision). When a planned file is one "
+        "this decision's own commits repeat-touch (>=2) but it does not declare, surface an "
+        "advisory governs: gap (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5). Invalid id exits 2.",
     )
 
     # ── migrate (sub-namespace: audit-coherence, governs) ───
