@@ -70,15 +70,17 @@ Use this sequence when adding decree to another application.
 
    ```bash
    decree init   # canonical decree.toml + PRD/ADR/SPEC dirs + worked example
-                 # chain + built index; lints clean immediately
+                 # chain + .gitignore for the cache + built index; lints clean
    decree lint
    ```
 
    This generates the canonical `decree.toml` (PRD, ADR, and SPEC types) so you
-   do not hand-edit config. It is idempotent and never overwrites existing
-   files. Use `--no-examples` to skip the seeded chain, or `--dry-run` to
-   preview. See [`decree init`](usage.md#decree-init) and
-   [configuration](configuration.md).
+   do not hand-edit config, and adds a `.gitignore` rule for the derived
+   `.decree/` cache. It is idempotent and never overwrites existing files; if a
+   `decree.toml` already exists it is left unchanged and its declared types are
+   scaffolded instead of the default trio. Use `--no-examples` to skip the
+   seeded chain, or `--dry-run` to preview. See [`decree init`](usage.md#decree-init)
+   and [configuration](configuration.md).
 
 3. Create or import your own documents (the seeded example chain is just a
    starting point — keep it, edit it, or delete it).

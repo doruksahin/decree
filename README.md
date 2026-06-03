@@ -40,13 +40,15 @@ One command takes a directory from zero to a working corpus:
 
 ```bash
 decree init    # scaffold a canonical decree.toml + type dirs + a worked
-               # PRD→ADR→SPEC example chain, then build the index
+               # PRD→ADR→SPEC chain, gitignore the cache, then build the index
 decree lint    # the scaffolded project lints clean immediately
 ```
 
-`decree init` generates the canonical `decree.toml` (no hand-editing needed)
-and a mutually-consistent worked example chain you can learn from or delete. It
-is idempotent — re-running never overwrites your files. See
+`decree init` generates the canonical `decree.toml` (no hand-editing needed) and
+a mutually-consistent worked example chain you can learn from or delete, and adds
+a `.gitignore` rule for the derived `.decree/` cache. It is idempotent —
+re-running never overwrites your files — and respects an existing `decree.toml`,
+scaffolding its declared types instead of the default trio. See
 [decree init](docs/usage.md#decree-init) for `--dry-run`, `--json`,
 `--no-examples`, and `--project`.
 
