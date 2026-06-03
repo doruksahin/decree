@@ -1,1 +1,0 @@
-Add `progress` and `report` MCP tools and an `other_active_files` parameter to `intent_check` (surfacing cross-session `live_conflicts`), so agent hosts can run governed parallel sessions: scoped governance preflight, live file-overlap detection, and objective acceptance-criteria closeout over MCP.

@@ -1,1 +1,0 @@
-Add Towncrier as the changelog-fragment tool and enforce news fragments through pre-commit and pull-request CI.

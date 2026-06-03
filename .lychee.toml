@@ -4,6 +4,9 @@ include_verbatim = false
 extensions = ["md"]
 glob_ignore_case = true
 exclude_path = ["^\\.venv/"]
+# The project's own homepage is excluded: CI must not flake on our own deploy
+# (cold starts / deploy windows return 503), and the canonical URL is set once.
+exclude = ["^https://decree\\.doruk\\.uk"]
 max_retries = 2
 retry_wait_time = 2
 max_concurrency = 32

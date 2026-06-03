@@ -6,6 +6,8 @@ Software decision lifecycle toolkit. Track the chain from **PRD** (what/why) thr
 PRD (what/why) → ADR (how) → SPEC (blueprint) → Implementation
 ```
 
+**Website:** [decree.doruk.uk](https://decree.doruk.uk) — capabilities, before/afters, and runnable examples.
+
 Start with the [Capability Index](docs/index.md) when integrating decree into
 another application or an LLM-agent workflow. It explains what decree can do,
 which commands own each responsibility, and the expected adoption sequence.
@@ -16,8 +18,12 @@ they are changing.
 
 ## Install
 
-The package name `decree` on PyPI belongs to an unrelated third-party project,
-so install decree from this repository:
+```bash
+brew install doruksahin/decree/decree
+```
+
+Or install from source — the package name `decree` on PyPI belongs to an unrelated
+third-party project, so it is distributed from this repository, not PyPI:
 
 ```bash
 uv tool install git+https://github.com/doruksahin/decree

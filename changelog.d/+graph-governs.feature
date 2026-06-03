@@ -1,1 +1,0 @@
-Add a `governs` field to each document in `decree graph --json`, exposing the repo-relative paths a decision governs (with any `#symbol` suffix stripped) so external consumers can seed governed sessions from a decision.
