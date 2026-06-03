@@ -100,6 +100,12 @@ diverged from where the code actually changed — through `decree health` and th
 MCP `health` tool: stale decisions, ungoverned hotspots, dead governance, and
 advisory suggested governance. See [Health Signals](docs/health-signals.md).
 
+`decree commit-check` gates the commit→decision link itself: it reports which
+governed-file changes in a diff lack an `Implements:/Refs:/Fixes:` trailer, so CI
+can require the link (`decree commit-check --diff-base origin/main --strict`).
+It is coverage you can gate, not a guarantee — see the
+[provenance & determinism model](docs/provenance-model.md).
+
 ## Features
 
 ### Lint — validate everything

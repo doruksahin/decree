@@ -53,14 +53,14 @@ governance; missing-input/missing-index → 2; `--json` shape; MCP payload parit
 
 ## Acceptance Criteria
 
-- [ ] `governed_changes(db, paths)` returns in-flight declared `(path, decision)` pairs only
-- [ ] `trailer_ids(message)` parses Implements/Refs/Fixes via `git interpret-trailers`
-- [ ] `range_trailer_ids(repo, ref)` unions trailers across `REF..HEAD` (squash-safe)
-- [ ] `coverage(governed, trailers)` returns the covered/total/fraction scalar
-- [ ] `decree commit-check` CLI registered; input-mode resolution + flags (`--diff-base`, `--diff`, `--message`, `--strict`, `--min-coverage`, `--json`, `--project`)
-- [ ] Human report output + exit-code contract (0/1/2) per the test matrix
-- [ ] `--json` stable contract
-- [ ] MCP `commit_check` tool returns the identical payload
-- [ ] Docs: provenance-model honesty framing + llm-agent-integration loop/MCP list + usage/README CI recipe + orthogonality note
-- [ ] Towncrier `feature` fragment
-- [ ] All gates green: pytest, ruff, decree lint, decree index verify, lychee
+- [x] `governed_changes(db, paths)` returns in-flight declared `(path, decision)` pairs only
+- [x] `trailer_ids(message)` parses Implements/Refs/Fixes via `git interpret-trailers`
+- [x] `range_trailer_ids(repo, ref)` unions trailers across `REF..HEAD` (squash-safe)
+- [x] `coverage(governed, trailers)` returns the covered/total/fraction scalar
+- [x] `decree commit-check` CLI registered; input-mode resolution + flags (`--diff-base`, `--diff`, `--message`, `--strict`, `--min-coverage`, `--json`, `--project`)
+- [x] Human report output + exit-code contract (0/1/2) per the test matrix
+- [x] `--json` stable contract
+- [x] MCP `commit_check` tool returns the identical payload
+- [x] Docs: provenance-model honesty framing + llm-agent-integration loop/MCP list + usage/README CI recipe + orthogonality note
+- [x] Towncrier `feature` fragment
+- [x] All gates green: pytest, ruff, decree lint, decree index verify, lychee

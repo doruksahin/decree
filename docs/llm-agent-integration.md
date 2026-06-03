@@ -37,7 +37,11 @@ with the [Capability Index](index.md).
    implementation. For `isolate_session`, run in a dedicated worktree or split
    the overlapping file out of one plan.
 5. After code exists, run `decree intent-review --json` to compare the diff
-   against the same governance corpus.
+   against the same governance corpus. Commit through `decree commit` so the
+   change carries an `Implements:` trailer linking it to its decision, and gate
+   the net diff in CI with `decree commit-check --diff-base origin/main --strict`
+   — it reports which governed-file changes lack a matching trailer (coverage you
+   can gate, not a guarantee).
 6. Run `decree lint` again after changing decree documents.
 7. Add or verify a `changelog.d/` Towncrier fragment for user-visible changes.
 
@@ -123,7 +127,7 @@ owns schema validation, diff rendering, and writes.
 ## MCP Tools
 
 `decree mcp serve` exposes the query/analysis surface to agents over stdio.
-Eight tools, all returning JSON (read-only except `report`):
+Nine tools, all returning JSON (read-only except `report`):
 
 - `why`, `refs` — governed-file lookup and reverse reference graph.
 - `stale`, `health` — staleness and coherence drift. `health` returns four
@@ -137,6 +141,10 @@ Eight tools, all returning JSON (read-only except `report`):
 - `intent_review` — post-code diff governance; also accepts `under` for
   `governs_gaps` (point-of-change counterpart to `health`'s suggested governance;
   see [health-signals.md](health-signals.md)).
+- `commit_check` — trailer-coverage gate: which governed-file changes in a diff
+  lack a matching `Implements:/Refs:/Fixes:` trailer linking them to their
+  in-flight decision. Advisory by default; `strict`/`min_coverage` for CI. Reads
+  only declared `governs:`; coverage you can gate, not a guarantee.
 - `progress` — acceptance-criteria completion for a doc / chain / corpus
   (objective closeout signal).
 - `report` — regenerate completion-report artifacts (`dry_run` supported; the

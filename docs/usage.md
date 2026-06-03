@@ -227,6 +227,41 @@ decree intent-review --diff-base origin/main          --under SPEC-01KT... --jso
 judging can be implemented by an agent/skill that post-processes `--json`
 output.
 
+### `decree commit-check`
+
+Report — and gate CI on — the **trailer coverage** of a change: of the files a
+diff touches that are governed by an *in-flight* decision, how many carry a
+matching `Implements:/Refs:/Fixes:` trailer linking them to that decision.
+Advisory by default; `--strict` (require 100%) or `--min-coverage N` (ratchet for
+gradual adoption) turns uncovered changes into exit 1.
+
+```bash
+# CI: gate the PR's net diff (gathers trailers across the commit range — squash-safe)
+decree commit-check --diff-base origin/main --strict
+
+# candidate-message mode (the input a commit-msg hook hands you)
+decree commit-check --message "$1" --strict --json
+```
+
+It reads only the declared `governs:` layer (via `why`), never git history as
+truth; it writes nothing and runs no model. It is **coverage you can gate, not a
+guarantee** — `git commit --no-verify` and CI overrides exist, so it measures and
+enforces where you run it; it cannot make the commit→decision link true.
+
+Decisions and tickets are **orthogonal**: the `Implements:` trailer is a bottom
+line (`git interpret-trailers`) that composes *below* your Conventional-Commits
+subject and *alongside* `Change-Id`/`Signed-off-by`. decree never reads or maps
+ticket IDs — a ticket is not a decision.
+
+decree does not install a git hook (that's the harness's responsibility). To
+enforce locally, opt in with a one-line `commit-msg` hook:
+
+```sh
+# .git/hooks/commit-msg  (chmod +x)
+#!/bin/sh
+exec decree commit-check --message "$1" --strict
+```
+
 ### `decree mcp serve`
 
 Expose decree's query and analysis API over Model Context Protocol stdio for LLM

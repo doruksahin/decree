@@ -108,11 +108,17 @@ enforces it.** This cuts both ways:
   `Implements: SPEC-X` **more reliably than ad-hoc human commits**, because the
   decision is known at commit time. The structural fix is to have the agent
   commit *through* the harness with `decree commit`.
-- To move from convention toward a **guarantee**, add **commit-time
-  enforcement**: a pre-commit / CI gate that rejects a commit touching governed
-  paths without a corresponding trailer. That is enforcement (a separate
-  decision) and largely the harness's responsibility — not the deterministic
-  read-layer's.
+- decree ships **`decree commit-check`**: a deterministic gate that reports the
+  **trailer coverage** of a change — which governed-file changes carry a matching
+  `Implements:/Refs:/Fixes:` trailer linking them to their *in-flight* decision.
+  Run it in CI on the net diff: `decree commit-check --diff-base origin/main --strict`
+  (it gathers trailers across the commit range, so it survives squash-merge). It
+  reads only the **declared** `governs:` layer (via `why`), never `observed_governs`;
+  it writes nothing and runs no model. Crucially it is **coverage you can gate, not
+  a guarantee**: `--no-verify` and CI overrides exist, so it *measures and enforces
+  where you run it* — it cannot make the link true. The local git-hook *installer*
+  remains the harness's responsibility (a documented opt-in snippet), not the
+  deterministic read-layer's.
 
 ## Rules for contributors and agents
 
