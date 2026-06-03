@@ -93,7 +93,8 @@ def test_plan_empty_target_all_create(tmp_path: Path) -> None:
 
     index = _actions_by_kind(plan, "index")
     assert len(index) == 1
-    assert index[0].action == "create"
+    # The index is a derived cache refresh, planned as "rebuild", never "create".
+    assert index[0].action == "rebuild"
 
     # No writes happened.
     assert not (tmp_path / "decree.toml").exists()
@@ -182,6 +183,24 @@ def test_apply_is_idempotent_no_overwrite(tmp_path: Path) -> None:
     assert prd.read_text() == sentinel  # never overwritten
 
 
+def test_apply_index_is_rebuilt_not_counted_as_created(tmp_path: Path) -> None:
+    """The index refresh is reported as 'rebuilt' and excluded from the created count."""
+    from decree.commands.init import apply_init, plan_init
+
+    applied = apply_init(plan_init(tmp_path), no_examples=False)
+
+    index_actions = [a for a in applied.actions if a.kind == "index"]
+    assert len(index_actions) == 1
+    assert index_actions[0].action == "rebuilt"
+
+    # created counts only real file/dir creations: config(1) + dirs(3) + examples(3) = 7.
+    assert applied.created == 7
+    # A second run creates nothing real, yet still rebuilds the index.
+    re_applied = apply_init(plan_init(tmp_path), no_examples=False)
+    assert re_applied.created == 0
+    assert next(a for a in re_applied.actions if a.kind == "index").action == "rebuilt"
+
+
 def test_apply_no_examples_skips_docs(tmp_path: Path) -> None:
     from decree.commands.init import apply_init, plan_init
 
@@ -238,6 +257,43 @@ def test_cli_rerun_all_skipped_exit_zero(tmp_path: Path) -> None:
     second = _init(cwd=tmp_path)
     assert second.returncode == 0
     assert "skipped" in second.stderr.lower()
+
+
+def test_cli_rerun_nothing_to_create_index_refreshed(tmp_path: Path) -> None:
+    """A re-run where nothing real is created says so clearly and refreshes the index."""
+    assert _init(cwd=tmp_path).returncode == 0
+    second = _init(cwd=tmp_path)
+    assert second.returncode == 0
+    # Clear "nothing real created" line, mentioning the index refresh.
+    assert "Already initialized — nothing to create (index refreshed)." in second.stderr
+    # The index is reported as rebuilt, not created.
+    assert "rebuilt .decree/index.sqlite" in second.stderr
+    assert "created .decree/index.sqlite" not in second.stderr
+    # The misleading "Created 1, skipped 7" must be gone.
+    assert "Created 1" not in second.stderr
+
+
+def test_cli_report_has_no_leaked_index_lines_and_is_ordered(tmp_path: Path) -> None:
+    """The underlying index command's [index] chatter is suppressed; init owns the report."""
+    result = _init(cwd=tmp_path)
+    assert result.returncode == 0
+    # None of index_db_cli's own log lines leak through.
+    assert "[index] rebuilding into" not in result.stderr
+    assert "[index] decisions=" not in result.stderr
+    assert "git_sync_ms" not in result.stderr
+    assert "index rebuilt in" not in result.stderr
+    # The init banner is the first line of the report (nothing printed above it).
+    first_line = result.stderr.strip().splitlines()[0]
+    assert first_line.startswith("[init] decree init —")
+    # init prints its own single index line.
+    assert "rebuilt .decree/index.sqlite" in result.stderr
+
+
+def test_cli_first_run_summary_excludes_index(tmp_path: Path) -> None:
+    """The first-run summary counts only real creations (7), not the index."""
+    result = _init(cwd=tmp_path)
+    assert result.returncode == 0
+    assert "Created 7, skipped 0 (already present)." in result.stderr
 
 
 def test_cli_dry_run_writes_nothing(tmp_path: Path) -> None:
@@ -337,13 +393,23 @@ def test_cli_json_shape_run(tmp_path: Path) -> None:
     assert payload["git"] is False
     assert payload["exit"] == 0
     assert set(payload["summary"].keys()) == {"created", "skipped"}
-    assert payload["summary"]["created"] > 0
+    # The created count reflects only real creations (config+dirs+examples = 7),
+    # NOT the index — which is a derived cache refresh.
+    assert payload["summary"]["created"] == 7
     for a in payload["actions"]:
         assert set(a.keys()) == {"kind", "path", "action", "reason"}
         assert a["kind"] in {"config", "dir", "example", "index"}
-        assert a["action"] in {"created", "skipped", "would-create"}
-    # In a real (non-dry) run, nothing should be reported as would-create.
-    assert all(a["action"] != "would-create" for a in payload["actions"])
+        assert a["action"] in {"created", "skipped", "would-create", "rebuilt", "would-rebuild"}
+    # The index action is "rebuilt", and it is kept in actions[] with kind "index".
+    index_actions = [a for a in payload["actions"] if a["kind"] == "index"]
+    assert len(index_actions) == 1
+    assert index_actions[0]["action"] == "rebuilt"
+    # The index is not counted among the created actions.
+    created_actions = [a for a in payload["actions"] if a["action"] == "created"]
+    assert len(created_actions) == payload["summary"]["created"] == 7
+    assert all(a["kind"] != "index" for a in created_actions)
+    # In a real (non-dry) run, nothing should be reported as would-create/would-rebuild.
+    assert all(a["action"] not in {"would-create", "would-rebuild"} for a in payload["actions"])
 
 
 def test_cli_json_shape_dry_run(tmp_path: Path) -> None:
@@ -351,9 +417,14 @@ def test_cli_json_shape_dry_run(tmp_path: Path) -> None:
     assert result.returncode == 0
     payload = json.loads(result.stdout)
     assert payload["dry_run"] is True
-    assert payload["summary"]["created"] > 0  # counts the would-create steps
-    # Every actionable step is "would-create" or "skipped" — none "created".
-    assert all(a["action"] in {"would-create", "skipped"} for a in payload["actions"])
+    # counts the would-create steps (config+dirs+examples = 7), not the index.
+    assert payload["summary"]["created"] == 7
+    # Every actionable step is "would-create"/"would-rebuild" or "skipped" — none "created".
+    assert all(a["action"] in {"would-create", "would-rebuild", "skipped"} for a in payload["actions"])
+    # The index action becomes "would-rebuild" under --dry-run.
+    index_actions = [a for a in payload["actions"] if a["kind"] == "index"]
+    assert len(index_actions) == 1
+    assert index_actions[0]["action"] == "would-rebuild"
     # Dry run wrote nothing.
     assert list(tmp_path.iterdir()) == []
 

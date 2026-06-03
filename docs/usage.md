@@ -5,6 +5,40 @@ For the structured capability map and recommended adoption sequence, see the
 
 ## CLI Commands
 
+### `decree init`
+
+Scaffold a directory into a working, lint-clean decree corpus in one run. It is
+the recommended first command in a new project — no hand-editing `decree.toml`.
+
+It creates, reporting every action with a reason:
+
+- a canonical `decree.toml` (the `prd` / `adr` / `spec` trio),
+- the `decree/<type>/` directories,
+- a worked PRD→ADR→SPEC example chain (mutually consistent, so the project
+  lints clean immediately — learn from it or delete it),
+- a built `.decree/index.sqlite` query cache.
+
+```bash
+decree init
+decree lint   # the scaffolded project lints clean immediately
+```
+
+**Idempotent.** Re-running never overwrites your files: anything already
+present is left untouched and reported as skipped with a reason. The index is a
+derived cache, so it is *rebuilt* (not "created") on every run — it is never
+counted as a creation. A re-run on a fully set-up project prints
+`Already initialized — nothing to create (index refreshed).` and exits 0.
+
+Flags:
+
+- `--dry-run` — report the plan without touching disk (index shown as
+  *would rebuild*).
+- `--json` — machine-readable report (`actions[]` with `created` / `skipped` /
+  `rebuilt`, plus a `summary.created` / `summary.skipped` that counts only real
+  file/dir creations, not the index).
+- `--no-examples` — scaffold the config and directories but seed no example docs.
+- `--project DIR` — target another directory instead of the current one.
+
 ### `decree --version`
 
 Print the installed package version. The value comes from package metadata,
@@ -345,7 +379,17 @@ from the repository:
 uv add git+https://github.com/doruksahin/decree
 ```
 
-Create a `decree.toml` in your project root:
+Then scaffold the project in one command — no hand-editing `decree.toml`:
+
+```bash
+decree init   # canonical decree.toml + type dirs + worked example chain + index
+decree lint   # the scaffolded project lints clean immediately
+```
+
+See [`decree init`](#decree-init) for the idempotency contract and
+`--dry-run` / `--json` / `--no-examples` / `--project` flags.
+
+To tailor the config by hand instead, a minimal `decree.toml` looks like:
 
 ```toml
 [types.adr]

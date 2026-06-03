@@ -36,11 +36,23 @@ decree --version
 
 ## Quick Start
 
-```bash
-# Create decree.toml in your project root.
-# See docs/configuration.md for the full schema.
+One command takes a directory from zero to a working corpus:
 
-# Create documents
+```bash
+decree init    # scaffold a canonical decree.toml + type dirs + a worked
+               # PRD→ADR→SPEC example chain, then build the index
+decree lint    # the scaffolded project lints clean immediately
+```
+
+`decree init` generates the canonical `decree.toml` (no hand-editing needed)
+and a mutually-consistent worked example chain you can learn from or delete. It
+is idempotent — re-running never overwrites your files. See
+[decree init](docs/usage.md#decree-init) for `--dry-run`, `--json`,
+`--no-examples`, and `--project`.
+
+Then create your own documents:
+
+```bash
 decree new prd "User Authentication"
 decree new adr "Auth via JWT"
 decree new spec "Token Storage API"

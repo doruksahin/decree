@@ -24,6 +24,8 @@ with the [Capability Index](index.md).
 
 ## Recommended Agent Loop
 
+0. If the project is not yet set up, an agent can scaffold it in one machine-readable
+   step with `decree init --json` (idempotent; never overwrites existing files).
 1. Run `decree lint`.
 2. Run `decree index rebuild`.
 3. Before coding, run `decree intent-check --plan "..." --files ... --json`. When
@@ -154,6 +156,7 @@ Nine tools, all returning JSON (read-only except `report`):
 
 ```bash
 decree --help
+decree init --json
 decree lint
 decree index rebuild
 decree health --json

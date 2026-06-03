@@ -22,6 +22,8 @@ See ``docs/plans/2026-06-04-decree-init.md`` /
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -53,8 +55,10 @@ class Action:
 
     kind:   "config" | "dir" | "example" | "index"
     path:   the on-disk target the step concerns
-    action: "create" | "skip" (planning) — apply_init upgrades these to
-            "created" / "skipped" / "would-create" for the report/JSON contract
+    action: planning verbs — "create" / "skip" for real files; "rebuild" for the
+            derived index cache. apply_init upgrades these to "created" /
+            "skipped" / "rebuilt"; the dry-run path normalizes them to
+            "would-create" / "would-rebuild" for the report/JSON contract.
     reason: why a step is skipped (or other accountable detail), else None
     """
 
@@ -113,7 +117,8 @@ def plan_init(target: Path) -> list[Action]:
     - type dir present -> skip; absent -> create.
     - example doc -> create only if its type dir is empty/absent; if the type
       dir already has docs -> skip ("decree/<type>/ already has documents").
-    - index -> create (the rebuild is performed by apply_init unless --dry-run).
+    - index -> rebuild (a derived cache refresh, performed by apply_init unless
+      --dry-run; it is never counted as a "creation").
     """
     target = Path(target)
     plan: list[Action] = []
@@ -154,8 +159,8 @@ def plan_init(target: Path) -> list[Action]:
         else:
             plan.append(Action("example", dest, "create", None))
 
-    # 4. index
-    plan.append(Action("index", target / ".decree" / "index.sqlite", "create", None))
+    # 4. index — a derived cache refresh, not a creation.
+    plan.append(Action("index", target / ".decree" / "index.sqlite", "rebuild", None))
 
     return plan
 
@@ -168,12 +173,18 @@ def _rebuild_index(target: Path) -> None:
 
     rebuild_run chdir's into the target; we restore cwd afterward so callers
     (and tests) are not left in a surprising directory.
+
+    The index command writes its own ``[index] …`` chatter to stderr (and would
+    print to stdout); we capture both into throwaway buffers so init owns a
+    clean, top-to-bottom report with no interleaved/leaked index lines.
     """
     from decree.commands import index_db_cli
 
     cwd = Path.cwd()
+    sink = io.StringIO()
     try:
-        index_db_cli.rebuild_run(argparse.Namespace(project=str(target)))
+        with contextlib.redirect_stderr(sink), contextlib.redirect_stdout(sink):
+            index_db_cli.rebuild_run(argparse.Namespace(project=str(target)))
     finally:
         os.chdir(cwd)
         # rebuild_run cleared these caches against the target; clear again so
@@ -188,7 +199,9 @@ def apply_init(plan: list[Action], *, no_examples: bool) -> Applied:
     """Execute a plan: write config, mkdir dirs, copy examples, rebuild index.
 
     Never overwrites an existing file. Returns counts + the resolved per-action
-    outcomes ("created" / "skipped").
+    outcomes ("created" / "skipped" / "rebuilt"). The ``created`` and ``skipped``
+    counts cover only real file/dir work (config, dirs, examples); the index is
+    a derived cache refresh reported as "rebuilt" and excluded from both counts.
     """
     result = Applied()
     target: Path | None = None
@@ -227,8 +240,9 @@ def apply_init(plan: list[Action], *, no_examples: bool) -> Applied:
             if target is None:
                 target = step.path.parent.parent
             _rebuild_index(target)
-            result.actions.append(Action("index", step.path, "created", None))
-            result.created += 1
+            # The index is a derived cache refresh, not a creation: report it as
+            # "rebuilt" and keep it out of the created/skipped counts.
+            result.actions.append(Action("index", step.path, "rebuilt", None))
 
     return result
 
@@ -248,16 +262,19 @@ def _is_git_repo(target: Path) -> bool:
 def _json_action(a: Action) -> dict:
     """Map an internal action to the stable JSON contract entry.
 
-    Raw plan steps use "create"/"skip" (dry-run path); applied steps use
-    "created"/"skipped". Normalize both to the machine vocabulary
-    created | skipped | would-create.
+    Raw plan steps use "create"/"skip"/"rebuild" (dry-run path); applied steps
+    use "created"/"skipped"/"rebuilt". Normalize both to the machine vocabulary
+    created | skipped | would-create | rebuilt | would-rebuild.
     """
     machine = {
         "create": "would-create",  # only seen in a dry-run plan
         "skip": "skipped",
+        "rebuild": "would-rebuild",  # index, dry-run plan only
         "created": "created",
         "skipped": "skipped",
+        "rebuilt": "rebuilt",
         "would-create": "would-create",
+        "would-rebuild": "would-rebuild",
     }.get(a.action, a.action)
     return {
         "kind": a.kind,
@@ -278,21 +295,23 @@ def _print_human_report(
 ) -> None:
     """Sectioned, accountable report on stderr (via log.py)."""
 
+    def _shown(a: Action) -> Path | str:
+        try:
+            return a.path.relative_to(target)
+        except ValueError:
+            return a.path
+
     def line(a: Action) -> None:
-        if a.action in ("created", "would-create", "create"):
+        if a.action in ("rebuilt", "would-rebuild", "rebuild"):
+            # The index: a derived cache refresh, never "created".
+            label = "would rebuild" if dry_run else "rebuilt"
+            success(f"{label} {_shown(a)}")
+        elif a.action in ("created", "would-create", "create"):
             label = "would create" if dry_run else "created"
-            try:
-                shown = a.path.relative_to(target)
-            except ValueError:
-                shown = a.path
-            success(f"{label} {shown}")
+            success(f"{label} {_shown(a)}")
         else:  # skipped
-            try:
-                shown = a.path.relative_to(target)
-            except ValueError:
-                shown = a.path
             reason = f" — {a.reason}" if a.reason else ""
-            info(PREFIX, f"skipped {shown}{reason}")
+            info(PREFIX, f"skipped {_shown(a)}{reason}")
 
     info(PREFIX, f"decree init — {target}{'  (dry run)' if dry_run else ''}")
 
@@ -310,8 +329,12 @@ def _print_human_report(
         for a in members:
             line(a)
 
-    summary_verb = "Would create" if dry_run else "Created"
-    info(PREFIX, f"{summary_verb} {created}, skipped {skipped} (already present).")
+    if not dry_run and created == 0:
+        # Nothing real was created; the index was still refreshed.
+        info(PREFIX, "Already initialized — nothing to create (index refreshed).")
+    else:
+        summary_verb = "Would create" if dry_run else "Created"
+        info(PREFIX, f"{summary_verb} {created}, skipped {skipped} (already present).")
 
     if not git:
         warn(
@@ -375,7 +398,5 @@ def run(args: argparse.Namespace) -> int:
             git=git,
             dry_run=dry_run,
         )
-        if not dry_run and created == 0:
-            success("nothing to do — project already initialized.")
 
     return 0

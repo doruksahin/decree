@@ -66,12 +66,22 @@ Use this sequence when adding decree to another application.
    uv tool install git+https://github.com/doruksahin/decree
    ```
 
-2. Add `decree.toml`.
+2. Scaffold the project with `decree init`.
 
-   Start with PRD, ADR, and SPEC types unless the project has a different
-   decision vocabulary. See [configuration](configuration.md).
+   ```bash
+   decree init   # canonical decree.toml + PRD/ADR/SPEC dirs + worked example
+                 # chain + built index; lints clean immediately
+   decree lint
+   ```
 
-3. Create or import the first documents.
+   This generates the canonical `decree.toml` (PRD, ADR, and SPEC types) so you
+   do not hand-edit config. It is idempotent and never overwrites existing
+   files. Use `--no-examples` to skip the seeded chain, or `--dry-run` to
+   preview. See [`decree init`](usage.md#decree-init) and
+   [configuration](configuration.md).
+
+3. Create or import your own documents (the seeded example chain is just a
+   starting point — keep it, edit it, or delete it).
 
    ```bash
    decree new prd "Decision Lifecycle"
