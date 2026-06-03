@@ -40,8 +40,8 @@ Decree is intentionally explicit:
 | Generated tables and graphs | `decree index regenerate`, `decree graph` | Refresh document tables and Mermaid diagrams from frontmatter. |
 | Commit provenance | `decree commit` | Add `Implements:`, `Refs:`, and `Fixes:` trailers to git commits and sync them into the index. |
 | Governance & coherence drift | `decree health`, `decree stale` | Surface stale decisions, ungoverned hotspots, **dead governance** (declared paths no commit touched), and advisory **suggested governance** (repeat-touched but undeclared paths). See [health-signals.md](health-signals.md). |
-| Pre-code planning guard | `decree intent-check` | Check a plan and planned file list against existing decisions before coding starts; pass other live sessions' files (`--other-active-files`) to flag parallel `live_conflicts`. |
-| Post-code intent review | `decree intent-review` | Compare a diff against governed decisions before code review. |
+| Pre-code planning guard | `decree intent-check` | Check a plan and planned file list against existing decisions before coding starts; pass other live sessions' files (`--other-active-files`) to flag parallel `live_conflicts`, or `--under <decision>` for advisory `governs_gaps`. |
+| Post-code intent review | `decree intent-review` | Compare a diff against governed decisions before code review; `--under <decision>` adds advisory `governs_gaps`. |
 | Agent-assisted adoption | `decree migrate governs` | Analyze missing `governs:` links and apply explicit external suggestions for an existing decision corpus. |
 | Agent integration | `decree mcp serve`, Claude Code hook/plugin | Expose decree state to LLM agents through task-shaped tools and session-end snapshots. |
 | Retrieval evaluation | `decree retrieval-eval` | Measure query quality with labeled data, baselines, and optional calibrated abstention. |

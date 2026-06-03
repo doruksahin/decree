@@ -210,6 +210,19 @@ decree intent-check \
   --other-active-files '{"session-b": ["src/canvas.tsx"]}'
 ```
 
+In a governed session, pass `--under <decision>` to either command. When a
+planned/changed file is one that decision's own commits repeat-touch (>=2) but it
+does not declare, the report adds an advisory `governs_gaps` list and a
+`declare_governs` recommendation — the point-of-change counterpart to
+`decree health`'s suggested governance (see [health-signals.md](health-signals.md)).
+For `intent-review` this needs a structured diff (`--diff`/`--diff-base`). An
+unknown `--under` id exits 2.
+
+```bash
+decree intent-check  --plan "..." --files src/foo.py --under SPEC-01KT... --json
+decree intent-review --diff-base origin/main          --under SPEC-01KT... --json
+```
+
 `intent-check` is deterministic. It reports structural conflicts; semantic LLM
 judging can be implemented by an agent/skill that post-processes `--json`
 output.

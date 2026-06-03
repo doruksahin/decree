@@ -590,8 +590,13 @@ def intent_review(diff: str | None = None, changed_paths: list[str] | None = Non
                 {"action": str, "target_id": str | None, "detail": str},
                 ...
               ],
+              "under_decision": str | None,
+              "under_error": str | None,
+              "governs_gaps": [{"path": str, "commit_count": int}, ...],
             }
 
+        `governs_gaps` and the `declare_governs` action appear only when `under`
+        is given (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5); they are advisory.
         Empty arrays are valid responses (abstention; do not confabulate).
         On a missing index the response is
         `{"error": "index not found", "hint": "Run `decree index rebuild`"}`.
@@ -730,12 +735,18 @@ def intent_check(
                 {"action": str, "target_id": str | None, "detail": str},
                 ...
               ],
+              "under_decision": str | None,
+              "under_error": str | None,
+              "governs_gaps": [{"path": str, "commit_count": int}, ...],
             }
 
+        `governs_gaps` and the `declare_governs` action appear only when `under`
+        is given (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5); they are advisory.
         Recommendation `action` strings (planning-phase verbs):
         `proceed`, `add_governance`, `draft_adr_first`, `update_spec_first`,
         `check_ac`, `update_decision`, `resolve_conflict_first`,
-        `isolate_session` (emitted per `live_conflicts` entry).
+        `isolate_session` (emitted per `live_conflicts` entry),
+        `declare_governs` (advisory; only with `under`).
 
         `conflicts` is governance-level (multiple decisions claim one path);
         `live_conflicts` is operational (another running session plans the same
