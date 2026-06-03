@@ -1,1 +1,0 @@
-Add a machine-readable error contract for `--json` consumers: when a command run with `--json` hits an unexpected error, decree now emits a stable `{"schema": "decree.error.v1", "error": {...}}` object on stdout (and a clean one-line summary on stderr) and exits 2, instead of leaking a Python traceback. Without `--json`, the human/developer path is unchanged.

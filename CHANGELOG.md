@@ -4,6 +4,56 @@ All notable changes to Decree are documented here.
 
 <!-- towncrier release notes start -->
 
+## v1.1.0 - 2026-06-04
+
+### Features
+
+- Add `decree commit-check`: a deterministic trailer-coverage gate (and
+  matching MCP tool) that reports which governed-file changes in a diff lack an
+  `Implements:/Refs:/Fixes:` trailer linking them to their in-flight decision.
+  Advisory by default; `--strict`/`--min-coverage` gate CI on the net diff
+  (squash-safe via `--diff-base`). Reads only declared `governs:`; coverage you
+  can gate, not a guarantee.
+- Add `decree init`: a deterministic, idempotent project scaffolder that
+  creates a canonical `decree.toml`, the type directories, a worked
+  PRD→ADR→SPEC example chain, a `.gitignore` rule for the derived `.decree/`
+  cache, and a built index — reporting every action with a reason (created /
+  skipped / wrote / appended / rebuilt). It respects an existing `decree.toml`:
+  it leaves it untouched and scaffolds *its* declared types rather than
+  imposing the default trio (no orphan directories in a custom corpus), and
+  reports a malformed config clearly without touching it. The report is clean
+  and ordered: the derived index cache is reported as *rebuilt* (never counted
+  as a creation), and a re-run on a set-up project prints `Already initialized
+  — nothing to create (index refreshed).`. Flags: `--dry-run`, `--json`,
+  `--no-examples`, and `--project`. The scaffolded project lints clean
+  immediately.
+- Add a machine-readable error contract for `--json` consumers: when a command
+  run with `--json` hits an unexpected error, decree now emits a stable
+  `{"schema": "decree.error.v1", "error": {...}}` object on stdout (and a clean
+  one-line summary on stderr) and exits 2, instead of leaking a Python
+  traceback. Without `--json`, the human/developer path is unchanged.
+
+### Bug Fixes
+
+- CI and release workflows now run `decree index rebuild` before `decree index
+  verify`, so the verify step no longer fails on a fresh checkout (the
+  `.decree/index.sqlite` cache is gitignored and absent until rebuilt). The
+  link check tolerates slow external reference links.
+- Correct stale "publishes to PyPI" release-automation wording in the README
+  and capability index — decree distributes via GitHub Releases and a Homebrew
+  tap, not PyPI. The link check now verifies the project homepage
+  (decree.doruk.uk) instead of excluding it.
+
+### Documentation
+
+- Add `docs/json-contracts.md`: the reference for programmatic consumers — the
+  `--json` stdout/stderr split, the **exit-code contract** (0 = clean, 1 =
+  findings with JSON still on stdout, 2 = hard error), the `decree.error.v1`
+  shape, and per-command payload keys. Also document copy-paste recipes for
+  gating decree in a consumer repo (hand-rolled git hook, `pre-commit`
+  framework, and CI) in `docs/usage.md`.
+
+
 ## v1.0.0 - 2026-06-03
 
 ### Breaking Changes
