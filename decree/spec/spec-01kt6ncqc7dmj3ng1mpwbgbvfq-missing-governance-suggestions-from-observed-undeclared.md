@@ -104,15 +104,19 @@ artifact note below).
    precision weight, not only a scope cut. Surfacing cross-decision overlap ("X
    also touches Y's file") is a separate, noisier signal — deferred.
 
-4. **Not structural noise.** A decision's commits routinely touch its tests and
-   changelog fragment; these survive the repeat-touch gate yet are never
-   governance targets. Excluded by a **path-based** (therefore deterministic)
-   default heuristic — segments matching `tests/`, `test_*` / `*_test.*`,
-   `*.test.*` / `*.spec.*`, and `changelog.d/`. This is a **decree-tuned,
-   known-incomplete** default (it will not match every project's layout — e.g.
-   Rust inline `#[cfg(test)]`, a project that uses `spec/` for specifications) and
-   is the first candidate for `[health]`-config override (deferred). It is the one
-   project-shaped default and is labelled as such, not sold as universal.
+4. **Not structural noise.** A decision's commits routinely touch its tests,
+   changelog fragment, and documentation; these survive the repeat-touch gate yet
+   are never governance targets. Excluded by a **path-based** (therefore
+   deterministic) default heuristic — segments matching `tests/`, `test_*` /
+   `*_test.*`, `*.test.*` / `*.spec.*`, `changelog.d/`, and documentation files
+   (`.md` / `.rst`). The documentation exclusion was added after the decree
+   dogfood surfaced it (see Validation result): a doc-heavy commit and the
+   implementing commit both carried the decision's trailer, repeat-touching
+   `README.md` / `AGENTS.md` / `docs/*.md` and falsely proposing them as governed
+   code. This is a **decree-tuned, known-incomplete** default (it will not match
+   every project's layout — e.g. Rust inline `#[cfg(test)]`, a project that uses
+   `spec/` for specifications) and is the first candidate for `[health]`-config
+   override (deferred). It is the one project-shaped default, labelled as such.
 
 > **Generated artifacts are filtered at index time, by path — not here, by
 > content.** The draft proposed `health._is_generated_artifact`, but that reads
@@ -199,7 +203,9 @@ there, no second writer.
   surfaced for the decision that merely touched it.
 - **Shared-infra floor** — a path repeat-touched by ≥3 decisions is dropped; by 2
   is kept and ranked.
-- **Structural exclusions** — `tests/` and `changelog.d/` touches not surfaced.
+- **Structural exclusions** — `tests/`, `changelog.d/`, and documentation
+  (`.md` / `.rst`) touches not surfaced, while a repeat-touched code file in the
+  same commits still surfaces (the filter is selective, not blanket).
 - **Determinism** — the candidate set does not change when the working tree
   changes (rename/delete an observed path on disk; rebuild-free `health` output
   is identical), proving no working-tree dependence.
@@ -220,22 +226,27 @@ produced 162 here; the corrected model must produce a short, confirmed list or i
 does not ship. Gates: `ruff`, `pytest`, `decree lint`,
 `decree index rebuild`/`verify`, Towncrier fragment.
 
-**Validation result (recorded).** On the decree corpus the corrected signal
-yields **0 candidates** — decree's history is bulk single-commit imports (every
-observed path has `commit_count = 1`, no repeat-touch), so the signal correctly
-**abstains**: 0 false positives, dogfood gate met. Because decree's own corpus
-cannot exercise the value path, that path is validated by the realistic
-incremental-history fixture in `tests/test_missing_governance.py`: among
-declared / owned-elsewhere / structural / shared-infra / single-touch noise it
-surfaces **exactly one** candidate — the file a decision repeat-developed across
-two commits but never declared — proving the signal speaks correctly, and only
-then, when incremental history exists.
+**Validation result (recorded).** On the decree corpus the signal yields **0
+candidates** — but the path to that number records a real finding. Initially it
+was vacuous: decree's history was bulk single-commit imports (no repeat-touch),
+so the signal abstained. Once the governance feature itself was developed across
+multiple trailer-linked commits, repeat-touch appeared and the signal **fired for
+the first time** — surfacing five **documentation** files (`README.md`,
+`AGENTS.md`, `docs/*.md`) that the implementing commit and a later doc commit
+both touched under the same decision's trailer. These were false positives:
+documentation is never a `governs:` target. The fix was the documentation
+exclusion in structural gate 4, after which the corpus returns to **0 candidates,
+0 false positives**. The value path — surfacing the one genuinely
+repeat-developed-but-undeclared *code* file while excluding docs — is validated
+by the realistic incremental-history fixture in `tests/test_missing_governance.py`.
+This is the dogfood working as designed: real, trailer-linked usage exposed a
+precision gap the bulk-history corpus could not.
 
 ## Acceptance Criteria
 
 - [x] `missing_governance(db)` returns, per decision, repeat-touched paths (`observed_governs.commit_count ≥ 2`) not covered by its own declared `governs:` (reusing v1's `_path_covers`), computed as a pure index read with no git shellout and no working-tree access.
 - [x] Candidates covered by **any** decision's declared `governs:` (owned elsewhere) are excluded.
-- [x] Structural noise (`tests/`, `test_*`/`*_test.*`, `*.test.*`/`*.spec.*`, `changelog.d/`) is excluded by a path-based (deterministic) heuristic; no read-time content sniffing (`_is_generated_artifact` is **not** used) — generated-artifact filtering stays the index-time path filter from v1.
+- [x] Structural noise (`tests/`, `test_*`/`*_test.*`, `*.test.*`/`*.spec.*`, `changelog.d/`, and documentation `.md`/`.rst`) is excluded by a path-based (deterministic) heuristic; no read-time content sniffing (`_is_generated_artifact` is **not** used) — generated-artifact filtering stays the index-time path filter from v1.
 - [x] `DF(path)` = distinct decisions with `commit_count ≥ 2` for that path; candidates with `DF ≥ 3` are dropped, and survivors rank by `(commit_count desc, DF asc, path asc)`.
 - [x] Output is capped to top `K` candidates per decision and top `M` decisions, with any truncation stated explicitly (no silent caps).
 - [x] `HealthReport.missing_governance` carries per decision `decision_id`, `linked_commit_count`, `observed_path_count`, and candidates with `path`, `commit_count`, `distinct_decisions`; `--json` exposes a `missing_governance` key with a stable candidate ordering.

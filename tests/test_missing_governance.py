@@ -201,6 +201,22 @@ class TestRules:
         by_decision = _build_and_rebuild(tmp_path, monkeypatch)
         assert all("tests/test_cache.py" not in [c.path for c in f.candidates] for f in by_decision.values())
 
+    def test_documentation_excluded_but_code_surfaces(self, tmp_path: Path, monkeypatch) -> None:
+        # The decree dogfood false-positive: a doc-heavy commit and the implementing
+        # commit both carry the decision's trailer, repeat-touching a .md file that
+        # is undeclared and unowned. Documentation is never a governs: target, so it
+        # must be excluded — while a repeat-touched code file in the same commits
+        # still surfaces (the filter is selective, not blanket).
+        _git_init(tmp_path)
+        (tmp_path / "decree.toml").write_text(_DECREE_TOML)
+        _write_spec(tmp_path, S1, "00000000000000000000000001", "auth", ["src/auth/"])
+        _commit(tmp_path, "chore: bootstrap", {"README.md": "v0\n", "src/util/helper.py": "v0\n"})
+        _commit(tmp_path, _impl(S1, "feat a"), {"README.md": "doc v1\n", "src/util/helper.py": "h1\n"})
+        _commit(tmp_path, _impl(S1, "feat b"), {"README.md": "doc v2\n", "src/util/helper.py": "h2\n"})
+        paths = [c.path for f in _by_decision(_rebuild(tmp_path, monkeypatch)).values() for c in f.candidates]
+        assert "README.md" not in paths  # documentation excluded
+        assert "src/util/helper.py" in paths  # repeat-touched code still surfaces
+
     def test_shared_infra_floor_excludes_config(self, tmp_path: Path, monkeypatch) -> None:
         # src/util/config.py is repeat-touched by S1, S2, S3 (DF=3) -> dropped for everyone.
         by_decision = _build_and_rebuild(tmp_path, monkeypatch)

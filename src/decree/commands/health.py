@@ -406,19 +406,25 @@ _MG_TOP_DECISIONS = 10  # human-output cap, decisions
 
 def _is_structural_noise(path: str) -> bool:
     """Path-based (therefore deterministic) exclusion of files a decision's
-    commits routinely touch but that are never `governs:` targets — tests and
-    changelog fragments. A decree-tuned, **known-incomplete** default: it will
-    not match every project layout (e.g. Rust inline `#[cfg(test)]`, or a
-    project that uses `spec/` for specifications), and it is the first candidate
-    for a `[health]`-config override (deferred). It reads only the stored path
-    string, never the working tree."""
+    commits routinely touch but that are never `governs:` targets — tests,
+    changelog fragments, and documentation (markdown / reStructuredText). The
+    documentation exclusion was added after the decree dogfood surfaced it: a
+    doc-heavy commit and the implementing commit both carried the decision's
+    trailer, repeat-touching `README.md` / `AGENTS.md` / `docs/*.md` and
+    falsely proposing them as governed code. A decree-tuned, **known-incomplete**
+    default: it will not match every project layout (e.g. Rust inline
+    `#[cfg(test)]`, or a project that uses `spec/` for specifications), and it is
+    the first candidate for a `[health]`-config override (deferred). It reads
+    only the stored path string, never the working tree."""
     segments = path.split("/")
     base = segments[-1]
     if "tests" in segments or "changelog.d" in segments:
         return True
     if base.startswith("test_") or re.search(r"_test\.", base):
         return True
-    return ".test." in base or ".spec." in base
+    if ".test." in base or ".spec." in base:
+        return True
+    return base.endswith((".md", ".rst"))  # documentation is never a governs: target
 
 
 def missing_governance(db: IndexDB) -> list[MissingGovernance]:
