@@ -302,8 +302,11 @@ uv run towncrier build --draft --version X.Y.Z
 
 ### New project adoption
 
+The package name `decree` on PyPI is an unrelated third-party project, so install
+from the repository:
+
 ```bash
-uv add decree  # or git+https://github.com/...
+uv add git+https://github.com/doruksahin/decree
 ```
 
 Create a `decree.toml` in your project root:

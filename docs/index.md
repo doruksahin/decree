@@ -56,10 +56,14 @@ Use this sequence when adding decree to another application.
 
 1. Install decree in the target project.
 
+   The package name `decree` on PyPI belongs to an unrelated third-party
+   project, so install decree from this repository:
+
    ```bash
-   uv add decree
-   # or
-   pip install decree
+   # as a project dependency
+   uv add git+https://github.com/doruksahin/decree
+   # or as a standalone tool
+   uv tool install git+https://github.com/doruksahin/decree
    ```
 
 2. Add `decree.toml`.

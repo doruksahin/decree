@@ -16,10 +16,15 @@ they are changing.
 
 ## Install
 
+The package name `decree` on PyPI belongs to an unrelated third-party project,
+so install decree from this repository:
+
 ```bash
-pip install decree
+uv tool install git+https://github.com/doruksahin/decree
 # or
-uv tool install decree
+pipx install git+https://github.com/doruksahin/decree
+# or with pip
+pip install "decree @ git+https://github.com/doruksahin/decree"
 decree --version
 ```
 
