@@ -1,0 +1,1 @@
+Release workflow no longer attempts to publish to PyPI (the name `decree` there is an unrelated third-party project, so Trusted Publishing could never succeed). Releases now ship the wheel and sdist as GitHub Release assets and auto-bump a Homebrew tap.

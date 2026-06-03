@@ -139,8 +139,8 @@ uv run towncrier build --draft --version X.Y.Z
 11. GitHub Actions runs `.github/workflows/release.yml`.
 
     The workflow validates the release, builds the source distribution and
-    wheel, publishes to PyPI through Trusted Publishing, and creates a GitHub
-    Release with the same artifacts.
+    wheel, creates a GitHub Release with both artifacts, and bumps the Homebrew
+    tap to the new version. decree is not published to PyPI (see Distribution).
 
 ## Release Workflow
 
@@ -165,22 +165,35 @@ It fails closed unless all release readiness checks pass:
 Workflow YAML is statically validated by `actionlint` in both pre-commit and
 pull request CI. Do not add or change a workflow without that check passing.
 
-## PyPI Trusted Publishing Setup
+## Distribution
 
-Before the first real publish, configure PyPI Trusted Publishing for this
-repository.
+decree is **not** published to PyPI: the name `decree` there belongs to an
+unrelated third-party project, and it cannot be claimed while that project is
+active ([PEP 541](https://peps.python.org/pep-0541/) only reassigns abandoned
+names). Releases are distributed two ways instead:
 
-Use these values in PyPI:
+- **GitHub Release** — the `github-release` job attaches the wheel and sdist to
+  the `vX.Y.Z` release. Install with
+  `uv tool install git+https://github.com/doruksahin/decree`, from a release
+  asset directly, or with pip via
+  `pip install "decree @ git+https://github.com/doruksahin/decree"`.
+- **Homebrew** — the `homebrew` job rewrites the formula in the
+  [`doruksahin/homebrew-decree`](https://github.com/doruksahin/homebrew-decree)
+  tap to the new release sdist and pushes it, so
+  `brew install doruksahin/decree/decree` tracks the latest version.
 
-| Field | Value |
-|-------|-------|
-| Owner | `doruksahin` |
-| Repository | `decree` |
-| Workflow | `release.yml` |
-| Environment | `pypi` |
+### Homebrew tap — first-time setup
 
-The workflow uses `pypa/gh-action-pypi-publish@release/v1` with GitHub OIDC.
-No PyPI API token should be stored in repository secrets.
+Before the first release, in this order:
 
-Create a GitHub Environment named `pypi` if you want environment protection
-rules or manual approval before publishing.
+1. Create the `doruksahin/homebrew-decree` repository and push the tap contents
+   (`Formula/decree.rb`, `README.md`). The formula ships with placeholder
+   `url`/`sha256` until the first release fills them.
+2. Add a repository secret `HOMEBREW_TAP_TOKEN` to the **decree** repo: a
+   fine-grained personal access token scoped to `homebrew-decree` with
+   **Contents: write**.
+3. Cut the first `vX.Y.Z` release. The `homebrew` job rewrites the formula to the
+   release sdist and pushes it.
+
+Without steps 1–2 the `homebrew` job fails at checkout (loudly) rather than
+shipping a stale formula.

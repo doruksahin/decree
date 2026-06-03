@@ -97,26 +97,13 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  publish-pypi:
-    name: publish to PyPI
-    runs-on: ubuntu-latest
-    needs: build
-    environment: pypi
-    permissions:
-      actions: read
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: python-distributions
-          path: dist
-      - uses: pypa/gh-action-pypi-publish@release/v1
-
+  # NOTE: decree is NOT published to PyPI — the name `decree` there belongs to an
+  # unrelated third-party project. Distribution is via this GitHub Release (wheel +
+  # sdist attached below) and the Homebrew tap (bumped in the `homebrew` job).
   github-release:
     name: create GitHub Release
     runs-on: ubuntu-latest
-    needs: [build, publish-pypi]
+    needs: [build]
     permissions:
       actions: read
       contents: write
@@ -167,3 +154,47 @@ jobs:
             --verify-tag \
             --title "${GITHUB_REF_NAME}" \
             --notes-file release-notes.md
+
+  # Point the Homebrew tap (doruksahin/homebrew-decree) at the new release sdist.
+  # Requires repo secret HOMEBREW_TAP_TOKEN: a fine-grained PAT with Contents:write
+  # on the homebrew-decree repo. The job is a no-op-safe bump; if the secret is
+  # absent the checkout step fails loudly rather than publishing a stale formula.
+  homebrew:
+    name: bump Homebrew formula
+    runs-on: ubuntu-latest
+    needs: github-release
+    steps:
+      - name: Checkout tap
+        uses: actions/checkout@v4
+        with:
+          repository: doruksahin/homebrew-decree
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+      - name: Bump formula to ${{ github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          url="https://github.com/doruksahin/decree/releases/download/${GITHUB_REF_NAME}/decree-${version}.tar.gz"
+          # The release sdist is uploaded by the github-release job; poll until it
+          # lands, and fail closed if it never does (don't hash a missing file).
+          ok=
+          for attempt in $(seq 1 12); do
+            if curl -fsSL "$url" -o sdist.tar.gz; then ok=1; break; fi
+            echo "sdist not ready yet (attempt $attempt); waiting…"; sleep 10
+          done
+          [ -n "$ok" ] || { echo "::error::release sdist never appeared at $url"; exit 1; }
+          sha="$(sha256sum sdist.tar.gz | cut -d' ' -f1)"
+          cd tap
+          sed -i -E "s|^  url \".*\"|  url \"${url}\"|" Formula/decree.rb
+          sed -i -E "s|^  sha256 \".*\"|  sha256 \"${sha}\"|" Formula/decree.rb
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Idempotent: a re-run where the formula already matches is a no-op,
+          # not a failure (git commit exits 1 on a clean tree under `set -e`).
+          if git diff --quiet; then
+            echo "Formula already at ${GITHUB_REF_NAME}; nothing to commit."
+          else
+            git commit -am "decree ${GITHUB_REF_NAME}"
+            git push
+          fi
