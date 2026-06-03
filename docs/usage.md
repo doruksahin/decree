@@ -340,6 +340,62 @@ if [ -n "$DOC_STAGED" ]; then
 fi
 ```
 
+### Gate decree in a consumer repo
+
+In a project that *uses* decree (rather than decree's own repo), gate the corpus
+with `decree lint`. decree is **not on PyPI** (the name belongs to an unrelated
+project), so install it from the repository:
+
+```bash
+uv tool install git+https://github.com/doruksahin/decree   # standalone tool
+# or, as a project dependency:  uv add git+https://github.com/doruksahin/decree
+```
+
+**Recipe A — hand-rolled git hook (no framework).** Activate once with
+`git config core.hooksPath .githooks`, then:
+
+```sh
+# .githooks/pre-commit
+changed=$(git diff --cached --name-only)
+if printf '%s\n' "$changed" | grep -Eq '^(decree/|decree\.toml$)'; then
+    command -v decree >/dev/null 2>&1 || {
+        echo "install decree: uv tool install git+https://github.com/doruksahin/decree" >&2
+        exit 1
+    }
+    decree lint
+fi
+```
+
+**Recipe B — the `pre-commit` framework.** Use a `language: system` local hook so
+it runs the already-installed `decree` (avoid `additional_dependencies` with a
+`git+` URL — it drags decree's full dependency tree into pre-commit's isolated
+venv on every cold run):
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: local
+    hooks:
+      - id: decree-lint
+        name: decree lint
+        entry: decree lint
+        language: system
+        files: '^(decree/|decree\.toml$)'
+        pass_filenames: false
+```
+
+**CI (the authoritative gate).** A local hook is bypassable and depends on each
+dev having decree installed, so mirror it in CI:
+
+```yaml
+- uses: astral-sh/setup-uv@v6
+- run: |
+    uv tool install git+https://github.com/doruksahin/decree
+    echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+- run: decree lint
+- run: decree index rebuild   # the index is a derived cache; proves the corpus indexes cleanly
+```
+
 ### LLM (Claude Code, Cursor, Copilot)
 
 LLMs should read [LLM Agent Integration](llm-agent-integration.md) for the

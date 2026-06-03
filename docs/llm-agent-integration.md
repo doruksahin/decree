@@ -16,7 +16,10 @@ with the [Capability Index](index.md).
   acceptance criteria change after a terminal status transition, refresh them
   with `decree report regenerate`.
 - Commands that can be consumed by agents expose `--json` where the output is a
-  stable schema. Prefer JSON for automation.
+  stable schema. Prefer JSON for automation. See
+  [json-contracts.md](json-contracts.md) for the stdout/stderr split, the
+  exit-code contract (a non-zero exit still carries JSON for findings), and the
+  `decree.error.v1` error shape.
 - Empty arrays are valid abstentions. Agents must not invent governance when
   `matches`, `governing_decisions`, or `conflicts` are empty.
 - User-visible changes require a Towncrier fragment in `changelog.d/`. Agents

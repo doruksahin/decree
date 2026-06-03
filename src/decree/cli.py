@@ -1,9 +1,11 @@
 """Decree CLI — software decision lifecycle toolkit."""
 
 import argparse
+import json
 import sys
 
 from decree.commands import graph, index, lint, new, progress, status
+from decree.log import error as _log_error
 from decree.version import get_version
 
 EPILOG = """\
@@ -40,6 +42,26 @@ claude code skills (if decree plugin is installed):
   /decree:lint   Validate all documents, create tasks per error found
   /decree:ddd    Check project state and suggest the next lifecycle action
 """
+
+
+def _emit_json_error(args: argparse.Namespace, exc: Exception) -> None:
+    """Emit decree's machine-readable error contract for ``--json`` consumers.
+
+    On an unexpected (unhandled) error, callers that passed ``--json`` get a
+    stable ``decree.error.v1`` object on stdout — instead of a Python traceback —
+    plus a clean one-line summary on stderr. See docs/json-contracts.md.
+    """
+    command = getattr(args, "command", None)
+    payload = {
+        "schema": "decree.error.v1",
+        "error": {
+            "command": command,
+            "kind": type(exc).__name__,
+            "message": str(exc),
+        },
+    }
+    print(json.dumps(payload, indent=2), file=sys.stdout)
+    _log_error("decree", f"{command or 'decree'}: {type(exc).__name__}: {exc}")
 
 
 def main() -> int:
@@ -955,7 +977,17 @@ def main() -> int:
         "migrate": _migrate_dispatch,
         "retrieval-eval": eval_cmd.eval_run,
     }
-    return commands[args.command](args)
+    try:
+        return commands[args.command](args)
+    except Exception as exc:
+        # An unhandled error must never reach a --json consumer as a raw Python
+        # traceback. Emit the stable decree.error.v1 contract instead; outside
+        # --json mode the error surfaces normally (the human/dev path, with its
+        # traceback, is unchanged). See docs/json-contracts.md.
+        if getattr(args, "json", False):
+            _emit_json_error(args, exc)
+            return 2
+        raise
 
 
 if __name__ == "__main__":

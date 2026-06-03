@@ -183,6 +183,9 @@ lychee --config .lychee.toml --no-progress '**/*.md'
 - [Configuration](configuration.md): `decree.toml` schema.
 - [LLM Agent Integration](llm-agent-integration.md): provider-free agent
   contract and command loop.
+- [JSON Contracts](json-contracts.md): the `--json` stdout/stderr split,
+  exit-code contract, `decree.error.v1` error shape, and per-command payloads
+  for programmatic consumers.
 - [decree-governs-suggest skill](../skills/decree-governs-suggest/SKILL.md):
   agent-side `governs:` suggestion workflow.
 - [Release, Changelog, and Versioning](release.md): package version source of
