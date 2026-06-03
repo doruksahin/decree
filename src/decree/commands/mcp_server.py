@@ -937,6 +937,178 @@ def report(
     }
 
 
+@mcp.tool()
+def commit_check(
+    diff: str | None = None,
+    diff_base: str | None = None,
+    changed_paths: list[str] | None = None,
+    message: str | None = None,
+    strict: bool = False,
+    min_coverage: int | None = None,
+) -> dict:
+    """Deterministic trailer-coverage gate — does this change link its in-flight SPECs?
+
+    Computes whether every *governed change* in a set of touched files is
+    *covered* by a matching `Implements:/Refs:/Fixes:` git trailer. A governed
+    change is a `(path, decision)` pair where an **in-flight** decision (one
+    still being implemented) declares `governs:` over `path`; it is covered
+    when a commit message in scope carries that decision's id as a trailer.
+    The result is a gateable coverage fraction plus the uncovered pairs, so an
+    agent can self-correct its commit message *before* pushing — link the SPEC
+    that governs the files it just changed.
+
+    Read-only and LLM-free: reads only the authoritative declared `governs:`
+    layer (never observed/inferred governance), and parses trailers with the
+    canonical `git interpret-trailers` plumbing. Returns the EXACT payload the
+    CLI emits with `decree commit-check --json` (same formatter), so the two
+    can never diverge.
+
+    Args:
+        diff: Unified-diff *content* (a string). The post-image path of each
+            changed file is captured; deletions are dropped. Supplies only
+            *paths* — the trailer source must still come from `diff_base` or
+            `message`. Optional.
+        diff_base: A git ref. In CI mode this both supplies the changed paths
+            (`git diff <ref>...HEAD`) *and* the trailers (the union across every
+            commit in `<ref>..HEAD`, so a squashed merge is covered if any
+            single commit in the range carries the trailer). Sets `mode` to
+            `"diff-base"`. Optional.
+        changed_paths: Explicit list of repo-relative paths the change touches.
+            Wins over `diff` when both are given. Supplies only *paths*; the
+            trailer source must still come from `message` (there is no ref to
+            scan). Optional.
+        message: A commit-message *string* (commit-msg-hook mode). Its trailers
+            are the coverage source. Use together with `diff`/`changed_paths`
+            to supply the paths. Sets `mode` to `"diff"` when a `diff`/
+            `changed_paths` source is also present, else `"message"`. Optional.
+        strict: If True, any uncovered governed change forces `exit: 1`.
+            Default False (advisory).
+        min_coverage: If set (0-100), `exit: 1` when the covered percentage is
+            below this threshold. Combines with `strict` — either failing
+            yields `exit: 1`. Default None (no percentage gate).
+
+    Returns:
+        A dict with the same shape as `decree commit-check --json`:
+
+            {
+              "coverage": {"covered": int, "total": int, "fraction": float},
+              "governed_changes": [
+                {"path": str, "decision_id": str, "type": str, "covered": bool},
+                ...
+              ],
+              "uncovered": [
+                {"path": str, "decision_id": str, "title": str}, ...
+              ],
+              "mode": "diff-base" | "message" | "diff",
+              "strict": bool,
+              "min_coverage": int | None,
+              "exit": int,                 # 0 pass / advisory, 1 gate-fail
+            }
+
+        With zero governed changes the result is vacuously fully covered
+        (`total=0`, `fraction=1.0`, `exit=0`) — nothing to gate.
+
+        On a missing trailer source (paths given via `diff`/`changed_paths` but
+        no `message`, and no `diff_base`) the response is a structured error
+        `{"error": "no trailer source", "hint": "...", "exit": 2}`.
+        On a missing index the response is
+        `{"error": "index not found", "hint": "Run `decree index rebuild`"}`.
+        On a stale index the response is
+        `{"error": "index stale", "hint": "Run `decree index rebuild`"}`.
+
+    When to call:
+        - Right before committing on a feature branch — to confirm the commit
+          message you are about to write links the in-flight SPECs that govern
+          the files you changed.
+        - In a pre-push / CI self-check, with `diff_base` against the merge
+          base, to gate on squash-safe trailer coverage.
+        - After `intent_review` tells you which decisions govern the change —
+          `commit_check` verifies you actually referenced them.
+
+    When not to call:
+        - On documentation-only or test-only changes — `governs:` is
+          source-file scoped, so there is nothing to cover.
+        - To *discover* which decisions govern a path — that's `why` /
+          `intent_review`. This tool only checks trailer linkage.
+        - When no decision is in-flight over the changed files — the result is
+          vacuously clean and uninformative.
+    """
+    from decree.commands.commit_check import (
+        _gate_exit,
+        _payload,
+        coverage,
+        governed_changes,
+        range_trailer_ids,
+        trailer_ids,
+    )
+    from decree.commands.intent_review import parse_diff
+
+    db, root = _get_db()
+    status = db.status()
+    if not status.exists:
+        return _index_missing_response()
+
+    stale = _stale_index_response(db, root)
+    if stale is not None:
+        return stale
+
+    # ── Changed paths (mirrors commit_check_run / _read_diff_source).
+    # `changed_paths` wins over `diff`; `diff` is diff *content* (parsed,
+    # deletions stripped); `diff_base` derives paths from `git diff REF...HEAD`.
+    has_path_source = changed_paths is not None or diff is not None
+    if changed_paths is not None:
+        paths: list[str] = list(changed_paths)
+    elif diff is not None:
+        paths = parse_diff(diff)
+    elif diff_base:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "-C", str(root), "diff", f"{diff_base}...HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return {
+                "error": "git diff failed",
+                "hint": f"git diff {diff_base}...HEAD exited {result.returncode}: {result.stderr.strip()}",
+                "exit": 2,
+            }
+        paths = parse_diff(result.stdout)
+    else:
+        paths = []
+
+    # ── Trailer source + report mode (mirrors _resolve_trailers).
+    # diff-base → squash-safe range union; message → single-message trailers
+    # (mode is "diff" when a path source is also present, else "message").
+    if diff_base:
+        trailers = range_trailer_ids(root, diff_base)
+        mode = "diff-base"
+    elif message is not None:
+        trailers = trailer_ids(message)
+        mode = "diff" if has_path_source else "message"
+    else:
+        return {
+            "error": "no trailer source",
+            "hint": "supply `message` (commit-msg mode) or `diff_base` (CI mode).",
+            "exit": 2,
+        }
+
+    governed = governed_changes(db, paths)
+    cov = coverage(governed, trailers)
+    exit_code = _gate_exit(cov, strict=strict, min_coverage=min_coverage)
+
+    return _payload(
+        governed,
+        cov,
+        mode=mode,
+        strict=strict,
+        min_coverage=min_coverage,
+        exit_code=exit_code,
+    )
+
+
 def mcp_serve_run(args: argparse.Namespace) -> int:
     """`decree mcp serve` — enter the FastMCP stdio loop bound to a project."""
     try:

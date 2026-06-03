@@ -348,12 +348,14 @@ class TestIntentCheckLiveConflicts:
 
 
 class TestToolRegistry:
-    def test_exactly_eight_tools_registered(self) -> None:
+    def test_exactly_nine_tools_registered(self) -> None:
         # SPEC-14 added `intent_check`; the agentkith integration added the
-        # closeout tools `progress` and `report`.
+        # closeout tools `progress` and `report`; SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J
+        # (commit-check Phase 3) added `commit_check`.
         tools = mcp._tool_manager.list_tools()
         names = sorted(t.name for t in tools)
         assert names == [
+            "commit_check",
             "health",
             "intent_check",
             "intent_review",
@@ -404,8 +406,9 @@ class TestProtocol:
 
         tools = asyncio.run(go())
         names = sorted(t.name for t in tools)
-        # Full decree MCP tool set (incl. closeout progress/report).
+        # Full decree MCP tool set (incl. closeout progress/report + commit_check).
         assert names == [
+            "commit_check",
             "health",
             "intent_check",
             "intent_review",
@@ -680,6 +683,220 @@ class TestIntentCheckTool:
     def test_intent_check_has_full_docstring(self) -> None:
         tools = {t.name: t for t in mcp._tool_manager.list_tools()}
         desc = tools["intent_check"].description or ""
+        assert "Args:" in desc
+        assert "Returns:" in desc
+        assert "When to call:" in desc
+        assert "When not to call:" in desc
+
+
+# ── SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J: commit_check tool (Phase 3) ──────────────
+#
+# The `commit_check` MCP tool must return the EXACT payload the CLI emits with
+# `--json`, so the two can never diverge. These tests build a real git+decree
+# corpus (the CLI path shells out to git for the trailer range) and assert
+# parity plus the gate exit codes.
+
+
+def _commit_check_toml() -> str:
+    return """\
+[types.spec]
+dir = "decree/spec"
+prefix = "SPEC"
+digits = 3
+initial_status = "draft"
+statuses = ["draft", "approved", "implemented"]
+warn_on_reference = []
+required_sections = ["Overview"]
+[types.spec.transitions]
+draft = ["approved"]
+approved = ["implemented"]
+implemented = []
+[types.spec.actions]
+approve = "approved"
+implement = "implemented"
+"""
+
+
+def _cc_git(cwd: Path, *args: str) -> str:
+    import subprocess
+
+    return subprocess.run(
+        ["git", "-C", str(cwd), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+
+def _cc_write_spec(project: Path, spec_id: str, status: str, governs: list[str]) -> None:
+    governs_yaml = "\n".join(f"  - {p}" for p in governs)
+    (project / "decree" / "spec" / f"{spec_id.lower()}-test.md").write_text(
+        f"---\nid: {spec_id}\nstatus: {status}\ndate: 2026-05-12\ngoverns:\n{governs_yaml}\n---\n\n"
+        f"# {spec_id} Test SPEC\n\n## Overview\n\nProse.\n"
+    )
+
+
+def _cc_commit_file(project: Path, rel: str, msg: str) -> str:
+    target = project / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("content\n")
+    _cc_git(project, "add", rel)
+    _cc_git(project, "commit", "-m", msg)
+    return _cc_git(project, "rev-parse", "HEAD").strip()
+
+
+@pytest.fixture
+def commit_check_project(tmp_path: Path, monkeypatch) -> Path:
+    """A tmp dir that is a git repo, a decree project, and has a built index."""
+    _cc_git(tmp_path, "init")
+    _cc_git(tmp_path, "config", "user.email", "test@example.com")
+    _cc_git(tmp_path, "config", "user.name", "Test")
+    _cc_git(tmp_path, "config", "commit.gpgsign", "false")
+    (tmp_path / "decree.toml").write_text(_commit_check_toml())
+    (tmp_path / "decree" / "spec").mkdir(parents=True)
+    return tmp_path
+
+
+def _cc_index(project: Path, monkeypatch) -> None:
+    monkeypatch.chdir(project)
+    from decree.config import get_project_root, load_doc_types
+
+    get_project_root.cache_clear()
+    load_doc_types.cache_clear()
+    db = IndexDB(default_db_path(project))
+    db.rebuild(project)
+
+
+def _cli_json(project: Path, capsys, **kw) -> dict:
+    """Run the CLI `commit_check_run` with `--json` and return the parsed payload."""
+    import argparse
+    import os
+
+    from decree.commands.commit_check import commit_check_run
+
+    base = {
+        "diff": None,
+        "diff_base": None,
+        "message": None,
+        "strict": False,
+        "min_coverage": None,
+        "json": True,
+        "project": str(project),
+    }
+    base.update(kw)
+    cwd = os.getcwd()
+    os.chdir(project)
+    try:
+        from decree.config import get_project_root, load_doc_types
+
+        get_project_root.cache_clear()
+        load_doc_types.cache_clear()
+        commit_check_run(argparse.Namespace(**base))
+    finally:
+        os.chdir(cwd)
+    return json.loads(capsys.readouterr().out)
+
+
+class TestCommitCheckTool:
+    def test_mcp_payload_equals_cli_json(self, commit_check_project: Path, capsys, monkeypatch) -> None:
+        """Parity: the MCP tool return value EQUALS the CLI `--json` payload."""
+        project = commit_check_project
+        # In-flight SPEC governs src/a.py; a covered + an uncovered governed path.
+        _cc_write_spec(project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _cc_write_spec(project, "SPEC-00000000000000000000000002", "approved", ["src/b.py"])
+        _cc_index(project, monkeypatch)
+        base = _cc_commit_file(project, "seed.txt", "base")
+        _cc_commit_file(
+            project,
+            "src/a.py",
+            "feat: a\n\nImplements: SPEC-00000000000000000000000001\n",
+        )
+        _cc_commit_file(project, "src/b.py", "feat: b (no trailer)")
+
+        cli_payload = _cli_json(project, capsys, diff_base=base)
+
+        mcp_server._set_project_root(project)
+        try:
+            monkeypatch.chdir(project)
+            mcp_payload = mcp_server.commit_check(diff_base=base)
+        finally:
+            mcp_server._set_project_root(None)  # type: ignore[arg-type]
+
+        assert mcp_payload == cli_payload
+        # Sanity on the underlying corpus: 1/2 covered, advisory exit 0.
+        assert mcp_payload["coverage"] == {"covered": 1, "total": 2, "fraction": 0.5}
+        assert mcp_payload["mode"] == "diff-base"
+        assert mcp_payload["exit"] == 0
+
+    def test_covered_case_exit_zero(self, commit_check_project: Path, monkeypatch) -> None:
+        project = commit_check_project
+        _cc_write_spec(project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _cc_index(project, monkeypatch)
+        base = _cc_commit_file(project, "seed.txt", "base")
+        _cc_commit_file(
+            project,
+            "src/a.py",
+            "feat: a\n\nImplements: SPEC-00000000000000000000000001\n",
+        )
+        mcp_server._set_project_root(project)
+        try:
+            monkeypatch.chdir(project)
+            payload = mcp_server.commit_check(diff_base=base, strict=True)
+        finally:
+            mcp_server._set_project_root(None)  # type: ignore[arg-type]
+        assert payload["coverage"] == {"covered": 1, "total": 1, "fraction": 1.0}
+        assert payload["uncovered"] == []
+        assert payload["exit"] == 0
+
+    def test_uncovered_strict_exit_one(self, commit_check_project: Path, monkeypatch) -> None:
+        project = commit_check_project
+        _cc_write_spec(project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _cc_index(project, monkeypatch)
+        base = _cc_commit_file(project, "seed.txt", "base")
+        _cc_commit_file(project, "src/a.py", "feat: a (no trailer)")
+        mcp_server._set_project_root(project)
+        try:
+            monkeypatch.chdir(project)
+            payload = mcp_server.commit_check(diff_base=base, strict=True)
+        finally:
+            mcp_server._set_project_root(None)  # type: ignore[arg-type]
+        assert payload["strict"] is True
+        assert len(payload["uncovered"]) == 1
+        assert payload["uncovered"][0]["decision_id"] == "SPEC-00000000000000000000000001"
+        assert payload["exit"] == 1
+
+    def test_message_mode_requires_message_for_diff_paths(self, commit_check_project: Path, monkeypatch) -> None:
+        # changed_paths supply paths; without a message there is no trailer source.
+        project = commit_check_project
+        _cc_write_spec(project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        _cc_index(project, monkeypatch)
+        mcp_server._set_project_root(project)
+        try:
+            monkeypatch.chdir(project)
+            payload = mcp_server.commit_check(changed_paths=["src/a.py"])
+        finally:
+            mcp_server._set_project_root(None)  # type: ignore[arg-type]
+        assert "error" in payload
+        assert payload["exit"] == 2
+
+    def test_index_missing_returns_error_response(self, commit_check_project: Path, monkeypatch) -> None:
+        # No index built.
+        project = commit_check_project
+        _cc_write_spec(project, "SPEC-00000000000000000000000001", "approved", ["src/a.py"])
+        mcp_server._set_project_root(project)
+        try:
+            monkeypatch.chdir(project)
+            payload = mcp_server.commit_check(message="ignored")
+        finally:
+            mcp_server._set_project_root(None)  # type: ignore[arg-type]
+        assert payload == {
+            "error": "index not found",
+            "hint": "Run `decree index rebuild` to build the index, then retry.",
+        }
+
+    def test_commit_check_has_full_docstring(self) -> None:
+        tools = {t.name: t for t in mcp._tool_manager.list_tools()}
+        desc = tools["commit_check"].description or ""
         assert "Args:" in desc
         assert "Returns:" in desc
         assert "When to call:" in desc

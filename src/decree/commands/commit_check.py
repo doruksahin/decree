@@ -287,6 +287,46 @@ def _gate_exit(cov: Coverage, *, strict: bool, min_coverage: int | None) -> int:
     return 0
 
 
+def _payload(
+    governed: list[GovernedChange],
+    cov: Coverage,
+    *,
+    mode: str,
+    strict: bool,
+    min_coverage: int | None,
+    exit_code: int,
+) -> dict:
+    """Build the canonical commit-check JSON payload.
+
+    This is the single formatter shared by the CLI ``--json`` path
+    (``commit_check_run``) and the ``commit_check`` MCP tool, so the two can
+    never drift. The shape is exactly the contract asserted in
+    ``tests/test_commit_check.py::test_json_contract``.
+    """
+    uncovered_ids = {gc.decision_id for gc in cov.uncovered}
+    return {
+        "coverage": {
+            "covered": cov.covered,
+            "total": cov.total,
+            "fraction": cov.fraction,
+        },
+        "governed_changes": [
+            {
+                "path": gc.path,
+                "decision_id": gc.decision_id,
+                "type": gc.type,
+                "covered": gc.decision_id not in uncovered_ids,
+            }
+            for gc in governed
+        ],
+        "uncovered": [{"path": gc.path, "decision_id": gc.decision_id, "title": gc.title} for gc in cov.uncovered],
+        "mode": mode,
+        "strict": strict,
+        "min_coverage": min_coverage,
+        "exit": exit_code,
+    }
+
+
 def _format_human(cov: Coverage, mode: str) -> str:
     """Render the human-readable trailer-coverage report."""
     lines: list[str] = []
@@ -338,28 +378,14 @@ def commit_check_run(args: argparse.Namespace) -> int:
     exit_code = _gate_exit(cov, strict=strict, min_coverage=min_coverage)
 
     if getattr(args, "json", False):
-        covered_ids = {gc.decision_id for gc in cov.uncovered}
-        payload = {
-            "coverage": {
-                "covered": cov.covered,
-                "total": cov.total,
-                "fraction": cov.fraction,
-            },
-            "governed_changes": [
-                {
-                    "path": gc.path,
-                    "decision_id": gc.decision_id,
-                    "type": gc.type,
-                    "covered": gc.decision_id not in covered_ids,
-                }
-                for gc in governed
-            ],
-            "uncovered": [{"path": gc.path, "decision_id": gc.decision_id, "title": gc.title} for gc in cov.uncovered],
-            "mode": mode,
-            "strict": strict,
-            "min_coverage": min_coverage,
-            "exit": exit_code,
-        }
+        payload = _payload(
+            governed,
+            cov,
+            mode=mode,
+            strict=strict,
+            min_coverage=min_coverage,
+            exit_code=exit_code,
+        )
         print(json.dumps(payload, indent=2, sort_keys=False))
     else:
         print(_format_human(cov, mode))
