@@ -54,3 +54,28 @@ kullanicilar basitce baslayabilmeli.
 
 bir sorum var:
 decree'de default templatelerimiz mi var? kendimiz custom spec template gecebiliyor muyuz ornegin?
+
+---
+
+homebrew token sops age'de mi duruyor? desktopta?
+
+---
+
+tamam yapabildigin kadarini bensiz yap. benden yardim istediginde soyle.
+
+---
+
+paste your secret diyor, secretim nerede?
+
+---
+
+tamam girdim. bu arada https://github.com/doruksahin/homebrew-decree boyle bir repomuz da varmis
+
+---
+
+tamam simdi deployla homebrew'a dussun.
+
+---
+
+repoda readme'ye homebrew badge falan koy. versiyonuyla birlikte.
+ciks dursun.
