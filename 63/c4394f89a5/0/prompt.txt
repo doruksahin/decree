@@ -1,0 +1,68 @@
+tamam commitle ve yeni versiyon cik bunlarla.
+
+---
+
+Bir gelistirme istegimiz daha var
+
+All PRDs are flat, normally, some of them are related, we are connecting them with supersedes etc. however, it would be good to keeping them under colocated buckets, splitting by concerns, features
+
+foldering olayi gelebilir mi?
+
+---
+
+Bir gelistirme istegimiz daha var
+
+All PRDs are flat, normally, some of them are related, we are connecting them with supersedes etc. however, it would be good to keeping them under colocated buckets, splitting by concerns, features
+
+foldering olayi gelebilir mi?
+
+CLI'da da listeledigimizde bu structure bize yardimci olmali. genel olarak.
+dusun.
+
+kullaniciya nasil faydali olur dusun
+
+---
+
+tamam bunun icin de docs decree yazalim
+
+---
+
+Hayir bu efekti esas uygulamada istiyorum.
+bu windowda degil
+
+---
+
+tamam, kullanici nasil feature, ekleyebiliyor?
+
+---
+
+guzel.
+simdi yeni versiyon cikar.
+
+---
+
+bundan sonra generate edilirken folder kismi required olsun. fakat publish etmene gerek yok baska seyler de yollayacagiz.
+ve sunu istiyorum:
+bir html templateimiz olsun, belki astro ile yazalim.
+ardindan, generate-html CLI imiz olsun, bununla generate edelim, bir tane html generate etsin.
+kanban board gibi gosterecek bir sey, dogru bir representasyon, ayrica sprint secebilelim.
+PoC ver once.
+
+---
+
+poc html i ac
+
+---
+
+[Image #1] cok cirkin duruyor.
+
+---
+
+[Image #1] bunlarin biraz daha accountable olmasi gerekiyor.
+Filtrelenebilmeli, PRD'ler ne olacak?
+sadece spec mi gosteriyoruz?
+Foldera gore filtreleme vs?
+
+---
+
+[Image #1] neden bombos gorunuyor?

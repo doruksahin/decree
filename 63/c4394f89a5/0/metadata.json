@@ -1,0 +1,220 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "63c4394f89a5",
+  "session_id": "019f035c-e33a-7983-94f7-a3e47af5500f",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-26T14:27:02.103789Z",
+  "branch": "main",
+  "checkpoints_count": 6,
+  "save_step_count": 6,
+  "files_touched": [
+    "README.md",
+    "changelog.d/+required-buckets-html-board-poc.feature.md",
+    "decree/AGENTS.md",
+    "decree/adr/index.md",
+    "decree/adr/reporting/html-board/adr-01kw22k6h6ffwjftphnxha1gsd-self-contained-html-board-export.md",
+    "decree/prd/index.md",
+    "decree/prd/reporting/html-board/prd-01kw22jy2rqjd7b759et0bm2np-html-board-export-and-required-buckets.md",
+    "decree/spec/index.md",
+    "decree/spec/reporting/html-board/spec-01kw22ke3k4j7m2rjyac110mph-required-buckets-and-generate-html-poc.md",
+    "decree/sprints/ledger.yaml",
+    "docs/health-signals.md",
+    "docs/index.md",
+    "docs/usage.md",
+    "src/decree/cli.py",
+    "src/decree/commands/ddd.py",
+    "src/decree/commands/generate_html.py",
+    "src/decree/commands/new.py",
+    "src/decree/templates/html_board.html.j2",
+    "tests/test_cli.py",
+    "tests/test_ddd.py",
+    "tests/test_generate_html.py",
+    "tests/test_integration.py",
+    "tests/test_new.py",
+    "tests/test_parallel_new.py",
+    "tests/test_sprint.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "152fe740251d",
+  "token_usage": {
+    "input_tokens": 2428172,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 70787200,
+    "output_tokens": 265960,
+    "api_call_count": 575
+  },
+  "session_metrics": {
+    "turn_count": 23
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-26T14:27:01.887809Z",
+    "agent_lines": 1852,
+    "agent_removed": 57,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1852,
+    "total_lines_changed": 1909,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 1102,
+      "agent_lines_removed": 57,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 1102,
+      "agent_lines_removed": 57,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 1512,
+      "agent_lines_removed": 57,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 1841,
+      "agent_lines_removed": 57,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 1852,
+      "agent_lines_removed": 57,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    }
+  ]
+}

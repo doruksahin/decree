@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "63c4394f89a5",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 6,
+  "files_touched": [
+    "README.md",
+    "changelog.d/+required-buckets-html-board-poc.feature.md",
+    "decree/AGENTS.md",
+    "decree/adr/index.md",
+    "decree/adr/reporting/html-board/adr-01kw22k6h6ffwjftphnxha1gsd-self-contained-html-board-export.md",
+    "decree/prd/index.md",
+    "decree/prd/reporting/html-board/prd-01kw22jy2rqjd7b759et0bm2np-html-board-export-and-required-buckets.md",
+    "decree/spec/index.md",
+    "decree/spec/reporting/html-board/spec-01kw22ke3k4j7m2rjyac110mph-required-buckets-and-generate-html-poc.md",
+    "decree/sprints/ledger.yaml",
+    "docs/health-signals.md",
+    "docs/index.md",
+    "docs/usage.md",
+    "src/decree/cli.py",
+    "src/decree/commands/ddd.py",
+    "src/decree/commands/generate_html.py",
+    "src/decree/commands/new.py",
+    "src/decree/templates/html_board.html.j2",
+    "tests/test_cli.py",
+    "tests/test_ddd.py",
+    "tests/test_generate_html.py",
+    "tests/test_integration.py",
+    "tests/test_new.py",
+    "tests/test_parallel_new.py",
+    "tests/test_sprint.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/63/c4394f89a5/0/metadata.json",
+      "transcript": "/63/c4394f89a5/0/full.jsonl",
+      "content_hash": "/63/c4394f89a5/0/content_hash.txt",
+      "prompt": "/63/c4394f89a5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2428172,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 70787200,
+    "output_tokens": 265960,
+    "api_call_count": 575
+  }
+}
