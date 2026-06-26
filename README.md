@@ -1,5 +1,14 @@
 # decree
 
+<p>
+  <a href="https://github.com/doruksahin/homebrew-decree">
+    <img alt="Homebrew tap version v2.0.0" src="https://img.shields.io/badge/Homebrew-v2.0.0-FBB040?style=flat-square&logo=homebrew&logoColor=white">
+  </a>
+  <a href="#install">
+    <img alt="Install with Homebrew" src="https://img.shields.io/badge/brew%20install-doruksahin%2Fdecree%2Fdecree-2ea043?style=flat-square&logo=homebrew&logoColor=white">
+  </a>
+</p>
+
 Software decision lifecycle toolkit. Track the chain from **PRD** (what/why) through **ADR** (how) to **SPEC** (blueprint) — with cross-type references, status enforcement, and validation.
 
 ```
