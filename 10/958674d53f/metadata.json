@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "10958674d53f",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 8,
+  "files_touched": [
+    "README.md",
+    "changelog.d/+homebrew-readme-badge.doc.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/10/958674d53f/0/metadata.json",
+      "transcript": "/10/958674d53f/0/full.jsonl",
+      "content_hash": "/10/958674d53f/0/content_hash.txt",
+      "prompt": "/10/958674d53f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 4462567,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 124967936,
+    "output_tokens": 406612,
+    "api_call_count": 949
+  }
+}
