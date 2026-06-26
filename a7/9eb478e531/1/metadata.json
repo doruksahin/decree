@@ -1,0 +1,124 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "a79eb478e531",
+  "session_id": "b43c0e23-6607-49ed-a5f5-a6c7dd3880dd",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-26T12:13:48.915893Z",
+  "branch": "main",
+  "checkpoints_count": 4,
+  "save_step_count": 3,
+  "files_touched": [
+    "changelog.d/+7bccc664.doc.md",
+    "decree/adr/index.md",
+    "decree/prd/index.md",
+    "decree/spec/index.md",
+    "docs/plans/2026-06-26-sprint-scoped-execution-handoff.md",
+    "docs/plans/2026-06-26-sprint-workflow-poc.html"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-4-6",
+  "turn_id": "0b0e9243f066",
+  "token_usage": {
+    "input_tokens": 41,
+    "cache_creation_tokens": 109310,
+    "cache_read_tokens": 2005341,
+    "output_tokens": 39413,
+    "api_call_count": 28
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_011zBghRyH6K8hGhGYjxXPHu",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "frontend-slides"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "0b0e9243f066",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 77,
+        "end": 78,
+        "entry_ids": [
+          "2a12aad0-3fec-4eee-89ca-53095dbd1bfa"
+        ],
+        "tool_use_id": "toolu_011zBghRyH6K8hGhGYjxXPHu"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_011zBghRyH6K8hGhGYjxXPHu"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: frontend-slides",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-26T12:13:48.871892Z",
+    "agent_lines": 1658,
+    "agent_removed": 0,
+    "human_added": 2348,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 4006,
+    "total_lines_changed": 4099,
+    "agent_percentage": 40.448889973164185,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 1449,
+      "user_lines_removed": 2,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "decree/adr/adr-01kw1qghbt2bsz2hvt55g1qsjb-sprint-ledger-and-carryover-semantics.md": 91,
+        "decree/adr/index.md": 1,
+        "decree/prd/index.md": 1,
+        "decree/prd/prd-01kw1qezec1r1bstzn1ssppcej-sprint-scoped-execution-tracking.md": 108,
+        "decree/spec/index.md": 1,
+        "decree/spec/spec-01kw1qj27r175nvm8qngw1fx8n-sprint-ledger-cli-and-validation.md": 308
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1532,
+      "agent_lines_removed": 2
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1953,
+      "agent_lines_removed": 2
+    }
+  ]
+}

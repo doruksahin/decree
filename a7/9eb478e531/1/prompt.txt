@@ -1,0 +1,479 @@
+› Decree'ye sprint mekanizmasi getirmek istiyorum.
+    Sprint baslat/bitir
+    Artik decree'yi listeletirken sadece son aktif sprintin tasklarini getirir. Diger sprintlerin icerigini de katmak istersek ya da hepsine bakmak istersek
+  flag
+    kullaniriz
+    her zaman aktif bir sprint olmali
+    bir de sunu dusun: bir PRD sprint1 de olsun, bunun 2 speci olsun. Sonradan bir spec ekledik yani. biri sprint1'de biri sprint2'de olabilir mi? sence
+  mantikli
+    mi?
+
+    Gap olmayacak sekilde iyice dusun.
+
+
+⚠ loading hooks from both /Users/doruk/.codex/hooks.json and /Users/doruk/.codex/config.toml; prefer a single representation for this layer
+
+• SessionStart hook (completed)
+  warning: Entire CLI will link this conversation to your next commit.
+
+• decree-ddd ve ürün/karar tasarımı tarafını kullanacağım; önce repo durumunu ve mevcut decree akışını okuyup sprint modelini mevcut PRD/ADR/SPEC zincirine ters
+  └ Read SKILL.md (decree-prd skill), SKILL.md (decree-ddd skill), SKILL.md (decree-adr skill)
+
+• Updated Plan
+  └ □ DDD: Check decree project state
+    □ DDD: Load document state
+    □ DDD: Determine phase
+    □ Analyze sprint semantics against PRD/ADR/SPEC lifecycle
+    □ Propose sprint model, CLI flags, invariants, and edge cases
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Önce mevcut proje durumunu çıkarıyorum. Bu sprint tasarımında özellikle mevcut progress, why, referans zinciri ve doküman durum makinesiyle çakışma olup
+  olmadığını görmek gerekiyor.
+
+• Ran git status --short --branch
+  └ ## main...origin/main
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• decree.toml yerinde ve CLI bulunuyor. Worktree’de kullanıcıya ait görünen ayar/ajan dosyaları var; bunlara dokunmadan sadece tasarım değerlendirmesi yapıyorum.
+
+• Updated Plan
+  └ ✔ DDD: Check decree project state
+    □ DDD: Load document state
+    □ DDD: Determine phase
+    □ Analyze sprint semantics against PRD/ADR/SPEC lifecycle
+    □ Propose sprint model, CLI flags, invariants, and edge cases
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Lint/progress ve doküman envanterini şimdi yüklüyorum. Bunlar sprint kapsamının doküman yaşam döngüsüne mi, iş takibine mi ait olması gerektiğini belirlemede
+  ana veri olacak.
+
+• Explored
+  └ List prd
+
+• Running uv run decree lint
+
+✔ You approved codex to always run commands that start with uv run
+
+✔ You approved codex to always run commands that start with uv run
+
+• Ran uv run decree progress
+  └ [progress] loaded 32 documents
+    [progress] scope: all documents
+    … +36 lines (ctrl + t to view transcript)
+      SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J  Trailer-coverage gate via decree comm...  implemented  ██████████ 100% (11/11 primary)
+
+
+• Ran uv run decree lint
+  └ ✓ 32 documents validated. 0 errors.
+
+    … +20 lines (ctrl + t to view transcript)
+    decree/spec/spec-01kt6tcfmwav6n8g5dr5qmx1p5-point-of-change-governs-gap-suggestions-in-intent-check-and.md: 4 deferred-section ACs separated from primary
+    (counted independently).
+
+• Ran uv run decree progress
+  └ [progress] loaded 32 documents
+    [progress] scope: all documents
+    … +36 lines (ctrl + t to view transcript)
+      SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J  Trailer-coverage gate via decree comm...  implemented  ██████████ 100% (11/11 primary)
+
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  └ ✔ DDD: Check decree project state
+    ✔ DDD: Load document state
+    □ DDD: Determine phase
+    □ Analyze sprint semantics against PRD/ADR/SPEC lifecycle
+    □ Propose sprint model, CLI flags, invariants, and edge cases
+    ✔ DDD: Load document state
+    ✔ DDD: Determine phase
+    □ Create PRD for sprint-scoped work tracking
+    □ Record ADR for sprint membership semantics
+    □ Write SPEC for CLI/filter/index changes
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Şimdi mevcut CLI yüzeyini ve veri modelini kontrol ediyorum. “Listeleme artık aktif sprinti gösterir” kararı hangi komutları değiştirir, bunu netleştirmeden
+  tasarımda boşluk kalır.
+
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Okunan mimari net: doküman dosyalarını sadece parser.py okuyor/yazıyor; komutlar run(args) üzerinden ayrılmış; SQLite index türetilmiş cache ve query komutları
+  fail-closed olmalı. Sprint eklenirse bu sınırları bozmayacak şekilde tasarlanmalı.
+
+• Explored
+  └ Read AGENTS.md
+    Search def run|progress|refs|why|--chain|--doc|index in commands
+    Search DocFrontmatter|references|governs|status|id: in decree
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Mevcut progress zaten scope kavramına sahip (--doc, --chain, --changed, --governs). Sprint bu modele ayrı ve açık bir scope olarak eklenebilir; kritik karar
+  default scope’un değişmesi olacak.
+
+• Explored
+  └ Read cli.py, progress.py, parser.py, index_db.py
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Veri modeli tarafında frontmatter şu an açıkça tanımlı: id, status, date, references, governs, vb. Sprint alanı eklenecekse parser validasyonu, lint çapraz
+  kontrolleri ve index şeması birlikte değişmeli; sadece CLI filtresi olarak eklemek yeterli olmaz.
+
+• Explored
+  └ Read index_db.py, index.py, ddd.py, validators.py
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Sprint kapsamı muhtemelen parser.py, commands/progress.py, commands/ddd.py, commands/index.py, index_db.py, cli.py ve MCP progress yüzeyine dokunur. Bu
+  dosyaların mevcut karar zincirini hızlıca kontrol edip öneriyi ona göre sıkılaştırıyorum.
+
+• Ran uv run decree why src/decree/index_db.py
+  └ src/decree/index_db.py — 2 governing decisions
+
+    … +4 lines (ctrl + t to view transcript)
+        SQLite Provenance Index — Schema and Sync
+        governs: src/decree/index_db.py
+
+• Ran uv run decree why src/decree/cli.py
+  └ src/decree/cli.py — 2 governing decisions
+
+    … +4 lines (ctrl + t to view transcript)
+        Parallel-Safe Document Identity and Scoped Progress
+        governs: src/decree/cli.py
+
+• Ran uv run decree why src/decree/parser.py
+  └ src/decree/parser.py — 1 governing decision
+
+      ▸ SPEC-01KT22NMS0D19VMD8VPK4D2MNX  implemented  2026-06-01  exact
+        Parallel-Safe Document Identity and Scoped Progress
+        governs: src/decree/parser.py
+
+• Ran uv run decree why src/decree/commands/progress.py
+  └ src/decree/commands/progress.py — 2 governing decisions
+
+    … +4 lines (ctrl + t to view transcript)
+        Parallel-Safe Document Identity and Scoped Progress
+        governs: src/decree/commands/progress.py
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Governance tarafı sprint fikrini mevcut “parallel-safe identity” ve “scoped progress” karar zincirinin doğal genişlemesi yapıyor. Bu yüzden modelin referans
+  kimliğini bozmadan, scope/filtre katmanı olarak başlaması daha doğru.
+
+• Ran uv run decree intent-check --plan "Add sprint mechanism with active sprint default scope, sprint start/finish commands, and explicit flags for prior/all
+  │ sprint visibility" --files src/decree/parser.py src/decree/commands/progress.py src/decree/commands/ddd.py src/decree/commands/index.py src/decree/
+  │ index_db.py src/decree/cli.py docs/usage.md docs/index.md
+  └ [intent-check] exit 1: findings present (conflicts, live-session overlaps, or stale governance).
+    Intent check — pre-PR governance map
+    … +53 lines (ctrl + t to view transcript)
+      → resolve_conflict_first: src/decree/index_db.py is governed by SPEC-01KT22NMRX176PCT00SKJ9G2AQ, SPEC-01KT6EEAHKWDQB2Y6S4TTKB77D. Decide which decision is
+    authoritative before implementing.
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Tasarım noktası netleşti: sprint, karar zincirinin yerine geçmemeli; sadece “şu anda hangi iş paketine bakıyoruz?” scope’u olmalı. Aksi halde why/refs/intent-
+  check gibi governance komutları eski ama hâlâ geçerli kararları yanlışlıkla görünmez yapar.
+
+• Updated Plan
+  └ Design assessment complete. No files were changed; next lifecycle work should be PRD → ADR → SPEC before implementation.
+    ✔ DDD: Check decree project state
+    ✔ DDD: Load document state
+    ✔ DDD: Determine phase
+    □ Create PRD for sprint-scoped work tracking
+    □ Record ADR for sprint membership semantics
+    □ Write SPEC for CLI/filter/index changes
+    ✔ Analyze sprint semantics against PRD/ADR/SPEC lifecycle
+    ✔ Propose sprint model, CLI flags, invariants, and edge cases
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Bence sprint’i karar hiyerarşisi değil, çalışma scope’u olarak modellemek lazım.
+
+  Kısa cevap: Evet, bir PRD sprint1’de açılmışken onun SPEC’lerinden biri sprint1’de, sonradan eklenen başka bir SPEC sprint2’de olabilir. Hatta olmalı. PRD ürün
+  niyetidir; sprint ise o niyete ait hangi iş paketinin o dönemde ele alındığını söyler. “PRD sprint1’deyse tüm çocukları sprint1’de olmalı” kuralı ileride seni
+  gereksiz yere kilitler.
+
+  Önerdiğim Model
+
+  - Sprint birinci sınıf lifecycle nesnesi olsun: SPRINT-ULID.
+  - Sprint membership doküman zincirini bozmasın. Yani references: yine PRD → ADR → SPEC karar zinciri için kalsın.
+  - Sprint, iş kapsamı olarak şunu tutsun: “bu sprintte hangi PRD/ADR/SPEC item’ları üzerinde çalışıyoruz?”
+  - En doğru v1 granülarite: doküman seviyesi. Yani sprint item’ı çoğunlukla SPEC olur. PRD/ADR ancak gerçekten o sprintte yazılıyor/inceleniyorsa sprint item’ı
+    olur.
+
+  - Bir SPEC tamamlanmadan sprint kapanırsa iki seçenek var:
+      - aynı SPEC açıkça sprint2’ye taşınır/carry edilir;
+      - veya kalan iş için yeni SPEC açılır ve o sprint2’ye girer.
+
+  Aktif Sprint Kuralı
+
+  - Sprint sistemi etkinse her zaman tam olarak bir aktif sprint olmalı.
+  - “Son aktif sprint” aslında “tek aktif sprint” demek olmalı. Eğer 0 veya 2 aktif sprint varsa komut “en yenisini seçeyim” diye sessiz fallback yapmamalı; fail
+    edip decree sprint status / decree lint ile düzeltme istemeli.
+
+  - decree sprint finish tek başına aktif sprinti kapatamamalı. Ya successor ister:
+      - decree sprint finish --next "Sprint 2"
+      - veya ayrı atomik komut: decree sprint rollover "Sprint 2"
+
+  - decree sprint start "Sprint 2" aktif sprint varsa ya fail etmeli ya da explicit --close-current istemeli. Ben rollover/finish --next modelini daha temiz
+    buluyorum.
+
+  Listeleme Davranışı
+  Default aktif sprint scope’u sadece “iş listesi/progress” yüzeylerine uygulanmalı:
+
+  - decree progress default: aktif sprint
+  - decree ddd default: aktif sprint
+  - yeni bir decree tasks komutu eklenirse default: aktif sprint
+
+  Ama şunlar asla aktif sprint ile daralmamalı:
+
+  - decree lint
+  - decree why
+  - decree refs
+  - decree intent-check
+  - decree intent-review
+  - decree health
+  Çünkü eski sprintteki karar hâlâ bugünkü kodu yönetiyor olabilir. Sprint filtresi governance truth’u gizlerse Decree’nin ana vaadi kırılır.
+
+  Flag Seti
+
+  - --include-context: aktif sprintteki SPEC’lerin parent PRD/ADR zincirini de gösterir
+  - --no-context: sadece sprint item’ları
+  Ben default aktif sprint listesinde context’i göstermeyi öneririm: sprint2’deki SPEC görünürken onun sprint1’de açılmış PRD’si “context” olarak görünmeli, task
+  gibi sayılmamalı.
+
+  PRD/SPEC Sorununun Net Kuralı
+
+  - PRD sprint1’de açılmış olabilir.
+  - SPEC-A sprint1’de yapılabilir.
+  - SPEC-B sonradan çıkıp sprint2’de yapılabilir.
+  - Bu geçerli ve sağlıklı.
+  - PRD’nin sprint1’de olması, SPEC-B’nin sprint2’ye girmesine engel olmamalı.
+  - Listeleme sprint2’de SPEC-B’yi task olarak, PRD’yi ise context olarak göstermeli.
+
+  Repo tarafında da baktım: lint temiz, progress %100. Olası implementasyon parser.py, progress.py, ddd.py, index_db.py, cli.py gibi stale/çoklu-governance
+  alanlarına dokunuyor; bu yüzden önce PRD → ADR → SPEC yazıp sprint membership semantiğini ADR ile sabitlemek doğru olur.
+
+─ Worked for 9m 49s ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+› drift olmamasi icin force etmeliyiz bunu. ne onerirsin? fakat sacma bir vakitte de sprint1 ile alakali is sprint2 ye gecmemeli. ya da emin degilim. dusnelim
+  birlikte
+
+
+• decree-adr karar çerçevesini kullanacağım ama şu aşamada dosya yazmayacağım; önce semantiği netleştirelim, karar olgunlaşınca ADR’ye dökeriz.
+
+• Explored
+  └ Read SKILL.md (decree-adr skill)
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Bence force etmeliyiz, ama force edeceğimiz şey “PRD/SPEC aynı sprintte olsun” değil. Force edeceğimiz şey şu olmalı:
+
+  Her açık işin tek ve açıklanabilir bir lane’i olmalı: active sprint, backlog, carried-over, dropped, done. Unassigned açık iş olmamalı.
+
+  Benim önerim: boundary-only carryover.
+
+  Sprint1’de bir SPEC başladıysa ve bitmediyse, sprint2’ye ancak finish/rollover anında taşınabilsin. Rastgele bir zamanda “bu artık sprint2’de” yapılamasın.
+  Taşıma sırasında reason zorunlu olsun ve sprint1 kapanış kaydında şu görünsün:
+
+  SPEC-X: carried over to SPRINT-2
+  reason: API dependency not ready
+
+  Bu sayede drift olmaz; çünkü sprint1 geçmişi silinmez, sprint2 de “bu iş nereden geldi?” sorusunu taşır.
+
+  Ben üç ayrımı net koyardım:
+
+  1. Aynı PRD altında yeni SPEC
+     Bu normal. PRD sprint1’de yazılmış olabilir, ama sprint2’de yeni bir SPEC eklenebilir. Bu “sprint1 işi sprint2’ye kaydı” değil; aynı product intent altında
+     yeni iş doğdu.
+
+  2. Aynı SPEC’in bitmeden sonraki sprinte geçmesi
+     Bu carryover’dır. Sadece sprint kapanışında/rollover’da, explicit reason ile olmalı.
+
+  3. Kapalı sprintten eski işi aylar sonra tekrar aktif yapmak
+  PRD/ADR = context olabilir, sprintlere kalıcı olarak “ait” değildir.
+  SPEC = yürütülebilir iş birimi; sprint task’ı genelde SPEC’tir.
+
+  Force mekanizmaları:
+      - done
+      - carryover --to SPRINT-2 --reason "..."
+      - drop --reason "..."
+      - defer-to-backlog --reason "..."
+
+  - Kapalı sprint immutable olur. Normal komutlarla item eklenemez/silinemez.
+  - decree lint şunları error yapar:
+      - 0 veya 2+ active sprint
+      - açık/uygulanabilir SPEC’in active sprint veya backlog dışında kalması
+      - kapalı sprintte sonucu olmayan incomplete task
+      - aynı SPEC’in başka sprinte reason/carryover link olmadan geçmesi
+
+  - decree new spec sprint modu aktifse default olarak active sprint’e ekler. Eğer future/backlog için açılıyorsa explicit --backlog --reason gerekir.
+  - decree progress default active sprint’i gösterir; --all-sprints, --sprint ID, --backlog, --corpus ile genişler.
+
+  Ben “sprint1 ile alakalı iş sprint2’ye geçmesin” korkusunu şöyle çözerim: PRD ilişkisi geçme sayılmaz, SPEC kimliği geçme sayılır. Sprint2’de sprint1 PRD’sine
+  bağlı yeni SPEC olabilir. Ama sprint1’de başlamış aynı SPEC sprint2’ye sadece kapanışta carryover olarak geçebilir. Bu hem gerçek hayata uyuyor hem drift’i
+  kapatıyor.
+
+─ Worked for 1m 14s ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+› tamam senaryolari bana listele.
+  bir hata olmasin.
+  briefly anlat.
+
+
+• Aşağıdaki senaryoları force edersek drift riski düşük olur.
+
+  Sprint Lifecycle
+
+  - İlk kurulumda aktif sprint yoksa decree lint error verir.
+  - decree sprint start S2 aktif sprint varken fail eder.
+  - decree sprint rollover S2 aktif sprinti kapatır, S2’yi aktif yapar.
+  - Aynı anda iki aktif sprint varsa lint error verir.
+  - Kapalı sprinte normal komutla task eklenemez.
+
+  Yeni İş
+
+  - decree new spec default olarak aktif sprint’e eklenir.
+  - Sprint dışı SPEC açmak istenirse explicit olmalı: --backlog --reason.
+  - PRD/ADR context olarak sprint listesinde görünebilir ama task sayılmaz.
+  - Asıl sprint task birimi çoğunlukla SPEC’tir.
+
+  PRD Sprint1, SPEC Sprint2
+
+  - PRD sprint1’de yazıldı.
+  - Sprint2’de aynı PRD’ye bağlı yeni SPEC açıldı.
+  - Bu geçerli. Çünkü yeni SPEC yeni iştir, carryover değildir.
+
+  SPEC Carryover
+
+  - SPEC sprint1’de başladı, bitmedi.
+  - Sprint1 kapanırken sadece explicit carryover ile sprint2’ye geçebilir.
+  - Reason zorunlu: blocked by API, scope split, dependency missing.
+  - Sprint1 kapanışında “carried over to S2” kaydı kalır.
+  - Sprint2’de aynı SPEC “carryover” olarak görünür.
+
+  Rastgele Taşıma
+
+  - Sprint ortasında SPEC’i S1’den S2’ye taşımak default fail eder.
+  - Ancak özel override olabilir: move --force --reason, ama bunu mümkünse v1’de koymazdım.
+  - Taşıma sadece rollover sırasında doğal olsun.
+
+  Drop / Defer
+
+  - Sprint kapanırken bitmeyen task için karar zorunlu:
+      - carryover
+      - defer-to-backlog
+      - drop
+
+  - Reason olmadan kapanış fail eder.
+  - Dropped task tekrar açılacaksa yeni SPEC veya explicit reopen gerekir.
+
+  Backlog
+
+  - Backlog aktif sprint değildir.
+  - Açık ama sprint’e alınmamış işler backlog’da durabilir.
+  - Backlog item aktif sprint progress’ine girmez.
+  - Sprint’e alınırken explicit sprint add SPEC-X gerekir.
+
+  Eski Kapalı Sprint
+
+  - Sadece audit/reopen gibi ağır ve gerekçeli komutlarla değişebilir.
+  - Eski sprintteki iş aylar sonra tekrar gündeme gelirse tercihen yeni SPEC açılır.
+
+  - decree progress default aktif sprint’i gösterir.
+  - --sprint S1 belirli sprint’i gösterir.
+  - --all-sprints her sprint’i gösterir.
+  - --backlog backlog’u gösterir.
+  - --corpus eski tüm doküman davranışını verir.
+
+  - why, refs, lint, intent-check, health, index verify sprint filtresinden etkilenmez.
+  - Çünkü eski sprintteki karar hâlâ bugünkü kodu yönetebilir.
+
+  Lint Hataları
+
+  - Aktif sprint yok.
+  - Birden fazla aktif sprint var.
+  - Incomplete sprint task kapanış sonucu olmadan kapalı sprintte kalmış.
+  - Aynı SPEC iki sprintte carryover kaydı olmadan görünüyor.
+  - Açık SPEC ne active sprint’te ne backlog’da.
+  - Kapalı sprinte yeni task eklenmiş.
+
+  Özet kural: PRD context’tir, SPEC iş birimidir. Yeni SPEC başka sprintte olabilir; aynı SPEC başka sprint’e sadece carryover olarak ve reason ile geçebilir.
+
+
+› bir review al, etraflica dusunen bir agenttan.
+
+
+• Bir tasarım review’ı alacağım; özellikle “hangi invariant eksik kalır, hangi lifecycle edge case ileride drift yaratır?” açısından bağımsız bir bakış
+  isteyeceğim.
+
+• Spawned 019f0374-b800-7d41-acc2-91f7305237f7 (gpt-5.5 xhigh)
+  └ Review this proposed sprint mechanism for Decree as a product/architecture design, not implementation. Do not edit files. Be skeptical and look for drift
+  ris...
+
+bu konuda ne dusnuuyorsun?
+
+---
+
+https://github.com/zarazhangrui/frontend-slides bu skilli yukle.
+
+---
+
+sana izin veriyorum. bunu yap.
+
+---
+
+• Handoff dokümanını ekledim:
+
+  docs/plans/2026-06-26-sprint-scoped-execution-handoff.md
+
+  İçinde son kullanıcı açısından şunları anlattım:
+
+  - Sprint mode açılana kadar mevcut kullanıcılar için hiçbir şey değişmemesi
+  - active / paused operating state modeli
+  - Yeni decree sprint ... komut yüzeyi
+  - progress / ddd default scope değişikliği
+  - Tasks, Planning, Context çıktı ayrımı
+  - PRD’nin sprint geçmişinin bağlayıcı olmaması
+  - Aynı SPEC’in sadece carryover ile sprintler arası geçebilmesi
+  - completed outcome için proof gerekliliği
+  - Backlog’un since, source, reason, review_after ile limbo olmaktan çıkarılması
+  - Lint’in yeni hard error / warning davranışları
+  - Governance komutlarının corpus-wide kalması
+  - Migration ve tartışılacak açık kararlar
+
+  Docs-only changelog fragment’i de ekledim:
+  changelog.d/+7bccc664.doc.md
+
+/frontend-slides bunu bana anlat.
+
+---
+
+• Handoff dokümanını ekledim:
+
+  docs/plans/2026-06-26-sprint-scoped-execution-handoff.md
+
+  İçinde son kullanıcı açısından şunları anlattım:
+
+  - Sprint mode açılana kadar mevcut kullanıcılar için hiçbir şey değişmemesi
+  - active / paused operating state modeli
+  - Yeni decree sprint ... komut yüzeyi
+  - progress / ddd default scope değişikliği
+  - Tasks, Planning, Context çıktı ayrımı
+  - PRD’nin sprint geçmişinin bağlayıcı olmaması
+  - Aynı SPEC’in sadece carryover ile sprintler arası geçebilmesi
+  - completed outcome için proof gerekliliği
+  - Backlog’un since, source, reason, review_after ile limbo olmaktan çıkarılması
+  - Lint’in yeni hard error / warning davranışları
+  - Governance komutlarının corpus-wide kalması
+  - Migration ve tartışılacak açık kararlar
+
+  Docs-only changelog fragment’i de ekledim:
+  changelog.d/+7bccc664.doc.md
+
+/frontend-slides bunu bana anlat.
+son kuullanici senaryolarini anlamam lazim
