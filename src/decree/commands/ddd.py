@@ -215,7 +215,7 @@ def _detect_phase_for_chain(chain: Chain) -> tuple[Phase, Suggestion] | None:
                 action="create_spec",
                 description=f"Create a SPEC referencing {adr.id} (and {chain.prd.id if chain.prd else 'the PRD'})",
                 target_id=adr.id,
-                extra={"command": 'decree new spec "<title>"'},
+                extra={"command": 'decree new spec "<title>" --bucket <bucket>'},
             )
 
     # Phase 1: PRD exists, no ADR references it → ARCHITECTURE_DECISIONS
@@ -224,7 +224,7 @@ def _detect_phase_for_chain(chain: Chain) -> tuple[Phase, Suggestion] | None:
             action="create_adr",
             description=f"Create an ADR referencing {chain.prd.id}",
             target_id=chain.prd.id,
-            extra={"command": 'decree new adr "<title>"'},
+            extra={"command": 'decree new adr "<title>" --bucket <bucket>'},
         )
 
     return None
@@ -237,7 +237,7 @@ def _detect_phase(assessment_data: dict, chains: tuple[Chain, ...]) -> tuple[Pha
             Suggestion(
                 action="create_prd",
                 description="Start by defining what you're building — create your first PRD",
-                extra={"command": 'decree new prd "<title>"'},
+                extra={"command": 'decree new prd "<title>" --bucket <bucket>'},
             ),
         )
 
@@ -277,7 +277,7 @@ def _detect_phase(assessment_data: dict, chains: tuple[Chain, ...]) -> tuple[Pha
         Suggestion(
             action="next_feature",
             description="All documents are in terminal-healthy states. Start a new PRD if there's more to build.",
-            extra={"command": 'decree new prd "<title>"'},
+            extra={"command": 'decree new prd "<title>" --bucket <bucket>'},
         ),
     )
 

@@ -41,6 +41,8 @@ def test_parallel_new_creates_unique_canonical_documents(tmp_path: Path, monkeyp
         "from decree.cli import main; raise SystemExit(main())",
         "new",
         "spec",
+        "--bucket",
+        "parallel",
     ]
     env = _subprocess_env()
 
@@ -68,7 +70,7 @@ def test_parallel_new_creates_unique_canonical_documents(tmp_path: Path, monkeyp
     get_project_root.cache_clear()
     load_doc_types.cache_clear()
     doc_type = load_doc_types()[0]
-    files = sorted((tmp_path / "decree" / "spec").glob("*.md"))
+    files = sorted((tmp_path / "decree" / "spec").rglob("*.md"))
     docs = [load(path, doc_type=doc_type) for path in files]
     ids = [doc.doc_id for doc in docs]
 

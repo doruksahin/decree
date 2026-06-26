@@ -94,7 +94,7 @@ def _new_args(**overrides):
         "backlog": False,
         "draft_pool": False,
         "reason": None,
-        "bucket": None,
+        "bucket": "sprint-work",
     }
     data.update(overrides)
     return argparse.Namespace(**data)
@@ -156,7 +156,7 @@ def test_new_spec_defaults_to_active_sprint(tmp_path, monkeypatch) -> None:
     item = ledger.active_sprint.items[0]
     assert item.source == "new"
     assert item.kind == "execution"
-    assert list((tmp_path / "decree" / "spec").glob(f"{item.document.lower()}-*.md"))
+    assert list((tmp_path / "decree" / "spec" / "sprint-work").glob(f"{item.document.lower()}-*.md"))
 
 
 def test_new_spec_bucket_composes_with_active_sprint_default(tmp_path, monkeypatch) -> None:
@@ -180,7 +180,7 @@ def test_new_spec_requires_explicit_destination_when_paused(tmp_path, monkeypatc
     assert sprint.run(argparse.Namespace(sprint_action="pause", reason="summer freeze")) == 0
 
     assert new.run(_new_args(title="Blocked Spec")) == 1
-    assert list((tmp_path / "decree" / "spec").glob("*.md")) == []
+    assert list((tmp_path / "decree" / "spec").rglob("*.md")) == []
 
     assert new.run(_new_args(title="Backlog Spec", backlog=True, reason="not for the paused window")) == 0
     ledger = load_ledger()

@@ -1,0 +1,1108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decree Board</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f5f7;
+      --panel: #ffffff;
+      --panel-muted: #f7f8fa;
+      --column: #f1f2f4;
+      --ink: #17202a;
+      --muted: #626f86;
+      --faint: #8993a4;
+      --line: #dfe1e6;
+      --line-strong: #c7cbd1;
+      --blue: #0c66e4;
+      --blue-soft: #e9f2ff;
+      --green: #216e4e;
+      --green-soft: #dcfff1;
+      --amber: #946f00;
+      --amber-soft: #fff7d6;
+      --red: #ae2a19;
+      --red-soft: #ffebe6;
+      --purple: #5e4db2;
+      --purple-soft: #f3f0ff;
+      --shadow: 0 1px 1px rgba(9, 30, 66, 0.13), 0 0 1px rgba(9, 30, 66, 0.31);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      height: 100%;
+    }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: center;
+      padding: 14px 24px;
+      background: rgba(255, 255, 255, 0.94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .subtle {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .project-line {
+      margin-top: 3px;
+      overflow: hidden;
+      color: var(--muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .project-line code {
+      color: #44546f;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: auto minmax(260px, 360px);
+      gap: 8px;
+      align-items: center;
+    }
+
+    label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    select {
+      min-height: 38px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--panel);
+      padding: 7px 34px 7px 10px;
+      color: var(--ink);
+      font: inherit;
+      box-shadow: var(--shadow);
+    }
+
+    .workspace {
+      min-width: 0;
+      padding: 20px 24px 28px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .board-area {
+      min-width: 0;
+    }
+
+    .sprint-bar {
+      margin-bottom: 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: end;
+    }
+
+    .sprint-title {
+      min-width: 0;
+    }
+
+    .sprint-title h2 {
+      font-size: 18px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .sprint-id {
+      margin-top: 4px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .metrics {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .metric,
+    .pill,
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--muted);
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .metric strong {
+      margin-right: 4px;
+      color: var(--ink);
+    }
+
+    .filters {
+      margin-bottom: 14px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .filter-field {
+      min-width: 0;
+      display: grid;
+      gap: 5px;
+    }
+
+    .filter-field select {
+      width: 100%;
+      min-width: 0;
+      min-height: 34px;
+      box-shadow: none;
+    }
+
+    .board-scroll {
+      min-width: 0;
+      overflow-x: auto;
+      padding-bottom: 12px;
+    }
+
+    .board {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(280px, 320px);
+      gap: 12px;
+      align-items: stretch;
+      min-height: min(650px, calc(100vh - 205px));
+    }
+
+    .column {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 420px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--column);
+      overflow: hidden;
+    }
+
+    .column-head {
+      padding: 10px 10px 8px;
+      border-top: 3px solid var(--faint);
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .column[data-column="planning"] .column-head {
+      border-top-color: var(--purple);
+    }
+
+    .column[data-column="in_progress"] .column-head {
+      border-top-color: var(--blue);
+    }
+
+    .column[data-column="ready"] .column-head,
+    .column[data-column="done"] .column-head {
+      border-top-color: var(--green);
+    }
+
+    .column[data-column="deferred"] .column-head,
+    .column[data-column="carried_over"] .column-head {
+      border-top-color: var(--amber);
+    }
+
+    .column[data-column="dropped"] .column-head,
+    .column[data-column="superseded"] .column-head {
+      border-top-color: var(--red);
+    }
+
+    .column h3 {
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+
+    .count {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .lane {
+      padding: 2px 8px 10px;
+      overflow-y: auto;
+    }
+
+    .work-card {
+      margin-top: 8px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel);
+      padding: 10px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 7px;
+    }
+
+    .type-badge {
+      border-radius: 4px;
+      background: var(--blue-soft);
+      color: var(--blue);
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .status-badge {
+      border-radius: 4px;
+      background: var(--panel-muted);
+      color: var(--muted);
+      padding: 2px 6px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .status-badge[data-status="implemented"],
+    .status-badge[data-status="accepted"],
+    .status-badge[data-status="approved"] {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .status-badge[data-status="draft"],
+    .status-badge[data-status="proposed"],
+    .status-badge[data-status="review"] {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .card-title {
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 750;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .card-id {
+      margin-top: 6px;
+      color: var(--blue);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      min-height: 21px;
+      border-color: transparent;
+      background: var(--panel-muted);
+      color: #44546f;
+      padding: 2px 7px;
+      font-weight: 650;
+    }
+
+    .tag[data-kind="bucket"] {
+      background: var(--purple-soft);
+      color: var(--purple);
+    }
+
+    .tag[data-kind="progress"] {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .tag[data-kind="outcome"] {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .tag[data-kind="risk"] {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .progress {
+      margin-top: 10px;
+      height: 7px;
+      border-radius: 999px;
+      background: #e6e8ec;
+      overflow: hidden;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: var(--blue);
+    }
+
+    details {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    summary {
+      cursor: pointer;
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 66px minmax(0, 1fr);
+      gap: 3px 8px;
+      margin-top: 7px;
+    }
+
+    .kv strong {
+      color: #44546f;
+      font-weight: 700;
+    }
+
+    .kv span {
+      overflow-wrap: anywhere;
+    }
+
+    .empty {
+      margin: 8px 0 0;
+      border: 1px dashed var(--line-strong);
+      border-radius: 6px;
+      color: var(--muted);
+      padding: 12px;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    .rail {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .panel h2 {
+      padding: 12px 12px 8px;
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+
+    .panel-body {
+      padding: 0 12px 12px;
+    }
+
+    .queue-card {
+      border-top: 1px solid var(--line);
+      padding: 10px 0;
+    }
+
+    .queue-card:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .queue-title {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.25;
+    }
+
+    .queue-meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .context-card {
+      border-top: 1px solid var(--line);
+      padding: 10px 0;
+    }
+
+    .context-card:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .context-title {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.25;
+    }
+
+    .context-meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .accountability {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .accountability-stat {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-muted);
+      padding: 8px;
+    }
+
+    .accountability-stat[data-tone="risk"] {
+      border-color: #ffd5cc;
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .accountability-stat strong {
+      display: block;
+      font-size: 16px;
+      line-height: 1.1;
+    }
+
+    .accountability-stat span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .accountability-stat[data-tone="risk"] span {
+      color: var(--red);
+    }
+
+    .outcomes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .outcome-stat {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-muted);
+      padding: 8px;
+    }
+
+    .outcome-stat strong {
+      display: block;
+      font-size: 16px;
+      line-height: 1.1;
+    }
+
+    .outcome-stat span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1180px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .rail {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .topbar,
+      .sprint-bar {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics {
+        justify-content: flex-start;
+      }
+
+      .filters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .workspace {
+        padding: 14px;
+      }
+
+      .board {
+        grid-auto-columns: minmax(260px, 86vw);
+        min-height: 520px;
+      }
+
+      .rail {
+        grid-template-columns: 1fr;
+      }
+
+      .filters {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <script id="decree-data" type="application/json">{{ payload_json | safe }}</script>
+  <div class="shell">
+    <header class="topbar">
+      <div>
+        <h1>Decree Board</h1>
+        <div class="project-line subtle">
+          <span id="generated-at">{{ payload.generated_at }}</span>
+          <span>from</span>
+          <code id="project-root" title="{{ payload.project_root }}">{{ payload.project_root }}</code>
+        </div>
+      </div>
+      <div class="controls">
+        <label for="sprint-select">Sprint</label>
+        <select id="sprint-select"></select>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="board-area">
+        <div class="sprint-bar">
+          <div class="sprint-title" id="sprint-title"></div>
+          <div class="metrics" id="sprint-meta"></div>
+        </div>
+        <div class="filters" id="filters">
+          <div class="filter-field">
+            <label for="bucket-filter">Bucket</label>
+            <select id="bucket-filter"></select>
+          </div>
+          <div class="filter-field">
+            <label for="type-filter">Work type</label>
+            <select id="type-filter"></select>
+          </div>
+          <div class="filter-field">
+            <label for="status-filter">Status</label>
+            <select id="status-filter"></select>
+          </div>
+          <div class="filter-field">
+            <label for="progress-filter">Progress</label>
+            <select id="progress-filter"></select>
+          </div>
+        </div>
+        <div class="board-scroll">
+          <div class="board" id="board"></div>
+        </div>
+      </section>
+
+      <aside class="rail">
+        <section class="panel">
+          <h2>Accountability</h2>
+          <div class="panel-body accountability" id="accountability"></div>
+        </section>
+        <section class="panel">
+          <h2>Related PRDs &amp; ADRs</h2>
+          <div class="panel-body" id="context-docs"></div>
+        </section>
+        <section class="panel">
+          <h2>Backlog</h2>
+          <div class="panel-body" id="backlog"></div>
+        </section>
+        <section class="panel">
+          <h2>Draft pool</h2>
+          <div class="panel-body" id="draft-pool"></div>
+        </section>
+        <section class="panel">
+          <h2>Closed outcomes</h2>
+          <div class="panel-body outcomes" id="outcome-summary"></div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const data = JSON.parse(document.getElementById("decree-data").textContent);
+    const sprintSelect = document.getElementById("sprint-select");
+    const board = document.getElementById("board");
+    const sprintMeta = document.getElementById("sprint-meta");
+    const sprintTitle = document.getElementById("sprint-title");
+    const outcomeSummary = document.getElementById("outcome-summary");
+    const accountability = document.getElementById("accountability");
+    const contextDocs = document.getElementById("context-docs");
+    const filters = {
+      bucket: document.getElementById("bucket-filter"),
+      type: document.getElementById("type-filter"),
+      status: document.getElementById("status-filter"),
+      progress: document.getElementById("progress-filter"),
+    };
+    const docsById = new Map((data.documents || []).map(doc => [doc.id, doc]));
+    const outcomeColumnIds = ["carried_over", "deferred", "dropped", "superseded"];
+
+    function text(value) {
+      return value === null || value === undefined || value === "" ? "none" : String(value);
+    }
+
+    function esc(value) {
+      return text(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function attr(value) {
+      return (value === null || value === undefined ? "" : String(value))
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatDate(value) {
+      if (!value) {
+        return "not set";
+      }
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return text(value);
+      }
+      return parsed.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    function shortRoot(path) {
+      const parts = text(path).split("/").filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : text(path);
+    }
+
+    function bucketLabel(bucket) {
+      return bucket === "." ? "root bucket" : text(bucket);
+    }
+
+    function uniqueSorted(values) {
+      return [...new Set(values.filter(value => value !== null && value !== undefined && value !== ""))]
+        .sort((a, b) => text(a).localeCompare(text(b)));
+    }
+
+    function optionHtml(value, label) {
+      return `<option value="${attr(value)}">${esc(label)}</option>`;
+    }
+
+    function fillSelect(select, allLabel, values, formatter = text) {
+      select.innerHTML = [
+        optionHtml("", allLabel),
+        ...values.map(value => optionHtml(value, formatter(value))),
+      ].join("");
+    }
+
+    function populateFilters() {
+      const docs = data.documents || [];
+      fillSelect(filters.bucket, "All buckets", uniqueSorted(docs.map(doc => doc.bucket)), bucketLabel);
+      fillSelect(filters.type, "All work types", uniqueSorted(docs.map(doc => doc.type)), value => text(value).toUpperCase());
+      fillSelect(filters.status, "All statuses", uniqueSorted(docs.map(doc => doc.status)));
+      filters.progress.innerHTML = [
+        optionHtml("", "All progress"),
+        optionHtml("todo", "Todo"),
+        optionHtml("in_progress", "In progress"),
+        optionHtml("ready", "Ready"),
+        optionHtml("done", "Done"),
+        optionHtml("no_acs", "No ACs"),
+      ].join("");
+    }
+
+    function progressWidth(card) {
+      const percent = card.progress.primary.percent;
+      if (percent === null) {
+        return 0;
+      }
+      return Math.max(0, Math.min(100, percent));
+    }
+
+    function progressText(card) {
+      const progress = card.progress.primary;
+      return progress.total ? `${progress.done}/${progress.total}` : "no ACs";
+    }
+
+    function progressState(card) {
+      const progress = card.progress.primary;
+      if (!progress.total) {
+        return "no_acs";
+      }
+      if (card.outcome && card.outcome.kind === "completed") {
+        return "done";
+      }
+      if (progress.done === progress.total) {
+        return "ready";
+      }
+      if (progress.done > 0) {
+        return "in_progress";
+      }
+      return "todo";
+    }
+
+    function cardMatchesFilters(card) {
+      if (filters.bucket.value && card.doc.bucket !== filters.bucket.value) {
+        return false;
+      }
+      if (filters.type.value && card.doc.type !== filters.type.value) {
+        return false;
+      }
+      if (filters.status.value && card.doc.status !== filters.status.value) {
+        return false;
+      }
+      if (filters.progress.value && progressState(card) !== filters.progress.value) {
+        return false;
+      }
+      return true;
+    }
+
+    function visibleColumns(cards) {
+      return data.columns.filter(column => {
+        if (!outcomeColumnIds.includes(column.id)) {
+          return true;
+        }
+        return cards.some(card => card.column === column.id);
+      });
+    }
+
+    function sprintTotals(cards) {
+      return cards.reduce((totals, card) => {
+        totals.cards += 1;
+        totals.done += card.progress.primary.done;
+        totals.total += card.progress.primary.total;
+        if (card.outcome) {
+          totals.closed += 1;
+        }
+        return totals;
+      }, { cards: 0, done: 0, total: 0, closed: 0 });
+    }
+
+    function addContextId(ids, id, depth = 0) {
+      const doc = docsById.get(id);
+      if (!doc) {
+        return;
+      }
+      if (doc.type === "prd" || doc.type === "adr") {
+        ids.add(id);
+      }
+      if (depth >= 2) {
+        return;
+      }
+      for (const ref of doc.references || []) {
+        addContextId(ids, ref, depth + 1);
+      }
+    }
+
+    function contextForCards(cards) {
+      const ids = new Set();
+      for (const card of cards) {
+        for (const ref of card.doc.references || []) {
+          addContextId(ids, ref);
+        }
+      }
+      if (filters.bucket.value) {
+        for (const doc of data.documents || []) {
+          if ((doc.type === "prd" || doc.type === "adr") && doc.bucket === filters.bucket.value) {
+            ids.add(doc.id);
+          }
+        }
+      }
+      return [...ids]
+        .map(id => docsById.get(id))
+        .filter(Boolean)
+        .sort((a, b) => `${a.type}:${a.title}`.localeCompare(`${b.type}:${b.title}`));
+    }
+
+    function hasContext(card) {
+      return Boolean(card.doc.references && card.doc.references.length);
+    }
+
+    function cardHtml(card) {
+      const doc = card.doc;
+      const references = doc.references && doc.references.length ? doc.references.join(", ") : "none";
+      const outcome = card.outcome ? card.outcome.kind : "open";
+      const source = card.source === "new" ? "created in sprint" : card.source;
+      const contextTag = hasContext(card)
+        ? `<span class="tag">${doc.references.length} refs</span>`
+        : `<span class="tag" data-kind="risk">no context</span>`;
+      return `
+        <article class="work-card">
+          <div class="card-top">
+            <span class="type-badge">${esc(doc.type)}</span>
+            <span class="status-badge" data-status="${esc(doc.status)}">${esc(doc.status)}</span>
+          </div>
+          <h3 class="card-title">${esc(doc.title)}</h3>
+          <div class="card-id">${esc(card.document)}</div>
+          <div class="tags">
+            <span class="tag" data-kind="bucket">${esc(doc.bucket)}</span>
+            <span class="tag">${esc(card.kind)}</span>
+            <span class="tag">${esc(source)}</span>
+            <span class="tag" data-kind="progress">${esc(progressText(card))} primary</span>
+            ${contextTag}
+            ${outcome !== "open" ? `<span class="tag" data-kind="outcome">${esc(outcome)}</span>` : ""}
+          </div>
+          <div class="progress" aria-label="${esc(progressText(card))} primary">
+            <span style="width: ${progressWidth(card)}%"></span>
+          </div>
+          <details>
+            <summary>Details</summary>
+            <div class="kv">
+              <strong>Path</strong><span>${esc(doc.path)}</span>
+              <strong>Refs</strong><span>${esc(references)}</span>
+              <strong>Added</strong><span>${esc(card.added)}</span>
+              <strong>Reason</strong><span>${esc(card.reason)}</span>
+            </div>
+          </details>
+        </article>
+      `;
+    }
+
+    function queueCardHtml(card) {
+      const doc = card.doc;
+      return `
+        <article class="queue-card">
+          <div class="queue-title">${esc(doc.title)}</div>
+          <div class="queue-meta">${esc(card.document)}</div>
+          <div class="queue-meta">${esc(doc.bucket)} / ${esc(card.reason)}</div>
+        </article>
+      `;
+    }
+
+    function contextCardHtml(doc) {
+      const progress = doc.progress && doc.progress.primary;
+      const progressLabel = progress && progress.total ? `${progress.done}/${progress.total} ACs` : "context";
+      return `
+        <article class="context-card">
+          <div class="card-top">
+            <span class="type-badge">${esc(doc.type)}</span>
+            <span class="status-badge" data-status="${esc(doc.status)}">${esc(doc.status)}</span>
+          </div>
+          <div class="context-title">${esc(doc.title)}</div>
+          <div class="context-meta">${esc(doc.id)}</div>
+          <div class="context-meta">${esc(bucketLabel(doc.bucket))} / ${esc(progressLabel)}</div>
+        </article>
+      `;
+    }
+
+    function renderList(targetId, cards) {
+      const target = document.getElementById(targetId);
+      if (!cards.length) {
+        target.innerHTML = `<div class="empty">No items</div>`;
+        return;
+      }
+      target.innerHTML = cards.map(queueCardHtml).join("");
+    }
+
+    function renderQueues() {
+      renderList("backlog", data.backlog.filter(cardMatchesFilters));
+      renderList("draft-pool", data.draft_pool.filter(cardMatchesFilters));
+    }
+
+    function renderContext(docs) {
+      if (!docs.length) {
+        contextDocs.innerHTML = `<div class="empty">No PRD/ADR context</div>`;
+        return;
+      }
+      contextDocs.innerHTML = docs.map(contextCardHtml).join("");
+    }
+
+    function renderAccountability(sprint, visibleCards, contextDocuments) {
+      const noContext = visibleCards.filter(card => !hasContext(card)).length;
+      const rootBucket = visibleCards.filter(card => card.doc.bucket === ".").length;
+      const visibleTotal = `${visibleCards.length}/${sprint.cards.length}`;
+      accountability.innerHTML = `
+        <div class="accountability-stat">
+          <strong>${esc(visibleTotal)}</strong>
+          <span>visible work</span>
+        </div>
+        <div class="accountability-stat">
+          <strong>${contextDocuments.length}</strong>
+          <span>context docs</span>
+        </div>
+        <div class="accountability-stat" data-tone="${noContext ? "risk" : "normal"}">
+          <strong>${noContext}</strong>
+          <span>no context</span>
+        </div>
+        <div class="accountability-stat" data-tone="${rootBucket ? "risk" : "normal"}">
+          <strong>${rootBucket}</strong>
+          <span>root bucket</span>
+        </div>
+      `;
+    }
+
+    function renderOutcomeSummary(cards) {
+      outcomeSummary.innerHTML = outcomeColumnIds.map(columnId => {
+        const column = data.columns.find(item => item.id === columnId);
+        const count = cards ? cards.filter(card => card.column === columnId).length : 0;
+        return `
+          <div class="outcome-stat">
+            <strong>${count}</strong>
+            <span>${esc(column ? column.label : columnId)}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderSprint(sprintId) {
+      const sprint = data.sprints.find(item => item.id === sprintId);
+      if (!sprint) {
+        sprintTitle.innerHTML = `
+          <h2>No sprint selected</h2>
+          <div class="sprint-id">Sprint mode disabled or no sprint records found</div>
+        `;
+        sprintMeta.innerHTML = "";
+        board.innerHTML = `<div class="empty">No sprint items</div>`;
+        renderContext([]);
+        accountability.innerHTML = "";
+        renderOutcomeSummary([]);
+        return;
+      }
+
+      const cards = sprint.cards.filter(cardMatchesFilters);
+      const contextDocuments = contextForCards(cards);
+      const totals = sprintTotals(cards);
+      const percent = totals.total ? Math.round(totals.done / totals.total * 100) : 0;
+      sprintTitle.innerHTML = `
+        <h2>${esc(sprint.name)}</h2>
+        <div class="sprint-id">${esc(sprint.id)}</div>
+      `;
+      sprintMeta.innerHTML = `
+        <span class="metric"><strong>${esc(sprint.status)}</strong> status</span>
+        <span class="metric"><strong>${totals.cards}/${sprint.cards.length}</strong> cards</span>
+        <span class="metric"><strong>${totals.done}/${totals.total}</strong> primary ACs</span>
+        <span class="metric"><strong>${percent}%</strong> progress</span>
+        <span class="metric"><strong>${esc(sprint.started)}</strong> started</span>
+        ${sprint.closed ? `<span class="metric"><strong>${esc(sprint.closed)}</strong> closed</span>` : ""}
+      `;
+
+      board.innerHTML = visibleColumns(cards).map(column => {
+        const columnCards = cards.filter(card => card.column === column.id);
+        const body = columnCards.length ? columnCards.map(cardHtml).join("") : `<div class="empty">No items</div>`;
+        return `
+          <section class="column" data-column="${esc(column.id)}">
+            <div class="column-head">
+              <h3>${esc(column.label)}</h3>
+              <span class="count">${columnCards.length}</span>
+            </div>
+            <div class="lane">${body}</div>
+          </section>
+        `;
+      }).join("");
+      renderContext(contextDocuments);
+      renderAccountability(sprint, cards, contextDocuments);
+      renderOutcomeSummary(cards);
+    }
+
+    function init() {
+      document.getElementById("generated-at").textContent = `Updated ${formatDate(data.generated_at)}`;
+      const root = document.getElementById("project-root");
+      root.textContent = shortRoot(data.project_root);
+      root.title = data.project_root;
+      populateFilters();
+
+      if (!data.sprints.length) {
+        sprintSelect.innerHTML = `<option>No sprints</option>`;
+        sprintSelect.disabled = true;
+        renderSprint(null);
+      } else {
+        sprintSelect.innerHTML = data.sprints
+          .map(sprint => `<option value="${esc(sprint.id)}">${esc(sprint.name)} (${esc(sprint.status)})</option>`)
+          .join("");
+        sprintSelect.value = data.selected_sprint_id || data.sprints[data.sprints.length - 1].id;
+        renderSprint(sprintSelect.value);
+      }
+
+      sprintSelect.addEventListener("change", event => renderSprint(event.target.value));
+      for (const filter of Object.values(filters)) {
+        filter.addEventListener("change", () => {
+          renderSprint(sprintSelect.value);
+          renderQueues();
+        });
+      }
+      renderQueues();
+    }
+
+    init();
+  </script>
+</body>
+</html>

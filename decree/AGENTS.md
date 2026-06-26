@@ -7,7 +7,8 @@ source, not free-form notes.
 
 ## Required Workflow
 
-- Prefer `uv run decree new <type> "Title"` for new documents.
+- Prefer `uv run decree new <type> "Title" --bucket feature-or-concern` for
+  new documents.
 - Prefer `uv run decree status <ID> <action>` for lifecycle transitions.
 - Run `uv run decree lint` after any document change.
 - Run `uv run decree progress --doc <ID>` when checking acceptance criteria.

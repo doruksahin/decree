@@ -64,10 +64,17 @@ def run(args: argparse.Namespace) -> int:
         error(prefix, f"Unknown document type: '{doc_type_name}'")
         return 1
 
+    raw_bucket = getattr(args, "bucket", None)
+    if raw_bucket is None or str(raw_bucket).strip() in ("", "."):
+        error(prefix, "--bucket is required and must name a non-root folder")
+        return 1
     try:
-        bucket = normalize_bucket(getattr(args, "bucket", None))
+        bucket = normalize_bucket(raw_bucket)
     except BucketPathError as e:
         error(prefix, f"invalid --bucket: {e}")
+        return 1
+    if bucket == Path():
+        error(prefix, "--bucket is required and must name a non-root folder")
         return 1
 
     sprint_destination: str | None = None

@@ -135,6 +135,7 @@ class TestDetectPhaseAggregation:
         phase, sugs = _detect_phase({"doc_count": 0}, ())
         assert phase == Phase.IDEATION
         assert len(sugs) == 1
+        assert sugs[0].extra["command"] == 'decree new prd "<title>" --bucket <bucket>'
 
     def test_done_when_all_terminal(self):
         chain = Chain(
@@ -146,8 +147,24 @@ class TestDetectPhaseAggregation:
                 ),
             ),
         )
-        phase, _ = _detect_phase({"doc_count": 3}, (chain,))
+        phase, sugs = _detect_phase({"doc_count": 3}, (chain,))
         assert phase == Phase.DONE
+        assert sugs[0].extra["command"] == 'decree new prd "<title>" --bucket <bucket>'
+
+    def test_create_document_suggestions_include_required_bucket(self):
+        prd_only = Chain(prd=_prd("PRD-00000000000000000000000001", "approved"), adrs=(), specs=())
+        phase, sug = _detect_phase_for_chain(prd_only)
+        assert phase == Phase.ARCHITECTURE_DECISIONS
+        assert sug.extra["command"] == 'decree new adr "<title>" --bucket <bucket>'
+
+        adr_only = Chain(
+            prd=_prd("PRD-00000000000000000000000001", "approved"),
+            adrs=(_adr("ADR-00000000000000000000000001", "accepted", refs=("PRD-00000000000000000000000001",)),),
+            specs=(),
+        )
+        phase, sug = _detect_phase_for_chain(adr_only)
+        assert phase == Phase.TECHNICAL_DESIGN
+        assert sug.extra["command"] == 'decree new spec "<title>" --bucket <bucket>'
 
     def test_implementation_outranks_architecture(self):
         """Across two chains, IMPLEMENTATION suggestions take priority over ARCHITECTURE_DECISIONS."""

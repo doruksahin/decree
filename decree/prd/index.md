@@ -12,5 +12,6 @@
 | PRD-01KT22NMRTFTWFFARAN0PVEETA | Parallel-Safe Document Identity and Scoped Progress | implemented | 2026-06-01 |
 | PRD-01KW1QEZEC1R1BSTZN1SSPPCEJ | Sprint-Scoped Execution Tracking | draft | 2026-06-26 |
 | PRD-01KW1Z5ZYPQGB8E35RWP3CA9R3 | Foldered Document Buckets | draft | 2026-06-26 |
+| PRD-01KW22JY2RQJD7B759ET0BM2NP | HTML Board Export and Required Buckets | draft | 2026-06-26 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

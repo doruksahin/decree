@@ -87,9 +87,9 @@ def _add_references(path, refs):
 
 def _new_doc(tmp_path, doc_type, title):
     type_dir = tmp_path / "docs" / doc_type
-    before = set(type_dir.glob("*.md"))
-    assert new.run(argparse.Namespace(title=title, doc_type=doc_type)) == 0
-    created = sorted(set(type_dir.glob("*.md")) - before)
+    before = set(type_dir.rglob("*.md"))
+    assert new.run(argparse.Namespace(title=title, doc_type=doc_type, bucket="auth-flow")) == 0
+    created = sorted(set(type_dir.rglob("*.md")) - before)
     assert len(created) == 1
     dt = next(t for t in load_doc_types() if t.name == doc_type)
     doc = load(created[0], doc_type=dt)

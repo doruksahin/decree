@@ -57,38 +57,41 @@ Flags:
 Print the installed package version. The value comes from package metadata,
 whose source of truth is `[project].version` in `pyproject.toml`.
 
-### `decree new adr "title"`
+### `decree new adr "title" --bucket path`
 
 Create a new document from template. Generates a local `TYPE-ULID` document ID,
 generates a slug, stamps today's date, and appends required sections from
 `decree.toml`.
 
+`--bucket` is required and must name a non-root physical navigation folder below
+the configured type directory. This keeps new work colocated by feature or
+concern instead of drifting back into the type root.
+
 `decree new` does not regenerate indexes or reports. Run `decree index
 regenerate` explicitly when you want derived markdown tables refreshed.
 
 ```bash
-decree new adr "Use PuLP Solver"
-# creates decree/adr/adr-01kt22nmrv8zfmdkv0wnfngmcj-use-pulp-solver.md
+decree new adr "Use PuLP Solver" --bucket solver
+# creates decree/adr/solver/adr-01kt22nmrv8zfmdkv0wnfngmcj-use-pulp-solver.md
 ```
 
-Use `--bucket` to place a document in a physical navigation folder below its
-configured type directory:
+Nested buckets are allowed:
 
 ```bash
-decree new prd "Sprint Planning" --bucket delivery
-# creates decree/prd/delivery/prd-...-sprint-planning.md
+decree new prd "Sprint Planning" --bucket delivery/planning
+# creates decree/prd/delivery/planning/prd-...-sprint-planning.md
 ```
 
 Buckets are only for navigation. They do not imply references, sprint
 membership, supersession, or `governs:` ownership.
 
-When sprint mode is enabled, `decree new spec "title"` adds the new SPEC to the
-active sprint by default. During a paused sprint period, a new SPEC must be
-placed explicitly:
+When sprint mode is enabled, `decree new spec "title" --bucket path` adds the
+new SPEC to the active sprint by default. During a paused sprint period, a new
+SPEC must be placed explicitly:
 
 ```bash
-decree new spec "Search API" --backlog --reason "not in the freeze window"
-decree new spec "Experimental Parser" --draft-pool --reason "speculative design"
+decree new spec "Search API" --bucket search --backlog --reason "not in the freeze window"
+decree new spec "Experimental Parser" --bucket experiments/parser --draft-pool --reason "speculative design"
 ```
 
 `--bucket` composes with sprint destination flags. A bucketed SPEC still enters
@@ -112,6 +115,21 @@ so related PRDs, ADRs, and SPECs are easier to scan while keeping references as
 the source of truth for relationships. `--bucket PATH` filters to one exact
 bucket. `--json` emits stable records with bucket, type, id, title, status,
 path, references, and checkbox progress.
+
+### `decree generate-html`
+
+Generate a self-contained local HTML board from the current corpus:
+
+```bash
+decree generate-html --output decree-board.html
+decree generate-html --sprint SPRINT-01KW212NVEEDAZF2343KSX6QNM --output /tmp/decree-board.html
+```
+
+This is a read-only PoC. It embeds a `decree.board.v1` payload and renders a
+kanban-style sprint board with document cards, bucket labels, status, sprint
+outcomes, acceptance-criteria progress, filters, and related PRD/ADR context.
+The file can be opened directly in a browser; no server, Astro build, or
+derived index rebuild is required.
 
 ### `decree status ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ accept`
 
@@ -573,7 +591,7 @@ See [Configuration](configuration.md) for all options.
 ### Proposing a decision
 
 ```bash
-decree new adr "Use Redis for caching"
+decree new adr "Use Redis for caching" --bucket caching
 # edit the generated file
 git add decree/adr/
 git commit -m "docs(adr): propose Redis for caching"
@@ -590,7 +608,7 @@ git commit -m "docs(adr): accept Redis caching ADR"
 ### Replacing a decision
 
 ```bash
-decree new adr "Use Valkey instead of Redis"
+decree new adr "Use Valkey instead of Redis" --bucket caching
 decree status ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ supersede ADR-01KT22NMRV9CP14X5982JJH161
 git add decree/adr/
 git commit -m "docs(adr): supersede Redis with Valkey"

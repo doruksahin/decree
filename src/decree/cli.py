@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from decree.commands import graph, index, lint, list_docs, new, progress, sprint, status
+from decree.commands import generate_html, graph, index, lint, list_docs, new, progress, sprint, status
 from decree.log import error as _log_error
 from decree.version import get_version
 
@@ -13,11 +13,12 @@ document chain:
   PRD (what/why) → ADR (how) → SPEC (blueprint) → Implementation
 
 examples:
-  decree new prd "User Authentication"
-  decree new adr "Auth via JWT"
-  decree new spec "Token Storage API"
+  decree new prd "User Authentication" --bucket auth
+  decree new adr "Auth via JWT" --bucket auth
+  decree new spec "Token Storage API" --bucket auth
   decree new prd "Sprint Planning" --bucket delivery
   decree list --tree
+  decree generate-html --output decree-board.html
   decree migrate governs --analyze --json
   decree migrate governs --apply-suggestions suggestions.json --apply --yes
   decree why src/auth/tokens.py
@@ -103,9 +104,10 @@ def main() -> int:
     )
     p_new.add_argument(
         "--bucket",
+        required=True,
         default=None,
         metavar="PATH",
-        help="Write the document under a navigation bucket inside its type directory, e.g. delivery/api.",
+        help="Required: write the document under a non-root navigation bucket, e.g. delivery/api.",
     )
     new_sprint_dest = p_new.add_mutually_exclusive_group()
     new_sprint_dest.add_argument(
@@ -148,6 +150,28 @@ def main() -> int:
         help="Include primary checkbox completion counts in human output.",
     )
     p_list.add_argument("--json", action="store_true", help="Emit stable machine-readable document records.")
+
+    # ── generate-html ───────────────────────────────────────
+    p_generate_html = subparsers.add_parser(
+        "generate-html",
+        help="Generate a self-contained HTML board for decree documents and sprints",
+        description="Write a read-only, self-contained HTML PoC board from the current decree corpus. "
+        "The generated file embeds sprint records, document metadata, buckets, and checkbox progress. "
+        "No server or derived index rebuild is performed.",
+    )
+    p_generate_html.add_argument(
+        "-o",
+        "--output",
+        default="decree-board.html",
+        metavar="PATH",
+        help="HTML file to write (default: decree-board.html at the project root).",
+    )
+    p_generate_html.add_argument(
+        "--sprint",
+        default=None,
+        metavar="SPRINT-ID",
+        help="Sprint selected by default in the generated board. Defaults to the active sprint.",
+    )
 
     # ── status ───────────────────────────────────────────────
     p_status = subparsers.add_parser(
@@ -1078,6 +1102,7 @@ def main() -> int:
         "init": init_cmd.run,
         "status": status.run,
         "list": list_docs.run,
+        "generate-html": generate_html.run,
         "sprint": sprint.run,
         "lint": lint.run,
         "index": _index_dispatch,

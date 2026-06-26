@@ -55,15 +55,16 @@ scaffolding its declared types instead of the default trio. See
 Then create your own documents:
 
 ```bash
-decree new prd "User Authentication"
-decree new adr "Auth via JWT"
-decree new spec "Token Storage API"
+decree new prd "User Authentication" --bucket auth
+decree new adr "Auth via JWT" --bucket auth
+decree new spec "Token Storage API" --bucket auth
 ```
 
 ```
-$ decree new adr "Session Cookies Instead"
+$ decree new adr "Session Cookies Instead" --bucket auth
 [new] type: adr, id: ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ
 [new] slug: session-cookies-instead
+[new] bucket: auth
 ✓ created ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ
 ```
 

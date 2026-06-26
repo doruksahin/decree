@@ -83,7 +83,7 @@ Weigh each finding against the honesty fields above before acting.
 - **Stale decision** → open the decision; either update it to match the code that
   moved on, or confirm it is still correct and leave it.
 - **Ungoverned hotspot** → a hot file with no decision is the natural ADR/SPEC
-  backlog. Write one (`decree new adr …`) and add the file to its `governs:`, or
+  backlog. Write one (`decree new adr … --bucket concern`) and add the file to its `governs:`, or
   consciously accept that it needs none.
 - **Dead governance** → the decision claims a path its commits never touched.
   Either the `governs:` entry is wrong (remove/repoint it) or the work was
