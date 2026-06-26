@@ -35,6 +35,18 @@ def test_new_help():
     )
     assert r.returncode == 0
     assert "title" in r.stdout.lower()
+    assert "--bucket" in r.stdout
+
+
+def test_list_help():
+    r = subprocess.run(
+        [sys.executable, "-m", "decree.cli", "list", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    assert "--tree" in r.stdout
+    assert "--bucket" in r.stdout
 
 
 def test_version_metadata_is_single_sourced_from_pyproject():

@@ -23,6 +23,8 @@ from .config import DATE_FORMAT
 from .doctypes import ADR_DEFAULT
 from .identity import require_doc_id
 
+_GENERATED_DOC_DIRS = frozenset({"reports"})
+
 
 class DocFrontmatter(BaseModel):
     """Validated document frontmatter. Parsed from YAML, not constructed manually."""
@@ -203,15 +205,43 @@ def load(path: Path, doc_type=None) -> DocDocument:
     )
 
 
-def load_all(*, strict: bool = True, doc_type) -> list[DocDocument]:
-    """Load all docs for a single type."""
+def _source_document_paths(type_dir: Path, doc_type, *, doc_id: str | None = None) -> list[Path]:
+    """Return canonical source document paths below a configured type directory."""
+    if not type_dir.exists():
+        return []
+
+    wanted_prefix = f"{doc_id.lower()}-" if doc_id else None
+    paths: list[Path] = []
+    for path in type_dir.rglob("*.md"):
+        rel = path.relative_to(type_dir)
+        if path.name == "index.md":
+            continue
+        if any(part.startswith(".") for part in rel.parts[:-1]):
+            continue
+        if any(part in _GENERATED_DOC_DIRS for part in rel.parts[:-1]):
+            continue
+        if wanted_prefix is not None and not path.name.startswith(wanted_prefix):
+            continue
+        if not doc_type.filename_re.match(path.name):
+            continue
+        paths.append(path)
+    return sorted(paths, key=lambda p: p.relative_to(type_dir).as_posix())
+
+
+def iter_document_paths(*, doc_type) -> list[Path]:
+    """Return canonical source document paths for a configured document type."""
     from .config import get_project_root
-    from .log import error as log_error
 
     type_dir = get_project_root() / doc_type.dir
-    paths = sorted(p for p in type_dir.glob("*.md") if p.name != "index.md")
+    return _source_document_paths(type_dir, doc_type)
+
+
+def load_all(*, strict: bool = True, doc_type) -> list[DocDocument]:
+    """Load all docs for a single type."""
+    from .log import error as log_error
+
     docs = []
-    for p in paths:
+    for p in iter_document_paths(doc_type=doc_type):
         try:
             docs.append(load(p, doc_type=doc_type))
         except Exception as e:
@@ -223,16 +253,12 @@ def load_all(*, strict: bool = True, doc_type) -> list[DocDocument]:
 
 def load_all_types(*, strict: bool = True) -> list[DocDocument]:
     """Load all documents across all configured types."""
-    from .config import get_project_root, load_doc_types
+    from .config import load_doc_types
     from .log import error as log_error
 
     all_docs = []
     for dt in load_doc_types():
-        type_dir = get_project_root() / dt.dir
-        if not type_dir.exists():
-            continue
-        paths = sorted(p for p in type_dir.glob("*.md") if p.name != "index.md")
-        for p in paths:
+        for p in iter_document_paths(doc_type=dt):
             try:
                 all_docs.append(load(p, doc_type=dt))
             except Exception as e:
@@ -248,12 +274,13 @@ def find_by_id(doc_id: str) -> DocDocument:
 
     doc_type = find_doc_type(doc_id)
     type_dir = get_project_root() / doc_type.dir
-    matches = list(type_dir.glob(f"{doc_id.lower()}-*.md"))
+    matches = _source_document_paths(type_dir, doc_type, doc_id=doc_id)
 
     if not matches:
         raise FileNotFoundError(f"{doc_id} not found")
     if len(matches) > 1:
-        raise ValueError(f"Multiple files match {doc_id}: {[m.name for m in matches]}")
+        rels = [str(match.relative_to(type_dir)) for match in matches]
+        raise ValueError(f"Multiple files match {doc_id}: {rels}")
     return load(matches[0], doc_type=doc_type)
 
 

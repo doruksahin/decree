@@ -59,6 +59,18 @@ def test_does_not_generate_index_implicitly(ready_project):
     assert not (ready_project / "index.md").exists()
 
 
+def test_creates_file_in_bucket(ready_project):
+    assert run(argparse.Namespace(doc_type="adr", title="Bucketed Decision", bucket="platform/auth")) == 0
+    files = list((ready_project / "platform" / "auth").glob("adr-*.md"))
+    assert len(files) == 1
+    assert "bucketed-decision" in files[0].name
+
+
+def test_rejects_unsafe_bucket_before_writing(ready_project):
+    assert run(argparse.Namespace(doc_type="adr", title="Unsafe", bucket="../outside")) == 1
+    assert list(ready_project.rglob("adr-*.md")) == []
+
+
 def test_refuses_to_overwrite_existing_document(ready_project, monkeypatch):
     doc_id = "ADR-00000000000000000000000001"
     existing = ready_project / filename_for_doc_id(doc_id, "test")

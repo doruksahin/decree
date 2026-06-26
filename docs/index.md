@@ -33,6 +33,7 @@ Decree is intentionally explicit:
 | Capability | Primary commands | What it is for |
 |------------|------------------|----------------|
 | Document lifecycle | `decree new`, `decree status`, `decree lint` | Create PRDs, ADRs, SPECs, enforce valid status transitions, and validate references. |
+| Document navigation | `decree list`, `decree new --bucket` | Keep PRDs, ADRs, and SPECs in physical concern/feature buckets without changing decision relationships. |
 | Parallel-safe identity | `decree new`, `decree migrate ids` | Generate distributed `TYPE-ULID` IDs and explicitly convert old numeric corpora. |
 | Sprint execution tracking | `decree sprint`, `decree progress --corpus` | Optionally scope active work to a sprint ledger while keeping PRD/ADR/SPEC references as governance truth. |
 | Scoped progress | `decree progress`, `decree ddd` | Track checkbox progress globally, by sprint, or by document, chain, changed files, governed path, backlog, or draft pool. |
@@ -90,7 +91,13 @@ Use this sequence when adding decree to another application.
    decree new prd "Decision Lifecycle"
    decree new adr "Store Decisions in Repo"
    decree new spec "Decision Index"
+   decree list --tree
    ```
+
+   Use `decree new <type> "Title" --bucket feature-or-concern` when related
+   documents should live together physically. Buckets are navigation only:
+   references, supersedes links, sprint membership, and `governs:` remain
+   explicit frontmatter/ledger facts.
 
 4. Optionally enable sprint-scoped execution tracking.
 

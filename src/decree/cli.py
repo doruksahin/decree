@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from decree.commands import graph, index, lint, new, progress, sprint, status
+from decree.commands import graph, index, lint, list_docs, new, progress, sprint, status
 from decree.log import error as _log_error
 from decree.version import get_version
 
@@ -16,6 +16,8 @@ examples:
   decree new prd "User Authentication"
   decree new adr "Auth via JWT"
   decree new spec "Token Storage API"
+  decree new prd "Sprint Planning" --bucket delivery
+  decree list --tree
   decree migrate governs --analyze --json
   decree migrate governs --apply-suggestions suggestions.json --apply --yes
   decree why src/auth/tokens.py
@@ -99,6 +101,12 @@ def main() -> int:
         "title",
         help='Document title (e.g. "Use Redis for caching")',
     )
+    p_new.add_argument(
+        "--bucket",
+        default=None,
+        metavar="PATH",
+        help="Write the document under a navigation bucket inside its type directory, e.g. delivery/api.",
+    )
     new_sprint_dest = p_new.add_mutually_exclusive_group()
     new_sprint_dest.add_argument(
         "--backlog",
@@ -116,6 +124,30 @@ def main() -> int:
         default=None,
         help="Required with --backlog or --draft-pool; explains why the SPEC is not in the active sprint.",
     )
+
+    # ── list ────────────────────────────────────────────────
+    p_list = subparsers.add_parser(
+        "list",
+        help="List documents by configured type or physical bucket",
+        description="Read-only corpus browser. Buckets are physical folders under each configured "
+        "document type directory; they are navigation only and do not imply references, "
+        "sprint membership, supersession, or governance.",
+    )
+    p_list.add_argument(
+        "doc_type",
+        nargs="?",
+        default=None,
+        help="Optional configured document type to list, e.g. prd, adr, or spec.",
+    )
+    p_list.add_argument("--tree", action="store_true", help="Group output by bucket, then type.")
+    p_list.add_argument("--bucket", default=None, metavar="PATH", help="Show only documents in this exact bucket.")
+    p_list.add_argument("--status", default=None, metavar="STATUS", help="Show only documents with this status.")
+    p_list.add_argument(
+        "--with-progress",
+        action="store_true",
+        help="Include primary checkbox completion counts in human output.",
+    )
+    p_list.add_argument("--json", action="store_true", help="Emit stable machine-readable document records.")
 
     # ── status ───────────────────────────────────────────────
     p_status = subparsers.add_parser(
@@ -1045,6 +1077,7 @@ def main() -> int:
         "new": new.run,
         "init": init_cmd.run,
         "status": status.run,
+        "list": list_docs.run,
         "sprint": sprint.run,
         "lint": lint.run,
         "index": _index_dispatch,

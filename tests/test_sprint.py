@@ -94,6 +94,7 @@ def _new_args(**overrides):
         "backlog": False,
         "draft_pool": False,
         "reason": None,
+        "bucket": None,
     }
     data.update(overrides)
     return argparse.Namespace(**data)
@@ -156,6 +157,20 @@ def test_new_spec_defaults_to_active_sprint(tmp_path, monkeypatch) -> None:
     assert item.source == "new"
     assert item.kind == "execution"
     assert list((tmp_path / "decree" / "spec").glob(f"{item.document.lower()}-*.md"))
+
+
+def test_new_spec_bucket_composes_with_active_sprint_default(tmp_path, monkeypatch) -> None:
+    _write_config(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    sprint.run(argparse.Namespace(sprint_action="init", name="Sprint 1"))
+
+    assert new.run(_new_args(bucket="delivery-api")) == 0
+
+    ledger = load_ledger()
+    assert ledger.active_sprint is not None
+    item = ledger.active_sprint.items[0]
+    assert item.source == "new"
+    assert list((tmp_path / "decree" / "spec" / "delivery-api").glob(f"{item.document.lower()}-*.md"))
 
 
 def test_new_spec_requires_explicit_destination_when_paused(tmp_path, monkeypatch) -> None:

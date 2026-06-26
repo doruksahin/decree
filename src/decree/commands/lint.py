@@ -15,7 +15,7 @@ from decree.validators import (
 
 def run(args: argparse.Namespace | None = None) -> int:
     from decree.config import get_project_root, load_doc_types
-    from decree.parser import load
+    from decree.parser import iter_document_paths, load
 
     doc_types = load_doc_types()
     all_docs = []
@@ -27,7 +27,7 @@ def run(args: argparse.Namespace | None = None) -> int:
         type_dir = get_project_root() / dt.dir
         if not type_dir.exists():
             continue
-        paths = sorted(p for p in type_dir.glob("*.md") if p.name != "index.md")
+        paths = iter_document_paths(doc_type=dt)
         total_files += len(paths)
         type_docs = []
 

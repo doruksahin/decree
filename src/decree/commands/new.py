@@ -6,6 +6,7 @@ from pathlib import Path
 
 from slugify import slugify
 
+from decree.buckets import BucketPathError, normalize_bucket
 from decree.config import DATE_FORMAT, SLUG_MAX_LENGTH, load_doc_types
 from decree.identity import filename_for_doc_id, generate_doc_id
 from decree.log import error, info, success
@@ -63,6 +64,12 @@ def run(args: argparse.Namespace) -> int:
         error(prefix, f"Unknown document type: '{doc_type_name}'")
         return 1
 
+    try:
+        bucket = normalize_bucket(getattr(args, "bucket", None))
+    except BucketPathError as e:
+        error(prefix, f"invalid --bucket: {e}")
+        return 1
+
     sprint_destination: str | None = None
     wants_backlog = bool(getattr(args, "backlog", False))
     wants_draft_pool = bool(getattr(args, "draft_pool", False))
@@ -111,9 +118,12 @@ def run(args: argparse.Namespace) -> int:
     from decree.config import get_project_root
 
     type_dir = get_project_root() / doc_type.dir
-    type_dir.mkdir(parents=True, exist_ok=True)
+    write_dir = type_dir / bucket
+    write_dir.mkdir(parents=True, exist_ok=True)
+    if bucket != Path():
+        info(prefix, f"bucket: {bucket.as_posix()}")
 
-    filepath = type_dir / filename_for_doc_id(doc_id, slug)
+    filepath = write_dir / filename_for_doc_id(doc_id, slug)
     try:
         with filepath.open("x") as f:
             f.write(content)

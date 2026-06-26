@@ -11,10 +11,13 @@ from decree.parser import (
     DocFrontmatter,
     find_by_id,
     load,
+    load_all,
     save,
 )
 
 ADR_1 = "ADR-00000000000000000000000001"
+ADR_2 = "ADR-00000000000000000000000002"
+ADR_3 = "ADR-00000000000000000000000003"
 ADR_5 = "ADR-00000000000000000000000005"
 ADR_99 = "ADR-00000000000000000000000099"
 ADR_1_FILE = "adr-00000000000000000000000001-test.md"
@@ -204,6 +207,10 @@ class TestDocDocument:
 
 
 class TestFileIO:
+    def _write_doc(self, path: Path, doc_id: str):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"---\nid: {doc_id}\nstatus: proposed\ndate: 2026-04-02\n---\n\n# {doc_id} Test\n")
+
     def test_roundtrip(self, tmp_path):
         f = tmp_path / ADR_1_FILE
         f.write_text(f"---\nid: {ADR_1}\nstatus: proposed\ndate: 2026-04-02\n---\n\n# {ADR_1} Test\n")
@@ -225,6 +232,35 @@ class TestFileIO:
         f = project_dir / "docs" / "adr" / ADR_1_FILE
         f.write_text(f"---\nid: {ADR_1}\nstatus: proposed\ndate: 2026-04-02\n---\n\n# {ADR_1} Test\n")
         assert find_by_id(ADR_1).doc_id == ADR_1
+
+    def test_load_all_discovers_nested_documents_and_skips_generated_paths(self, project_dir, monkeypatch):
+        monkeypatch.chdir(project_dir)
+        from decree.config import load_doc_types
+
+        doc_type = load_doc_types()[0]
+        type_dir = project_dir / "docs" / "adr"
+        self._write_doc(type_dir / ADR_1_FILE, ADR_1)
+        self._write_doc(type_dir / "platform" / f"{ADR_2.lower()}-nested.md", ADR_2)
+        self._write_doc(type_dir / "reports" / f"{ADR_3.lower()}-report.md", ADR_3)
+        self._write_doc(type_dir / ".hidden" / f"{ADR_5.lower()}-hidden.md", ADR_5)
+        (type_dir / "platform" / "index.md").write_text("# generated\n")
+        (type_dir / "platform" / "notes.md").write_text("# non-canonical\n")
+
+        docs = load_all(doc_type=doc_type)
+
+        assert [doc.doc_id for doc in docs] == [ADR_1, ADR_2]
+        assert docs[1].path.parent.name == "platform"
+
+    def test_find_by_id_resolves_nested_document_and_rejects_duplicates(self, project_dir, monkeypatch):
+        monkeypatch.chdir(project_dir)
+        type_dir = project_dir / "docs" / "adr"
+        self._write_doc(type_dir / "platform" / f"{ADR_5.lower()}-nested.md", ADR_5)
+
+        assert find_by_id(ADR_5).path == type_dir / "platform" / f"{ADR_5.lower()}-nested.md"
+
+        self._write_doc(type_dir / f"{ADR_5.lower()}-root.md", ADR_5)
+        with pytest.raises(ValueError, match="Multiple files match"):
+            find_by_id(ADR_5)
 
     def test_find_by_id_not_found(self, project_dir, monkeypatch):
         monkeypatch.chdir(project_dir)

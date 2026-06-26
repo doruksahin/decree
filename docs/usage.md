@@ -71,6 +71,17 @@ decree new adr "Use PuLP Solver"
 # creates decree/adr/adr-01kt22nmrv8zfmdkv0wnfngmcj-use-pulp-solver.md
 ```
 
+Use `--bucket` to place a document in a physical navigation folder below its
+configured type directory:
+
+```bash
+decree new prd "Sprint Planning" --bucket delivery
+# creates decree/prd/delivery/prd-...-sprint-planning.md
+```
+
+Buckets are only for navigation. They do not imply references, sprint
+membership, supersession, or `governs:` ownership.
+
 When sprint mode is enabled, `decree new spec "title"` adds the new SPEC to the
 active sprint by default. During a paused sprint period, a new SPEC must be
 placed explicitly:
@@ -79,6 +90,28 @@ placed explicitly:
 decree new spec "Search API" --backlog --reason "not in the freeze window"
 decree new spec "Experimental Parser" --draft-pool --reason "speculative design"
 ```
+
+`--bucket` composes with sprint destination flags. A bucketed SPEC still enters
+the active sprint by default while sprint mode is active, or backlog/draft pool
+when those flags are passed.
+
+### `decree list`
+
+Browse the corpus without changing files:
+
+```bash
+decree list
+decree list --tree
+decree list spec --bucket delivery --with-progress
+decree list --status draft
+decree list --json
+```
+
+Default output groups by configured type. `--tree` groups by bucket, then type,
+so related PRDs, ADRs, and SPECs are easier to scan while keeping references as
+the source of truth for relationships. `--bucket PATH` filters to one exact
+bucket. `--json` emits stable records with bucket, type, id, title, status,
+path, references, and checkbox progress.
 
 ### `decree status ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ accept`
 

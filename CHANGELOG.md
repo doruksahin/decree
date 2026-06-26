@@ -4,6 +4,19 @@ All notable changes to Decree are documented here.
 
 <!-- towncrier release notes start -->
 
+## v1.3.0 - 2026-06-26
+
+### Features
+
+- Add foldered document buckets with `decree new --bucket` and the read-only
+  `decree list` browser.
+
+### Documentation
+
+- Document the planned foldered document bucket workflow for organizing PRDs,
+  ADRs, and SPECs by concern without changing decision relationships.
+
+
 ## v1.2.0 - 2026-06-26
 
 ### Features
