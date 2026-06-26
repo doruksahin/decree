@@ -1,0 +1,47 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "d4f4a4f8cb7f",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "decree/adr/adr-01kw1z7gggqmrnn9w1kcdrd70t-physical-folder-buckets-for-document-organization.md",
+    "decree/adr/index.md",
+    "decree/prd/index.md",
+    "decree/prd/prd-01kw1z5zypqgb8e35rwp3ca9r3-foldered-document-buckets.md",
+    "decree/spec/index.md",
+    "decree/spec/reports/SPEC-01KW1Z8TDZ6XZDV0G44KDSB92B.md",
+    "decree/spec/spec-01kw1z8tdz6xzdv0g44kdsb92b-foldered-document-buckets-and-list-cli.md",
+    "decree/sprints/ledger.yaml",
+    "docs/index.md",
+    "docs/usage.md",
+    "pyproject.toml",
+    "src/decree/buckets.py",
+    "src/decree/cli.py",
+    "src/decree/commands/lint.py",
+    "src/decree/commands/list_docs.py",
+    "src/decree/commands/new.py",
+    "src/decree/parser.py",
+    "tests/test_cli.py",
+    "tests/test_index.py",
+    "tests/test_list_docs.py",
+    "tests/test_new.py",
+    "tests/test_parser.py",
+    "tests/test_sprint.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d4/f4a4f8cb7f/0/metadata.json",
+      "transcript": "/d4/f4a4f8cb7f/0/full.jsonl",
+      "content_hash": "/d4/f4a4f8cb7f/0/content_hash.txt",
+      "prompt": "/d4/f4a4f8cb7f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 478931,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 15650304,
+    "output_tokens": 44727,
+    "api_call_count": 123
+  }
+}

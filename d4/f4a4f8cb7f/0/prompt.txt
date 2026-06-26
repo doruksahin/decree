@@ -1,0 +1,35 @@
+tamam commitle ve yeni versiyon cik bunlarla.
+
+---
+
+Bir gelistirme istegimiz daha var
+
+All PRDs are flat, normally, some of them are related, we are connecting them with supersedes etc. however, it would be good to keeping them under colocated buckets, splitting by concerns, features
+
+foldering olayi gelebilir mi?
+
+---
+
+Bir gelistirme istegimiz daha var
+
+All PRDs are flat, normally, some of them are related, we are connecting them with supersedes etc. however, it would be good to keeping them under colocated buckets, splitting by concerns, features
+
+foldering olayi gelebilir mi?
+
+CLI'da da listeledigimizde bu structure bize yardimci olmali. genel olarak.
+dusun.
+
+kullaniciya nasil faydali olur dusun
+
+---
+
+tamam bunun icin de docs decree yazalim
+
+---
+
+Hayir bu efekti esas uygulamada istiyorum.
+bu windowda degil
+
+---
+
+tamam, kullanici nasil feature, ekleyebiliyor?

@@ -1,0 +1,111 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "d4f4a4f8cb7f",
+  "session_id": "019f035c-e33a-7983-94f7-a3e47af5500f",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-26T13:27:06.376653Z",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "save_step_count": 3,
+  "files_touched": [
+    "decree/adr/adr-01kw1z7gggqmrnn9w1kcdrd70t-physical-folder-buckets-for-document-organization.md",
+    "decree/adr/index.md",
+    "decree/prd/index.md",
+    "decree/prd/prd-01kw1z5zypqgb8e35rwp3ca9r3-foldered-document-buckets.md",
+    "decree/spec/index.md",
+    "decree/spec/reports/SPEC-01KW1Z8TDZ6XZDV0G44KDSB92B.md",
+    "decree/spec/spec-01kw1z8tdz6xzdv0g44kdsb92b-foldered-document-buckets-and-list-cli.md",
+    "decree/sprints/ledger.yaml",
+    "docs/index.md",
+    "docs/usage.md",
+    "pyproject.toml",
+    "src/decree/buckets.py",
+    "src/decree/cli.py",
+    "src/decree/commands/lint.py",
+    "src/decree/commands/list_docs.py",
+    "src/decree/commands/new.py",
+    "src/decree/parser.py",
+    "tests/test_cli.py",
+    "tests/test_index.py",
+    "tests/test_list_docs.py",
+    "tests/test_new.py",
+    "tests/test_parser.py",
+    "tests/test_sprint.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "1e9cead1e01a",
+  "checkpoint_transcript_start": 2125,
+  "transcript_lines_at_start": 2125,
+  "token_usage": {
+    "input_tokens": 478931,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 15650304,
+    "output_tokens": 44727,
+    "api_call_count": 123
+  },
+  "session_metrics": {
+    "turn_count": 17
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-26T13:27:06.264112Z",
+    "agent_lines": 916,
+    "agent_removed": 22,
+    "human_added": 14,
+    "human_modified": 1,
+    "human_removed": 0,
+    "total_committed": 931,
+    "total_lines_changed": 954,
+    "agent_percentage": 98.32285115303984,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2438,
+      "agent_lines_removed": 3
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3057,
+      "agent_lines_removed": 24
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3057,
+      "agent_lines_removed": 24
+    }
+  ]
+}
