@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "9f0ab027e986",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 12,
+  "files_touched": [
+    "docs/market-analysis/research-frontiers.md",
+    "pyproject.toml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/9f/0ab027e986/0/metadata.json",
+      "transcript": "/9f/0ab027e986/0/full.jsonl",
+      "content_hash": "/9f/0ab027e986/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 29081,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 6113152,
+    "output_tokens": 6832,
+    "api_call_count": 37
+  }
+}
