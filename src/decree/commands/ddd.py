@@ -332,6 +332,11 @@ def assess(
     chain_id: str | None = None,
     governs_path: str | None = None,
     changed_base: str | None = None,
+    sprint_id: str | None = None,
+    all_sprints: bool = False,
+    backlog: bool = False,
+    draft_pool: bool = False,
+    corpus: bool = False,
 ) -> DDDAssessment:
     """Run the full DDD assessment on the project at `project_path` (or cwd)."""
     if project_path is not None:
@@ -372,12 +377,14 @@ def assess(
     from decree.identity import require_doc_id
 
     docs = load_all_types()
+    progress_docs = docs
     scope = "all documents"
     if doc_id:
         doc_id = require_doc_id(doc_id)
         docs = [d for d in docs if d.doc_id == doc_id]
         if not docs:
             raise ValueError(f"document not found: {doc_id}")
+        progress_docs = docs
         scope = f"doc {doc_id}"
     elif chain_id:
         from decree.commands.progress import _connected_doc_ids
@@ -387,11 +394,13 @@ def assess(
         if not ids:
             raise ValueError(f"chain root not found: {chain_id}")
         docs = [d for d in docs if d.doc_id in ids]
+        progress_docs = docs
         scope = f"chain {chain_id}"
     elif governs_path:
         from decree.commands.progress import _doc_governs_path
 
         docs = [d for d in docs if _doc_governs_path(d, governs_path)]
+        progress_docs = docs
         scope = f"governs {governs_path}"
     elif changed_base:
         from decree.commands.progress import _changed_paths
@@ -406,15 +415,38 @@ def assess(
             if rel in changed_paths:
                 scoped.append(doc)
         docs = scoped
+        progress_docs = docs
         scope = f"changed docs since {changed_base}"
+    else:
+        import argparse
+
+        from decree.sprints import select_sprint_scope
+
+        sprint_scope = select_sprint_scope(
+            docs,
+            argparse.Namespace(
+                sprint=sprint_id,
+                all_sprints=all_sprints,
+                backlog=backlog,
+                draft_pool=draft_pool,
+                corpus=corpus,
+                include_context=True,
+            ),
+            root=root,
+        )
+        if sprint_scope is not None:
+            docs = list(sprint_scope.selected_documents)
+            progress_docs = list(sprint_scope.tasks + sprint_scope.planning)
+            scope = sprint_scope.label
     summaries = [_summarize(d, root) for d in docs]
+    progress_summaries = [_summarize(d, root) for d in progress_docs]
 
     # Aggregate progress
-    completed = sum(s.progress_done for s in summaries)
-    total = sum(s.progress_total for s in summaries)
+    completed = sum(s.progress_done for s in progress_summaries)
+    total = sum(s.progress_total for s in progress_summaries)
     percent = round(completed / total * 100) if total > 0 else 0
-    deferred_completed = sum(s.deferred_done for s in summaries)
-    deferred_total = sum(s.deferred_total for s in summaries)
+    deferred_completed = sum(s.deferred_done for s in progress_summaries)
+    deferred_total = sum(s.deferred_total for s in progress_summaries)
 
     # Doc counts by type
     doc_counts: dict[str, int] = {}
@@ -571,6 +603,11 @@ def run(args: argparse.Namespace) -> int:
             chain_id=getattr(args, "chain", None),
             governs_path=getattr(args, "governs", None),
             changed_base=changed_base,
+            sprint_id=getattr(args, "sprint", None),
+            all_sprints=getattr(args, "all_sprints", False),
+            backlog=getattr(args, "backlog", False),
+            draft_pool=getattr(args, "draft_pool", False),
+            corpus=getattr(args, "corpus", False),
         )
     except Exception as e:
         error("ddd", f"assessment failed: {e}")

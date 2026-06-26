@@ -34,7 +34,8 @@ Decree is intentionally explicit:
 |------------|------------------|----------------|
 | Document lifecycle | `decree new`, `decree status`, `decree lint` | Create PRDs, ADRs, SPECs, enforce valid status transitions, and validate references. |
 | Parallel-safe identity | `decree new`, `decree migrate ids` | Generate distributed `TYPE-ULID` IDs and explicitly convert old numeric corpora. |
-| Scoped progress | `decree progress`, `decree ddd` | Track checkbox progress globally or by document, chain, changed files, or governed path. |
+| Sprint execution tracking | `decree sprint`, `decree progress --corpus` | Optionally scope active work to a sprint ledger while keeping PRD/ADR/SPEC references as governance truth. |
+| Scoped progress | `decree progress`, `decree ddd` | Track checkbox progress globally, by sprint, or by document, chain, changed files, governed path, backlog, or draft pool. |
 | Governed-file lookup | `decree why`, `decree refs` | Ask which decisions govern a file and what depends on a decision. |
 | Index maintenance | `decree index rebuild`, `decree index verify`, `decree index status` | Keep the SQLite query cache synchronized and auditable. |
 | Generated tables and graphs | `decree index regenerate`, `decree graph` | Refresh document tables and Mermaid diagrams from frontmatter. |
@@ -91,14 +92,28 @@ Use this sequence when adding decree to another application.
    decree new spec "Decision Index"
    ```
 
-4. If importing an old numeric corpus, convert it once.
+4. Optionally enable sprint-scoped execution tracking.
+
+   Sprint mode changes task-facing defaults only after the ledger exists:
+
+   ```bash
+   decree sprint init "Sprint 1"
+   decree progress          # active sprint scope
+   decree progress --corpus # whole-corpus scope
+   ```
+
+   New SPECs enter the active sprint by default while sprint mode is active.
+   Use `--backlog --reason` or `--draft-pool --reason` for work that should not
+   be committed to the current sprint.
+
+5. If importing an old numeric corpus, convert it once.
 
    ```bash
    decree migrate ids --dry-run
    decree migrate ids --apply
    ```
 
-5. Add `governs:` coverage.
+6. Add `governs:` coverage.
 
    Do this manually for critical areas. For large existing corpora, generate
    deterministic analysis for an agent/skill, then apply the reviewed
@@ -111,14 +126,14 @@ Use this sequence when adding decree to another application.
    decree migrate governs --apply-suggestions governs-suggestions.json --apply --yes
    ```
 
-6. Build and verify the query cache.
+7. Build and verify the query cache.
 
    ```bash
    decree index rebuild
    decree index verify
    ```
 
-7. Use the governance loop during development.
+8. Use the governance loop during development.
 
    ```bash
    decree why src/foo.py
@@ -128,19 +143,19 @@ Use this sequence when adding decree to another application.
    decree intent-review --diff-base origin/main
    ```
 
-8. Add a changelog fragment for the change.
+9. Add a changelog fragment for the change.
 
    ```bash
    uv run towncrier create +.feature --content "Add governed lookup for auth files."
    ```
 
-9. Wire validation into developer workflow.
+10. Wire validation into developer workflow.
 
    Run `decree lint`, `decree index verify`, tests, and link checks before
    merge. If using pre-commit, keep the lychee and towncrier hooks active so
    markdown links and changelog fragments stay valid.
 
-10. Expose decree to LLM agents only after the corpus is indexed.
+11. Expose decree to LLM agents only after the corpus is indexed.
 
    ```bash
    decree mcp serve --project .

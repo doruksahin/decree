@@ -9,6 +9,14 @@ from slugify import slugify
 from decree.config import DATE_FORMAT, SLUG_MAX_LENGTH, load_doc_types
 from decree.identity import filename_for_doc_id, generate_doc_id
 from decree.log import error, info, success
+from decree.sprints import (
+    SprintLedgerError,
+    add_to_active_sprint,
+    add_to_backlog,
+    add_to_draft_pool,
+    load_ledger,
+    sprint_mode_enabled,
+)
 from decree.template import render_template
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -55,6 +63,38 @@ def run(args: argparse.Namespace) -> int:
         error(prefix, f"Unknown document type: '{doc_type_name}'")
         return 1
 
+    sprint_destination: str | None = None
+    wants_backlog = bool(getattr(args, "backlog", False))
+    wants_draft_pool = bool(getattr(args, "draft_pool", False))
+    reason = getattr(args, "reason", None)
+    if (wants_backlog or wants_draft_pool) and doc_type.name != "spec":
+        error(prefix, "sprint destination flags are supported only for new SPEC documents")
+        return 1
+    if (wants_backlog or wants_draft_pool) and not sprint_mode_enabled():
+        error(prefix, 'sprint mode is not enabled; run `decree sprint init "Sprint 1"` first')
+        return 1
+    if sprint_mode_enabled() and doc_type.name == "spec":
+        try:
+            ledger = load_ledger()
+            if wants_backlog:
+                if not reason:
+                    error(prefix, "--backlog requires --reason")
+                    return 1
+                sprint_destination = "backlog"
+            elif wants_draft_pool:
+                if not reason:
+                    error(prefix, "--draft-pool requires --reason")
+                    return 1
+                sprint_destination = "draft_pool"
+            elif ledger.state == "paused":
+                error(prefix, "sprint mode is paused; pass --backlog or --draft-pool with --reason")
+                return 1
+            else:
+                sprint_destination = "active"
+        except SprintLedgerError as e:
+            error(prefix, str(e))
+            return 1
+
     doc_id = generate_doc_id(doc_type.prefix)
     slug = slugify(title, max_length=SLUG_MAX_LENGTH, word_boundary=True)
     today = date.today().strftime(DATE_FORMAT)
@@ -81,6 +121,21 @@ def run(args: argparse.Namespace) -> int:
         error(prefix, f"refusing to overwrite existing document: {filepath}")
         return 1
     info(prefix, f"wrote {filepath}")
+
+    if sprint_destination:
+        try:
+            if sprint_destination == "active":
+                add_to_active_sprint(doc_id, source="new")
+                info(prefix, f"added {doc_id} to active sprint")
+            elif sprint_destination == "backlog":
+                add_to_backlog(doc_id, reason=reason or "", source="new")
+                info(prefix, f"added {doc_id} to sprint backlog")
+            elif sprint_destination == "draft_pool":
+                add_to_draft_pool(doc_id, reason=reason or "")
+                info(prefix, f"added {doc_id} to sprint draft pool")
+        except SprintLedgerError as e:
+            error(prefix, f"created document but failed to update sprint ledger: {e}")
+            return 1
 
     print(filepath)  # stdout: machine-readable path
     success(f"created {doc_id}")

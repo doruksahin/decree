@@ -71,6 +71,15 @@ decree new adr "Use PuLP Solver"
 # creates decree/adr/adr-01kt22nmrv8zfmdkv0wnfngmcj-use-pulp-solver.md
 ```
 
+When sprint mode is enabled, `decree new spec "title"` adds the new SPEC to the
+active sprint by default. During a paused sprint period, a new SPEC must be
+placed explicitly:
+
+```bash
+decree new spec "Search API" --backlog --reason "not in the freeze window"
+decree new spec "Experimental Parser" --draft-pool --reason "speculative design"
+```
+
 ### `decree status ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ accept`
 
 Transition a proposed ADR to accepted.
@@ -95,6 +104,45 @@ Validate all documents. Per-file checks: frontmatter validity, required sections
 
 Output format: `{filepath}: {message}` — one line per error, machine-parseable.
 
+### `decree sprint`
+
+Enable and manage optional sprint-scoped execution tracking. Sprint mode is off
+until the repository has `decree/sprints/ledger.yaml`, created explicitly by:
+
+```bash
+decree sprint init "Sprint 1"
+```
+
+Once enabled, exactly one active sprint exists unless sprint mode is paused.
+Use backlog or draft pool for work that should not enter the current sprint:
+
+```bash
+decree sprint status
+decree sprint add SPEC-01KT22NMS0D19VMD8VPK4D2MNX
+decree sprint add PRD-01KT22NMRTFTWFFARAN0PVEETA --kind planning
+decree sprint backlog SPEC-01KT22NMS0D19VMD8VPK4D2MNX --reason "not ready for this sprint"
+decree sprint draft-pool SPEC-01KT22NMS0D19VMD8VPK4D2MNX --reason "exploratory"
+decree sprint pause --reason "summer freeze"
+decree sprint resume "Sprint 2"
+```
+
+Close a sprint by providing an outcomes YAML file for every open active item:
+
+```yaml
+outcomes:
+  SPEC-01KT22NMS0D19VMD8VPK4D2MNX:
+    kind: carried_over
+    reason: implementation started late
+```
+
+```bash
+decree sprint rollover "Sprint 2" --outcomes sprint-outcomes.yaml
+```
+
+Completed outcomes are accepted only when the close-time acceptance-criteria
+snapshot is 100% for primary criteria. Carryover is linear to the immediate
+successor sprint and requires a reason.
+
 ### `decree index regenerate`
 
 Regenerate per-type `index.md` markdown tables from frontmatter. Grouped by status.
@@ -117,7 +165,9 @@ is missing, stale, or missing a document. Run `decree index rebuild` to refresh.
 
 ### `decree progress`
 
-Show progress summary across all document types. The output prints its scope.
+Show progress summary across all document types. When sprint mode is enabled
+and active, the default scope is the active sprint's execution/planning items.
+Use `--corpus` to keep the old whole-corpus view. The output prints its scope.
 For parallel work, prefer explicit scope flags:
 
 ```bash
@@ -125,6 +175,12 @@ decree progress --doc SPEC-01KT22NMS0D19VMD8VPK4D2MNX
 decree progress --chain PRD-01KT22NMRTFTWFFARAN0PVEETA
 decree progress --changed --base origin/main
 decree progress --governs src/decree/parser.py
+decree progress --sprint SPRINT-01KT22NMS0D19VMD8VPK4D2MNX
+decree progress --backlog
+decree progress --draft-pool
+decree progress --all-sprints
+decree progress --include-context
+decree progress --corpus
 ```
 
 Progress counts only primary checkbox sections. Deferred/out-of-scope sections
@@ -136,13 +192,17 @@ future scope.
 Assess the current Decree Driven Development phase and print the next action.
 The assessment includes a governance-drift hint — dead and suggested governance
 counts (run `decree health` for detail). Scope it the same way as progress when
-an agent or worktree owns one slice:
+an agent or worktree owns one slice. With active sprint mode, the default scope
+is the active sprint; use `--corpus` to assess every document.
 
 ```bash
 decree ddd --doc SPEC-01KT22NMS0D19VMD8VPK4D2MNX
 decree ddd --chain PRD-01KT22NMRTFTWFFARAN0PVEETA
 decree ddd --changed --base origin/main
 decree ddd --governs src/decree/parser.py
+decree ddd --sprint SPRINT-01KT22NMS0D19VMD8VPK4D2MNX
+decree ddd --backlog
+decree ddd --corpus
 ```
 
 ### `decree report regenerate SPEC-01KT22NMS0KTWGNKB36RR7K0JR`

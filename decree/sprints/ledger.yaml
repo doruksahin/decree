@@ -1,0 +1,16 @@
+schema: decree.sprints.v1
+mode: enabled
+state: active
+active: SPRINT-01KW1XA3P35NA0D34MWWDXYWX6
+sprints:
+- id: SPRINT-01KW1XA3P35NA0D34MWWDXYWX6
+  name: Sprint 1 - Sprint Ledger Adoption
+  status: active
+  started: '2026-06-26'
+  items:
+  - document: SPEC-01KW1QJ27R175NVM8QNGW1FX8N
+    kind: execution
+    source: manual
+    added: '2026-06-26'
+backlog: []
+draft_pool: []

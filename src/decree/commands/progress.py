@@ -9,6 +9,7 @@ from decree.config import get_project_root
 from decree.identity import require_doc_id
 from decree.log import error, info, success
 from decree.parser import load_all_types
+from decree.sprints import SprintLedgerError, SprintScope, select_sprint_scope
 
 
 def _count_checkboxes(body: str) -> tuple[int, int]:
@@ -40,9 +41,9 @@ def _pct(done: int, total: int) -> str:
     return f"{done / total * 100:3.0f}%"
 
 
-def _scope_docs(docs: list, args: argparse.Namespace | None) -> tuple[list, str]:
+def _scope_docs(docs: list, args: argparse.Namespace | None) -> SprintScope:
     if args is None:
-        return docs, "all documents"
+        return SprintScope(label="all documents", all_documents=tuple(docs))
 
     doc_id = getattr(args, "doc", None)
     if doc_id:
@@ -50,7 +51,7 @@ def _scope_docs(docs: list, args: argparse.Namespace | None) -> tuple[list, str]
         selected = [d for d in docs if d.doc_id == doc_id]
         if not selected:
             raise ValueError(f"document not found: {doc_id}")
-        return selected, f"doc {doc_id}"
+        return SprintScope(label=f"doc {doc_id}", all_documents=tuple(selected))
 
     chain_id = getattr(args, "chain", None)
     if chain_id:
@@ -58,12 +59,12 @@ def _scope_docs(docs: list, args: argparse.Namespace | None) -> tuple[list, str]
         ids = _connected_doc_ids(docs, chain_id)
         if not ids:
             raise ValueError(f"chain root not found: {chain_id}")
-        return [d for d in docs if d.doc_id in ids], f"chain {chain_id}"
+        return SprintScope(label=f"chain {chain_id}", all_documents=tuple(d for d in docs if d.doc_id in ids))
 
     governs = getattr(args, "governs", None)
     if governs:
         selected = [d for d in docs if _doc_governs_path(d, governs)]
-        return selected, f"governs {governs}"
+        return SprintScope(label=f"governs {governs}", all_documents=tuple(selected))
 
     if getattr(args, "changed", False):
         base = getattr(args, "base", None)
@@ -79,9 +80,15 @@ def _scope_docs(docs: list, args: argparse.Namespace | None) -> tuple[list, str]
                 rel = str(doc.path)
             if rel in changed_paths:
                 selected.append(doc)
-        return selected, f"changed docs since {base}"
+        return SprintScope(label=f"changed docs since {base}", all_documents=tuple(selected))
 
-    return docs, "all documents"
+    try:
+        sprint_scope = select_sprint_scope(docs, args)
+    except SprintLedgerError as e:
+        raise ValueError(str(e)) from e
+    if sprint_scope is not None:
+        return sprint_scope
+    return SprintScope(label="all documents", all_documents=tuple(docs))
 
 
 def _connected_doc_ids(docs: list, start_id: str) -> set[str]:
@@ -140,7 +147,17 @@ def _changed_paths(base: str) -> set[str]:
     return changed
 
 
-def progress_for_scope(*, doc_id: str | None = None, chain_id: str | None = None) -> dict:
+def progress_for_scope(
+    *,
+    doc_id: str | None = None,
+    chain_id: str | None = None,
+    sprint_id: str | None = None,
+    all_sprints: bool = False,
+    backlog: bool = False,
+    draft_pool: bool = False,
+    corpus: bool = False,
+    include_context: bool = False,
+) -> dict:
     """Structured progress for one doc, a connected chain, or the whole corpus.
 
     Library counterpart of ``decree progress`` with no stdout — used by the MCP
@@ -150,56 +167,52 @@ def progress_for_scope(*, doc_id: str | None = None, chain_id: str | None = None
     mirroring the ``--doc`` / ``--chain`` scoping of the CLI.
 
     Args:
-        doc_id: Restrict to this single document id (wins over ``chain_id``).
+        doc_id: Restrict to this single document id (wins over other scopes).
         chain_id: Restrict to every document transitively connected to this id
             via references / supersedes links.
+        sprint_id: Restrict to one sprint when sprint mode is enabled.
+        all_sprints: Include every sprint item.
+        backlog: Include sprint backlog items.
+        draft_pool: Include draft-pool items.
+        corpus: Force the whole corpus even when sprint mode is enabled.
+        include_context: In sprint scopes, include referenced context documents
+            in the payload without counting them in aggregate task progress.
 
     Returns a JSON-serializable dict. Raises ``ValueError`` if a requested id
     is unknown (callers at the protocol boundary convert that to an error dict).
     """
     docs = load_all_types()
-
-    if doc_id:
-        did = require_doc_id(doc_id)
-        selected = [d for d in docs if d.doc_id == did]
-        if not selected:
-            raise ValueError(f"document not found: {did}")
-        scope_label = f"doc {did}"
-    elif chain_id:
-        cid = require_doc_id(chain_id)
-        ids = _connected_doc_ids(docs, cid)
-        if not ids:
-            raise ValueError(f"chain root not found: {cid}")
-        selected = [d for d in docs if d.doc_id in ids]
-        scope_label = f"chain {cid}"
-    else:
-        selected = docs
-        scope_label = "all documents"
+    args = argparse.Namespace(
+        doc=doc_id,
+        chain=chain_id,
+        sprint=sprint_id,
+        all_sprints=all_sprints,
+        backlog=backlog,
+        draft_pool=draft_pool,
+        corpus=corpus,
+        include_context=include_context,
+        governs=None,
+        changed=False,
+        base=None,
+    )
+    selection = _scope_docs(docs, args)
+    counted = _counted_docs(selection)
 
     documents: list[dict] = []
+    context_documents: list[dict] = []
     primary_done = primary_total = deferred_done = deferred_total = 0
-    for doc in sorted(selected, key=lambda d: d.doc_id):
+    for doc in sorted(counted, key=lambda d: d.doc_id):
         pdone, ptotal, ddone, dtotal = _doc_counts(doc)
         primary_done += pdone
         primary_total += ptotal
         deferred_done += ddone
         deferred_total += dtotal
-        documents.append(
-            {
-                "doc_id": doc.doc_id,
-                "title": doc.title,
-                "status": doc.meta.status,
-                "primary": {
-                    "done": pdone,
-                    "total": ptotal,
-                    "percent": round(pdone / ptotal * 100) if ptotal else None,
-                },
-                "deferred": {"done": ddone, "total": dtotal},
-            }
-        )
+        documents.append(_document_payload(doc, role=_role_for(selection, doc)))
+    for doc in sorted(selection.context, key=lambda d: d.doc_id):
+        context_documents.append(_document_payload(doc, role="context"))
 
     return {
-        "scope": scope_label,
+        "scope": selection.label,
         "document_count": len(documents),
         "primary": {
             "done": primary_done,
@@ -208,7 +221,40 @@ def progress_for_scope(*, doc_id: str | None = None, chain_id: str | None = None
         },
         "deferred": {"done": deferred_done, "total": deferred_total},
         "documents": documents,
+        "context_documents": context_documents,
     }
+
+
+def _document_payload(doc, *, role: str | None = None) -> dict:
+    pdone, ptotal, ddone, dtotal = _doc_counts(doc)
+    payload = {
+        "doc_id": doc.doc_id,
+        "title": doc.title,
+        "status": doc.meta.status,
+        "primary": {
+            "done": pdone,
+            "total": ptotal,
+            "percent": round(pdone / ptotal * 100) if ptotal else None,
+        },
+        "deferred": {"done": ddone, "total": dtotal},
+    }
+    if role:
+        payload["role"] = role
+    return payload
+
+
+def _counted_docs(selection: SprintScope) -> tuple:
+    if selection.all_documents:
+        return selection.all_documents
+    return selection.tasks + selection.planning
+
+
+def _role_for(selection: SprintScope, doc) -> str | None:
+    if selection.all_documents:
+        return None
+    if doc in selection.planning:
+        return "planning"
+    return "task"
 
 
 def run(args: argparse.Namespace | None = None) -> int:
@@ -221,6 +267,12 @@ def run(args: argparse.Namespace | None = None) -> int:
             payload = progress_for_scope(
                 doc_id=getattr(args, "doc", None),
                 chain_id=getattr(args, "chain", None),
+                sprint_id=getattr(args, "sprint", None),
+                all_sprints=getattr(args, "all_sprints", False),
+                backlog=getattr(args, "backlog", False),
+                draft_pool=getattr(args, "draft_pool", False),
+                corpus=getattr(args, "corpus", False),
+                include_context=getattr(args, "include_context", False),
             )
         except ValueError as e:
             error(prefix, str(e))
@@ -231,72 +283,97 @@ def run(args: argparse.Namespace | None = None) -> int:
     try:
         docs = load_all_types()
         info(prefix, f"loaded {len(docs)} documents")
-        docs, scope_label = _scope_docs(docs, args)
+        selection = _scope_docs(docs, args)
     except ValueError as e:
         error(prefix, str(e))
         return 1
     except Exception as e:
         error(prefix, f"failed to load documents: {e}")
         return 1
-    info(prefix, f"scope: {scope_label}")
+    info(prefix, f"scope: {selection.label}")
+    docs = list(selection.selected_documents)
 
     if not docs:
         info(prefix, "no documents found for selected scope")
         success("nothing to report")
         return 0
 
-    # Group by type
-    by_type: dict[str, list] = {}
-    for doc in docs:
-        type_name = doc.doc_type.name if doc.doc_type else "adr"
-        by_type.setdefault(type_name, []).append(doc)
-
     total_done = 0
     total_items = 0
     deferred_done = 0
     deferred_items = 0
-    rows: list[tuple[str, str, str, int, int, int, int]] = []
+    counted_docs = list(_counted_docs(selection))
+    rows_by_group: list[tuple[str | None, list[tuple[str, str, str, int, int, int, int]]]] = []
 
-    for type_name in sorted(by_type):
-        for doc in by_type[type_name]:
+    groups = _display_groups(selection)
+    for group_name, group_docs, counted in groups:
+        rows: list[tuple[str, str, str, int, int, int, int]] = []
+        for doc in group_docs:
             done, total, deferred_d, deferred_t = _doc_counts(doc)
-            total_done += done
-            total_items += total
-            deferred_done += deferred_d
-            deferred_items += deferred_t
+            if counted:
+                total_done += done
+                total_items += total
+                deferred_done += deferred_d
+                deferred_items += deferred_t
             rows.append((doc.doc_id, doc.title, doc.meta.status, done, total, deferred_d, deferred_t))
+        if rows:
+            rows_by_group.append((group_name, rows))
 
     # Calculate column widths
-    id_width = max(len(r[0]) for r in rows)
+    all_rows = [row for _, rows in rows_by_group for row in rows]
+    id_width = max(len(r[0]) for r in all_rows)
     # Strip ID prefix from title for cleaner display
-    title_width = min(max(len(r[1].replace(f"{r[0]} ", "")) for r in rows), 40)
-    status_width = max(len(r[2]) for r in rows)
+    title_width = min(max(len(r[1].replace(f"{r[0]} ", "")) for r in all_rows), 40)
+    status_width = max(len(r[2]) for r in all_rows)
 
     # Print table
-    print(f"Scope: {scope_label}")
+    print(f"Scope: {selection.label}")
     print()
-    for doc_id, title, status, done, total, deferred_d, deferred_t in rows:
-        short_title = title.replace(f"{doc_id} ", "")
-        if len(short_title) > title_width:
-            short_title = short_title[: title_width - 3] + "..."
-        bar = _bar(done, total)
-        pct = _pct(done, total)
-        count = f"({done}/{total} primary)" if total > 0 else ""
-        if deferred_t > 0:
-            count = f"{count}; deferred {deferred_d}/{deferred_t}".lstrip("; ")
-        print(f"  {doc_id:<{id_width}}  {short_title:<{title_width}}  {status:<{status_width}}  {bar} {pct} {count}")
+    for group_name, rows in rows_by_group:
+        if group_name:
+            print(f"{group_name}:")
+        for doc_id, title, status, done, total, deferred_d, deferred_t in rows:
+            short_title = title.replace(f"{doc_id} ", "")
+            if len(short_title) > title_width:
+                short_title = short_title[: title_width - 3] + "..."
+            bar = _bar(done, total)
+            pct = _pct(done, total)
+            count = f"({done}/{total} primary)" if total > 0 else ""
+            if deferred_t > 0:
+                count = f"{count}; deferred {deferred_d}/{deferred_t}".lstrip("; ")
+            print(
+                f"  {doc_id:<{id_width}}  {short_title:<{title_width}}  {status:<{status_width}}  {bar} {pct} {count}"
+            )
+        if group_name:
+            print()
 
     # Summary
     print()
     if total_items > 0:
         overall_pct = total_done / total_items * 100
-        success(f"{total_done}/{total_items} primary items complete ({overall_pct:.0f}%) across {len(docs)} documents")
+        success(
+            f"{total_done}/{total_items} primary items complete "
+            f"({overall_pct:.0f}%) across {len(counted_docs)} documents"
+        )
     else:
-        success(f"{len(docs)} documents, no checkbox items found")
+        success(f"{len(counted_docs)} documents, no checkbox items found")
     if deferred_items > 0:
         info(prefix, f"{deferred_done}/{deferred_items} deferred items separated from primary progress")
 
-    if scope_label == "all documents":
-        info(prefix, "use --doc ID, --chain ID, --changed --base REF, or --governs PATH to narrow parallel work")
+    if selection.label == "all documents":
+        info(
+            prefix,
+            "use --doc ID, --chain ID, --changed --base REF, --governs PATH, or sprint scope flags to narrow work",
+        )
 
     return 0
+
+
+def _display_groups(selection: SprintScope) -> list[tuple[str | None, tuple, bool]]:
+    if selection.all_documents:
+        return [(None, tuple(sorted(selection.all_documents, key=lambda d: d.doc_id)), True)]
+    return [
+        ("Tasks", tuple(sorted(selection.tasks, key=lambda d: d.doc_id)), True),
+        ("Planning", tuple(sorted(selection.planning, key=lambda d: d.doc_id)), True),
+        ("Context", tuple(sorted(selection.context, key=lambda d: d.doc_id)), False),
+    ]

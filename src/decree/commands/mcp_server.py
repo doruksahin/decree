@@ -807,8 +807,17 @@ def intent_check(
 
 
 @mcp.tool()
-def progress(doc_id: str | None = None, chain_id: str | None = None) -> dict:
-    """Acceptance-criteria completion for a decision, a chain, or the whole corpus.
+def progress(
+    doc_id: str | None = None,
+    chain_id: str | None = None,
+    sprint_id: str | None = None,
+    all_sprints: bool = False,
+    backlog: bool = False,
+    draft_pool: bool = False,
+    corpus: bool = False,
+    include_context: bool = False,
+) -> dict:
+    """Acceptance-criteria completion for a decision, chain, sprint, or corpus.
 
     Counts the primary and deferred `- [x]` / `- [ ]` checkboxes a SPEC (or any
     decision) declares, so you can measure *objective* progress instead of
@@ -821,6 +830,13 @@ def progress(doc_id: str | None = None, chain_id: str | None = None) -> dict:
             `SPEC-01KT22NMRWENYKC3MGRA50M7GE`. Wins over `chain_id` if both set.
         chain_id: Restrict to every document transitively connected to this id
             (its PRD → ADR → SPEC chain). Omit both to score the whole corpus.
+        sprint_id: Restrict to one sprint when sprint mode is enabled.
+        all_sprints: Include every sprint item when sprint mode is enabled.
+        backlog: Include sprint backlog items.
+        draft_pool: Include sprint draft-pool items.
+        corpus: Force the whole corpus even when sprint mode is enabled.
+        include_context: In sprint scopes, include referenced context documents
+            separately from task/progress totals.
 
     Returns:
         A dict with the same counts as `decree progress` (no stdout):
@@ -836,6 +852,7 @@ def progress(doc_id: str | None = None, chain_id: str | None = None) -> dict:
                  "deferred": {"done": int, "total": int}},
                 ...
               ],
+              "context_documents": [...],
             }
 
         On an unknown id the response is
@@ -857,7 +874,16 @@ def progress(doc_id: str | None = None, chain_id: str | None = None) -> dict:
     # progress reads documents from disk via the parser (not the SQLite index),
     # so there is no index check — a bad id is the only expected error.
     try:
-        return progress_for_scope(doc_id=doc_id or None, chain_id=chain_id or None)
+        return progress_for_scope(
+            doc_id=doc_id or None,
+            chain_id=chain_id or None,
+            sprint_id=sprint_id or None,
+            all_sprints=all_sprints,
+            backlog=backlog,
+            draft_pool=draft_pool,
+            corpus=corpus,
+            include_context=include_context,
+        )
     except ValueError as e:
         return {"error": str(e), "hint": "Pass a valid TYPE-ULID document id."}
     except Exception as e:  # pragma: no cover - defensive boundary

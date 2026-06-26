@@ -15,6 +15,7 @@ CROCKFORD32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 ULID_PATTERN = r"[0-7][0-9A-HJKMNP-TV-Z]{25}"
 ULID_RE = re.compile(rf"^{ULID_PATTERN}$")
 DOC_ID_RE = re.compile(rf"^(?P<prefix>[A-Z][A-Z0-9]*)-(?P<ulid>{ULID_PATTERN})$")
+SPRINT_ID_RE = re.compile(rf"^SPRINT-(?P<ulid>{ULID_PATTERN})$")
 
 _LOWER_ULID_PATTERN = ULID_PATTERN.lower()
 _DOC_FILENAME_RE = re.compile(rf"^(?P<prefix>[a-z][a-z0-9]*)-(?P<ulid>{_LOWER_ULID_PATTERN})-(?P<slug>.+)\.md$")
@@ -45,10 +46,17 @@ def generate_doc_id(prefix: str) -> str:
     return f"{cleaned}-{generate_ulid()}"
 
 
+def generate_sprint_id() -> str:
+    """Generate a canonical ``SPRINT-ULID`` sprint ID."""
+    return f"SPRINT-{generate_ulid()}"
+
+
 def is_doc_id(value: str, *, prefix: str | None = None) -> bool:
     """Return True when ``value`` is a valid canonical document ID."""
     match = DOC_ID_RE.match(value)
     if not match:
+        return False
+    if match.group("prefix") == "SPRINT":
         return False
     return not (prefix is not None and match.group("prefix") != prefix.upper())
 
@@ -59,6 +67,19 @@ def require_doc_id(value: str, *, prefix: str | None = None) -> str:
     if not is_doc_id(normalized, prefix=prefix):
         expected = f"{prefix.upper()}-ULID" if prefix else "TYPE-ULID"
         raise ValueError(f"Document ID '{value}' must match {expected}")
+    return normalized
+
+
+def is_sprint_id(value: str) -> bool:
+    """Return True when ``value`` is a valid canonical sprint ID."""
+    return bool(SPRINT_ID_RE.match(value))
+
+
+def require_sprint_id(value: str) -> str:
+    """Validate and normalize a sprint ID or raise ``ValueError``."""
+    normalized = value.strip().upper()
+    if not is_sprint_id(normalized):
+        raise ValueError(f"Sprint ID '{value}' must match SPRINT-ULID")
     return normalized
 
 

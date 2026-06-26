@@ -60,6 +60,14 @@ def run(args: argparse.Namespace | None = None) -> int:
     governs_errors = validate_governs_paths(all_docs, get_project_root())
     errors.extend(governs_errors)
 
+    # Optional sprint ledger validation. Sprint mode is disabled until the
+    # ledger exists, so existing projects keep their current lint behavior.
+    from decree.sprints import validate_ledger
+
+    sprint_validation = validate_ledger(get_project_root(), all_docs)
+    errors.extend(f"{e}" for e in sprint_validation.errors)
+    info_lines.extend(f"SPRINT WARNING: {w}" for w in sprint_validation.warnings)
+
     # SPEC-01KT22NMRYNFYM7EN80WS2HD6F coherence gates — opt-in per-type
     doc_types_by_name = {dt.name: dt for dt in doc_types}
     any_coherence_enabled = any(getattr(dt, "coherence", None) is not None for dt in doc_types)

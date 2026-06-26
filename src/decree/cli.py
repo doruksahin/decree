@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from decree.commands import graph, index, lint, new, progress, status
+from decree.commands import graph, index, lint, new, progress, sprint, status
 from decree.log import error as _log_error
 from decree.version import get_version
 
@@ -99,6 +99,23 @@ def main() -> int:
         "title",
         help='Document title (e.g. "Use Redis for caching")',
     )
+    new_sprint_dest = p_new.add_mutually_exclusive_group()
+    new_sprint_dest.add_argument(
+        "--backlog",
+        action="store_true",
+        help="When sprint mode is enabled, put a new SPEC in backlog instead of the active sprint.",
+    )
+    new_sprint_dest.add_argument(
+        "--draft-pool",
+        action="store_true",
+        dest="draft_pool",
+        help="When sprint mode is enabled, put a new SPEC in the draft pool instead of the active sprint.",
+    )
+    p_new.add_argument(
+        "--reason",
+        default=None,
+        help="Required with --backlog or --draft-pool; explains why the SPEC is not in the active sprint.",
+    )
 
     # ── status ───────────────────────────────────────────────
     p_status = subparsers.add_parser(
@@ -122,6 +139,54 @@ def main() -> int:
         nargs="?",
         default=None,
         help="Replacement document ID (required for supersede action only).",
+    )
+
+    # ── sprint ───────────────────────────────────────────────
+    p_sprint = subparsers.add_parser(
+        "sprint",
+        help="Manage sprint-scoped execution tracking",
+        description="Manage the optional sprint ledger at decree/sprints/ledger.yaml. "
+        "Sprint mode is disabled until `decree sprint init` creates the ledger.",
+    )
+    sprint_subs = p_sprint.add_subparsers(dest="sprint_action", required=True)
+
+    p_sprint_init = sprint_subs.add_parser("init", help="Enable sprint mode and create the first active sprint")
+    p_sprint_init.add_argument("name", help='Sprint name, e.g. "Sprint 1"')
+
+    sprint_subs.add_parser("status", help="Show sprint mode state, active sprint, backlog, and draft pool")
+
+    p_sprint_pause = sprint_subs.add_parser("pause", help="Pause sprint mode after active items have outcomes")
+    p_sprint_pause.add_argument("--reason", required=True, help="Why sprint mode is paused")
+
+    p_sprint_resume = sprint_subs.add_parser("resume", help="Resume sprint mode with a new active sprint")
+    p_sprint_resume.add_argument("name", help='New sprint name, e.g. "Sprint 2"')
+
+    p_sprint_add = sprint_subs.add_parser("add", help="Add a document to the active sprint")
+    p_sprint_add.add_argument("document", help="Document ID to add")
+    p_sprint_add.add_argument("--kind", choices=("execution", "planning"), default=None)
+
+    p_sprint_backlog = sprint_subs.add_parser("backlog", help="Add a document to backlog")
+    p_sprint_backlog.add_argument("document", help="Document ID to add")
+    p_sprint_backlog.add_argument("--kind", choices=("execution", "planning"), default=None)
+    p_sprint_backlog.add_argument("--reason", required=True, help="Why this item is not in the active sprint")
+
+    p_sprint_draft = sprint_subs.add_parser(
+        "draft-pool",
+        aliases=("draft",),
+        help="Add a document to the explicit draft pool",
+    )
+    p_sprint_draft.add_argument("document", help="Document ID to add")
+    p_sprint_draft.add_argument("--kind", choices=("execution", "planning"), default=None)
+    p_sprint_draft.add_argument("--reason", required=True, help="Why this item has no sprint commitment")
+
+    p_sprint_rollover = sprint_subs.add_parser("rollover", help="Close the active sprint and create its successor")
+    p_sprint_rollover.add_argument("name", help='Successor sprint name, e.g. "Sprint 2"')
+    p_sprint_rollover.add_argument(
+        "--outcomes",
+        required=True,
+        help=(
+            "YAML file mapping each open active sprint document to completed/carried_over/deferred/dropped/superseded."
+        ),
     )
 
     # ── lint ─────────────────────────────────────────────────
@@ -216,12 +281,26 @@ def main() -> int:
         action="store_true",
         help="Show docs changed relative to --base (requires --base)",
     )
+    progress_scope.add_argument("--sprint", metavar="SPRINT-ID", help="Show progress for one sprint")
+    progress_scope.add_argument("--all-sprints", action="store_true", help="Show progress for all sprint items")
+    progress_scope.add_argument("--backlog", action="store_true", help="Show progress for backlog items")
+    progress_scope.add_argument("--draft-pool", action="store_true", help="Show progress for draft-pool items")
+    progress_scope.add_argument(
+        "--corpus",
+        action="store_true",
+        help="Show the whole corpus even when sprint mode is enabled",
+    )
     p_progress.add_argument("--base", metavar="REF", help="Git base ref for --changed, e.g. origin/main")
+    p_progress.add_argument(
+        "--include-context",
+        action="store_true",
+        help="In sprint scopes, also display referenced PRD/ADR context documents without counting them as tasks.",
+    )
     p_progress.add_argument(
         "--json",
         action="store_true",
         help="Emit structured progress (per-doc + aggregate acceptance-criteria counts) "
-        "as JSON to stdout. Supports --doc / --chain scopes or the whole corpus; stable "
+        "as JSON to stdout. Supports document, chain, sprint, backlog, draft-pool, or corpus scopes; stable "
         "machine contract for external consumers.",
     )
 
@@ -296,6 +375,15 @@ def main() -> int:
         "--changed",
         action="store_true",
         help="Assess docs changed relative to --base (requires --base)",
+    )
+    ddd_scope.add_argument("--sprint", metavar="SPRINT-ID", help="Assess one sprint")
+    ddd_scope.add_argument("--all-sprints", action="store_true", help="Assess all sprint items")
+    ddd_scope.add_argument("--backlog", action="store_true", help="Assess backlog items")
+    ddd_scope.add_argument("--draft-pool", action="store_true", help="Assess draft-pool items")
+    ddd_scope.add_argument(
+        "--corpus",
+        action="store_true",
+        help="Assess the whole corpus even when sprint mode is enabled",
     )
     p_ddd.add_argument("--base", metavar="REF", help="Git base ref for --changed, e.g. origin/main")
 
@@ -957,6 +1045,7 @@ def main() -> int:
         "new": new.run,
         "init": init_cmd.run,
         "status": status.run,
+        "sprint": sprint.run,
         "lint": lint.run,
         "index": _index_dispatch,
         "graph": graph.run,

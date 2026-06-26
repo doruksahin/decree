@@ -1,0 +1,1237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decree Sprint Workflow POC</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-2: #eef1f5;
+      --text: #1f2933;
+      --muted: #627184;
+      --line: #d9dee7;
+      --blue: #2457d6;
+      --blue-soft: #e7edff;
+      --green: #20744a;
+      --green-soft: #e4f3eb;
+      --amber: #9a6200;
+      --amber-soft: #fff2cc;
+      --red: #b42318;
+      --red-soft: #fde8e6;
+      --violet: #6454c0;
+      --violet-soft: #ece9ff;
+      --shadow: 0 12px 28px rgba(31, 41, 51, 0.10);
+      --radius: 8px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      grid-template-rows: 56px minmax(0, 1fr);
+    }
+
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .mark {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--text);
+      color: #fff;
+      font-weight: 750;
+      letter-spacing: 0;
+    }
+
+    .titleblock {
+      min-width: 0;
+    }
+
+    .titleblock h1 {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.2;
+    }
+
+    .titleblock p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .segmented {
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-2);
+    }
+
+    .segmented button {
+      min-width: 78px;
+      height: 32px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .segmented button.active {
+      background: var(--surface);
+      color: var(--blue);
+      box-shadow: 0 1px 4px rgba(31, 41, 51, 0.12);
+    }
+
+    .btn {
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .btn.primary {
+      border-color: var(--blue);
+      background: var(--blue);
+      color: #fff;
+    }
+
+    .btn.icon {
+      width: 36px;
+      padding: 0;
+      font-size: 18px;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: var(--surface);
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .side-section + .side-section {
+      margin-top: 22px;
+    }
+
+    .side-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .sprint-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: var(--surface);
+      box-shadow: 0 1px 0 rgba(31, 41, 51, 0.04);
+    }
+
+    .sprint-card.active {
+      border-color: #b7c7ff;
+      background: var(--blue-soft);
+    }
+
+    .sprint-card + .sprint-card {
+      margin-top: 8px;
+    }
+
+    .sprint-name {
+      font-weight: 750;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .sprint-meta {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .nav-list {
+      display: grid;
+      gap: 6px;
+    }
+
+    .nav-item {
+      border: 0;
+      border-radius: 7px;
+      min-height: 36px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: transparent;
+      color: var(--text);
+      text-align: left;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .nav-item.active,
+    .nav-item:hover {
+      background: var(--surface-2);
+    }
+
+    .count {
+      min-width: 24px;
+      height: 22px;
+      border-radius: 11px;
+      display: inline-grid;
+      place-items: center;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      overflow: hidden;
+    }
+
+    .work {
+      min-width: 0;
+      overflow: auto;
+      padding: 18px;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .page-title h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+
+    .page-title p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      min-height: 74px;
+    }
+
+    .metric .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .metric .value {
+      margin-top: 7px;
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 800;
+    }
+
+    .metric .hint {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.3;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(220px, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .column {
+      min-width: 0;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 10px;
+      min-height: 420px;
+    }
+
+    .column-head {
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .column-head h3 {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .column-count {
+      min-width: 26px;
+      height: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 11px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 12px;
+      box-shadow: 0 1px 0 rgba(31, 41, 51, 0.05);
+      outline: 0;
+    }
+
+    .card + .card {
+      margin-top: 8px;
+    }
+
+    .card.selected {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 2px rgba(36, 87, 214, 0.12);
+    }
+
+    .card-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .card-title {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.35;
+      font-weight: 750;
+    }
+
+    .key {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      border-radius: 11px;
+      padding: 0 8px;
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      max-width: 100%;
+    }
+
+    .pill.blue {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
+    .pill.green {
+      background: var(--green-soft);
+      color: var(--green);
+    }
+
+    .pill.amber {
+      background: var(--amber-soft);
+      color: var(--amber);
+    }
+
+    .pill.red {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .pill.violet {
+      background: var(--violet-soft);
+      color: var(--violet);
+    }
+
+    .progress-line {
+      margin-top: 11px;
+    }
+
+    .progress-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      background: var(--surface-2);
+    }
+
+    .fill {
+      height: 100%;
+      background: var(--blue);
+      border-radius: 4px;
+    }
+
+    .fill.green {
+      background: var(--green);
+    }
+
+    .fill.amber {
+      background: #d39400;
+    }
+
+    .drawer {
+      min-width: 0;
+      border-left: 1px solid var(--line);
+      background: var(--surface);
+      overflow: auto;
+      padding: 18px;
+    }
+
+    .drawer h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.25;
+    }
+
+    .drawer .key {
+      margin-top: 8px;
+      display: block;
+    }
+
+    .drawer-section {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .drawer-section h3 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .field {
+      padding: 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #fafbfc;
+    }
+
+    .field span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .field strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+
+    .link-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .link-card {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px;
+      background: #fafbfc;
+    }
+
+    .link-card strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.3;
+    }
+
+    .link-card span {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 8px;
+    }
+
+    .check {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .box {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 16px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      margin-top: 1px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 11px;
+      background: var(--surface);
+    }
+
+    .box.done {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .drawer-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .notice {
+      border-radius: var(--radius);
+      border: 1px solid var(--amber-soft);
+      background: var(--amber-soft);
+      color: #5f3c00;
+      padding: 10px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(19, 27, 37, 0.42);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 10;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      width: min(920px, 100%);
+      max-height: min(760px, 92vh);
+      overflow: auto;
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--line);
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .modal-head h2 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    .modal-head p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .close {
+      width: 34px;
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 18px;
+    }
+
+    .outcome-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .outcome {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) 190px 220px;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fafbfc;
+    }
+
+    .outcome h3 {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .outcome p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .select,
+    .reason {
+      width: 100%;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 0 10px;
+      font-size: 13px;
+    }
+
+    .reason:disabled {
+      color: var(--muted);
+      background: var(--surface-2);
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-top: 1px solid var(--line);
+      background: #fafbfc;
+    }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      min-width: min(340px, calc(100vw - 36px));
+      padding: 12px 14px;
+      border-radius: var(--radius);
+      background: var(--text);
+      color: #fff;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      line-height: 1.35;
+      display: none;
+      z-index: 11;
+    }
+
+    .toast.show {
+      display: block;
+    }
+
+    @media (max-width: 1100px) {
+      .app {
+        grid-template-columns: 220px minmax(0, 1fr);
+      }
+
+      .main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .drawer {
+        display: none;
+      }
+
+      .board {
+        grid-template-columns: repeat(2, minmax(220px, 1fr));
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto minmax(0, 1fr);
+      }
+
+      .topbar {
+        min-height: 56px;
+        flex-wrap: wrap;
+        padding: 10px 12px;
+      }
+
+      .toolbar {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .segmented {
+        max-width: 100%;
+        overflow: auto;
+      }
+
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 12px;
+      }
+
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .work {
+        padding: 12px;
+      }
+
+      .header-row {
+        flex-direction: column;
+      }
+
+      .summary-strip,
+      .board {
+        grid-template-columns: 1fr;
+      }
+
+      .outcome {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark">D</div>
+        <div class="titleblock">
+          <h1>Decree sprint planning</h1>
+          <p>Active sprint scope with corpus-wide governance</p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="segmented" aria-label="View switcher">
+          <button class="active" data-view="board">Board</button>
+          <button data-view="backlog">Backlog</button>
+          <button data-view="corpus">Corpus</button>
+        </div>
+        <button class="btn" id="pauseBtn">Pause</button>
+        <button class="btn primary" id="closeSprintBtn">Close sprint</button>
+      </div>
+    </header>
+
+    <aside class="sidebar">
+      <section class="side-section">
+        <div class="side-title">Sprints <span class="count">3</span></div>
+        <div class="sprint-card active">
+          <p class="sprint-name">Sprint 7</p>
+          <p class="sprint-meta">Active - 4 execution tasks - closes Jun 30</p>
+        </div>
+        <div class="sprint-card">
+          <p class="sprint-name">Sprint 6</p>
+          <p class="sprint-meta">Closed - 1 carryover - 8 completed</p>
+        </div>
+        <div class="sprint-card">
+          <p class="sprint-name">Paused window</p>
+          <p class="sprint-meta">Jun 1-7 - dependency freeze</p>
+        </div>
+      </section>
+
+      <section class="side-section">
+        <div class="side-title">Queues</div>
+        <div class="nav-list">
+          <button class="nav-item active">Active sprint <span class="count">4</span></button>
+          <button class="nav-item">Backlog <span class="count">6</span></button>
+          <button class="nav-item">Draft pool <span class="count">2</span></button>
+          <button class="nav-item">Closed snapshots <span class="count">18</span></button>
+        </div>
+      </section>
+
+      <section class="side-section">
+        <div class="side-title">Warnings</div>
+        <div class="notice">2 backlog items need review. Oldest item has waited 41 days.</div>
+      </section>
+    </aside>
+
+    <main class="main">
+      <section class="work">
+        <div class="header-row">
+          <div class="page-title">
+            <h2>Sprint 7</h2>
+            <p>Execution work is scoped to this sprint. PRD and ADR links stay as context.</p>
+          </div>
+          <button class="btn" id="addSpecBtn">+ SPEC</button>
+        </div>
+
+        <div class="summary-strip">
+          <div class="metric">
+            <div class="label">Primary ACs</div>
+            <div class="value">61%</div>
+            <div class="hint">34 of 56 complete</div>
+          </div>
+          <div class="metric">
+            <div class="label">Carryover risk</div>
+            <div class="value">2</div>
+            <div class="hint">items below 50%</div>
+          </div>
+          <div class="metric">
+            <div class="label">Backlog review</div>
+            <div class="value">2</div>
+            <div class="hint">aging warnings</div>
+          </div>
+          <div class="metric">
+            <div class="label">Governance</div>
+            <div class="value">Global</div>
+            <div class="hint">why/refs not sprint-filtered</div>
+          </div>
+        </div>
+
+        <div class="board" id="board"></div>
+      </section>
+
+      <aside class="drawer" id="drawer" aria-live="polite"></aside>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modal">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="modalTitle">Close Sprint 7</h2>
+          <p>Every open item needs a valid outcome. Completed is allowed only with 100% primary AC proof.</p>
+        </div>
+        <button class="close" id="modalClose" aria-label="Close">x</button>
+      </div>
+      <div class="modal-body">
+        <div class="outcome-list" id="outcomeList"></div>
+      </div>
+      <div class="modal-footer">
+        <div class="footer-note">This writes a closed-sprint snapshot. Later SPEC edits will not rewrite history.</div>
+        <button class="btn primary" id="rolloverBtn">Create Sprint 8</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const cards = [
+      {
+        id: "SPEC-01KW1QJ",
+        title: "Sprint Ledger CLI and Validation",
+        column: "In Progress",
+        type: "Task",
+        status: "draft",
+        progress: 0,
+        ac: "0/27",
+        context: ["PRD-01KW1QE Sprint-Scoped Execution Tracking", "ADR-01KW1QG Sprint Ledger Semantics"],
+        governance: ["src/decree/commands/progress.py", "src/decree/commands/ddd.py"],
+        checks: [
+          ["Sprint init creates the ledger", false],
+          ["Completed outcome requires 100% primary AC proof", false],
+          ["Progress separates Tasks, Planning, Context", false]
+        ],
+        risk: "Carryover likely unless the ledger parser lands this sprint."
+      },
+      {
+        id: "SPEC-01KW2BR",
+        title: "Active sprint default for progress",
+        column: "Review",
+        type: "Task",
+        status: "approved",
+        progress: 92,
+        ac: "11/12",
+        context: ["PRD-01KW1QE Sprint-Scoped Execution Tracking"],
+        governance: ["src/decree/commands/progress.py", "tests/test_progress.py"],
+        checks: [
+          ["Default active sprint scope", true],
+          ["--corpus keeps old behavior", true],
+          ["MCP parity test", false]
+        ],
+        risk: "One MCP parity test remains."
+      },
+      {
+        id: "SPEC-01KW2C9",
+        title: "Backlog aging warnings",
+        column: "Backlog",
+        type: "Task",
+        status: "draft",
+        progress: 15,
+        ac: "2/13",
+        context: ["PRD-01KW1QE Sprint-Scoped Execution Tracking"],
+        governance: ["src/decree/validators.py", "tests/test_lint.py"],
+        checks: [
+          ["since/source/reason required", true],
+          ["age warning rendered", false],
+          ["JSON warning shape", false]
+        ],
+        risk: "Oldest backlog item is 41 days old.",
+        aging: true
+      },
+      {
+        id: "SPEC-01KW2D1",
+        title: "Paused sprint mode",
+        column: "To Do",
+        type: "Task",
+        status: "draft",
+        progress: 35,
+        ac: "5/14",
+        context: ["ADR-01KW1QG Sprint Ledger Semantics"],
+        governance: ["src/decree/commands/new.py", "src/decree/commands/lint.py"],
+        checks: [
+          ["pause reason stored", true],
+          ["new spec requires backlog or draft-pool", false],
+          ["resume creates next sprint", false]
+        ],
+        risk: "Needs command UX decision."
+      },
+      {
+        id: "PRD-01KW1QE",
+        title: "Sprint-Scoped Execution Tracking",
+        column: "Planning",
+        type: "Planning",
+        status: "draft",
+        progress: 0,
+        ac: "0/10",
+        context: [],
+        governance: ["decree/prd"],
+        checks: [
+          ["Requirements reviewed", false],
+          ["Success criteria accepted", false]
+        ],
+        risk: "Planning item, not execution progress."
+      }
+    ];
+
+    const columns = ["Backlog", "To Do", "In Progress", "Review"];
+    let selectedId = "SPEC-01KW1QJ";
+
+    function pillClass(card) {
+      if (card.aging) return "amber";
+      if (card.type === "Planning") return "violet";
+      if (card.progress === 100) return "green";
+      if (card.progress < 30) return "red";
+      return "blue";
+    }
+
+    function renderBoard() {
+      const board = document.getElementById("board");
+      board.innerHTML = "";
+      columns.forEach((column) => {
+        const columnCards = cards.filter((card) => card.column === column);
+        const el = document.createElement("section");
+        el.className = "column";
+        el.innerHTML = `
+          <div class="column-head">
+            <h3>${column}</h3>
+            <span class="column-count">${columnCards.length}</span>
+          </div>
+        `;
+        columnCards.forEach((card) => el.appendChild(renderCard(card)));
+        board.appendChild(el);
+      });
+    }
+
+    function renderCard(card) {
+      const el = document.createElement("button");
+      el.className = "card" + (card.id === selectedId ? " selected" : "");
+      el.type = "button";
+      el.setAttribute("aria-label", card.title);
+      el.innerHTML = `
+        <div class="card-head">
+          <p class="card-title">${card.title}</p>
+          <span class="key">${card.id}</span>
+        </div>
+        <div class="card-meta">
+          <span class="pill ${pillClass(card)}">${card.type}</span>
+          <span class="pill">${card.status}</span>
+          ${card.aging ? '<span class="pill amber">41d backlog</span>' : ""}
+        </div>
+        <div class="progress-line">
+          <div class="progress-top">
+            <span>Primary ACs</span>
+            <span>${card.ac}</span>
+          </div>
+          <div class="bar">
+            <div class="fill ${card.progress > 80 ? "green" : card.progress < 30 ? "amber" : ""}" style="width: ${card.progress}%"></div>
+          </div>
+        </div>
+      `;
+      el.addEventListener("click", () => {
+        selectedId = card.id;
+        renderBoard();
+        renderDrawer();
+      });
+      return el;
+    }
+
+    function renderDrawer() {
+      const card = cards.find((item) => item.id === selectedId) || cards[0];
+      const drawer = document.getElementById("drawer");
+      drawer.innerHTML = `
+        <h2>${card.title}</h2>
+        <span class="key">${card.id}</span>
+        <div class="card-meta">
+          <span class="pill ${pillClass(card)}">${card.type}</span>
+          <span class="pill">${card.status}</span>
+          <span class="pill blue">${card.ac} primary</span>
+        </div>
+
+        <div class="drawer-section">
+          <h3>Snapshot</h3>
+          <div class="field-grid">
+            <div class="field"><span>Column</span><strong>${card.column}</strong></div>
+            <div class="field"><span>Progress</span><strong>${card.progress}%</strong></div>
+            <div class="field"><span>Outcome</span><strong>${card.progress === 100 ? "completed" : "open"}</strong></div>
+            <div class="field"><span>Scope</span><strong>${card.type === "Planning" ? "planning" : "execution"}</strong></div>
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <h3>Context</h3>
+          <div class="link-row">
+            ${card.context.length ? card.context.map((item) => `<div class="link-card"><strong>${item}</strong><span>Shown as context, not task progress.</span></div>`).join("") : '<div class="notice">No context linked.</div>'}
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <h3>Governance</h3>
+          <div class="link-row">
+            ${card.governance.map((item) => `<div class="link-card"><strong>${item}</strong><span>Checked corpus-wide by why/refs.</span></div>`).join("")}
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <h3>Acceptance Criteria</h3>
+          <div class="checklist">
+            ${card.checks.map(([text, done]) => `<div class="check"><span class="box ${done ? "done" : ""}">${done ? "v" : ""}</span><span>${text}</span></div>`).join("")}
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <h3>Closeout Risk</h3>
+          <div class="notice">${card.risk}</div>
+          <div class="drawer-actions">
+            <button class="btn" data-toast="Moved to backlog with reason required.">Backlog</button>
+            <button class="btn" data-toast="Carryover will require a reason.">Carry over</button>
+          </div>
+        </div>
+      `;
+      drawer.querySelectorAll("[data-toast]").forEach((button) => {
+        button.addEventListener("click", () => showToast(button.dataset.toast));
+      });
+    }
+
+    function renderOutcomes() {
+      const list = document.getElementById("outcomeList");
+      const openCards = cards.filter((card) => card.type === "Task" && card.progress < 100);
+      list.innerHTML = "";
+      openCards.forEach((card) => {
+        const outcome = document.createElement("div");
+        outcome.className = "outcome";
+        const completedDisabled = card.progress < 100 ? "disabled" : "";
+        outcome.innerHTML = `
+          <div>
+            <h3>${card.title}</h3>
+            <p>${card.id} - ${card.ac} primary ACs - completed ${card.progress}%</p>
+          </div>
+          <select class="select" aria-label="Outcome for ${card.id}">
+            <option value="carryover">Carry over</option>
+            <option value="defer">Defer to backlog</option>
+            <option value="drop">Drop</option>
+            <option value="supersede">Supersede</option>
+            <option value="completed" ${completedDisabled}>Completed${completedDisabled ? " unavailable" : ""}</option>
+          </select>
+          <input class="reason" value="${card.progress < 30 ? "scope still forming" : "needs follow-up"}" aria-label="Reason for ${card.id}">
+        `;
+        list.appendChild(outcome);
+      });
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    document.getElementById("closeSprintBtn").addEventListener("click", () => {
+      renderOutcomes();
+      document.getElementById("modal").classList.add("open");
+    });
+
+    document.getElementById("modalClose").addEventListener("click", () => {
+      document.getElementById("modal").classList.remove("open");
+    });
+
+    document.getElementById("rolloverBtn").addEventListener("click", () => {
+      document.getElementById("modal").classList.remove("open");
+      showToast("Sprint 8 created. Open items carried over with reasons.");
+    });
+
+    document.getElementById("pauseBtn").addEventListener("click", () => {
+      showToast("Paused mode requires a reason and blocks default active-sprint assignment.");
+    });
+
+    document.getElementById("addSpecBtn").addEventListener("click", () => {
+      showToast("New SPEC would enter the active sprint unless backlog or draft-pool is selected.");
+    });
+
+    document.querySelectorAll("[data-view]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-view]").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        showToast(`${button.textContent} view selected.`);
+      });
+    });
+
+    renderBoard();
+    renderDrawer();
+  </script>
+</body>
+</html>
