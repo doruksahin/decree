@@ -39,8 +39,8 @@ decree --version
 One command takes a directory from zero to a working corpus:
 
 ```bash
-decree init    # scaffold a canonical decree.toml + type dirs + a worked
-               # PRD→ADR→SPEC chain, gitignore the cache, then build the index
+decree init --with-agents  # scaffold decree and install project-local
+                            # Codex/Claude Code skills
 decree lint    # the scaffolded project lints clean immediately
 ```
 
@@ -48,9 +48,11 @@ decree lint    # the scaffolded project lints clean immediately
 a mutually-consistent worked example chain you can learn from or delete, and adds
 a `.gitignore` rule for the derived `.decree/` cache. It is idempotent —
 re-running never overwrites your files — and respects an existing `decree.toml`,
-scaffolding its declared types instead of the default trio. See
+scaffolding its declared types instead of the default trio. `--with-agents`
+installs reviewable project-local skills under `.codex/skills` and
+`.claude/skills` without installing hooks. See
 [decree init](docs/usage.md#decree-init) for `--dry-run`, `--json`,
-`--no-examples`, and `--project`.
+`--no-examples`, `--with-agents`, and `--project`.
 
 Then create your own documents:
 
@@ -345,18 +347,25 @@ Not limited to PRD/ADR/SPEC — define any document type with its own prefix, st
 
 See [docs/configuration.md](docs/configuration.md) for full schema reference.
 
-## Claude Code Integration
+## Agent Skill Integration
 
-Decree ships as a [Claude Code](https://claude.com/product/claude-code) plugin with skills for AI-assisted document creation:
+Decree ships packaged portable skills for Codex and Claude Code. Install them
+project-locally so the workflow is reviewable by the team:
+
+```bash
+decree init --with-agents
+# or, for an existing decree project:
+decree agents install --target all --scope project
+decree agents status --target all --scope project
+```
+
+Use `--scope user` for personal defaults, `--dry-run` to preview writes, and
+`--hooks` only when you explicitly want the project-local Claude Code stop hook.
+Project-scope installs write to `.codex/skills` and `.claude/skills`.
 
 | Skill | What it does |
 |-------|-------------|
-| `/decree:init` | Scaffold `decree/` folder with working examples |
-| `/decree:prd` | Create a PRD with section guidance and lint validation |
-| `/decree:adr` | Create an ADR with reference discovery across existing docs |
-| `/decree:spec` | Create a SPEC with stale-reference warnings |
-| `/decree:lint` | Validate all documents, create tasks per error found |
-| `/decree:ddd` | Check project state, guide next step in the PRD→ADR→SPEC flow |
+| `decree-ddd` | Check project state, guide next step in the PRD->ADR->SPEC flow |
 | `decree-governs-suggest` | Agent-side `governs:` suggestions from the analyze JSON contract |
 
 ## Live Example: Decree Managing Itself

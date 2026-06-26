@@ -226,6 +226,7 @@ def test_cli_init_help() -> None:
     out = result.stdout + result.stderr
     assert "--dry-run" in out
     assert "--no-examples" in out
+    assert "--with-agents" in out
     assert "--project" in out
 
 
@@ -306,6 +307,43 @@ def test_cli_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
     # But the plan is reported.
     assert "would create" in result.stderr.lower()
+
+
+def test_cli_with_agents_installs_project_skills_without_hooks(tmp_path: Path) -> None:
+    result = _init("--with-agents", cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "decree.toml").exists()
+    assert (tmp_path / ".codex" / "skills" / "decree-ddd" / "SKILL.md").exists()
+    assert (tmp_path / ".codex" / "skills" / "decree-governs-suggest" / "SKILL.md").exists()
+    assert (tmp_path / ".claude" / "skills" / "decree-ddd" / "SKILL.md").exists()
+    assert (tmp_path / ".claude" / "skills" / "decree-governs-suggest" / "SKILL.md").exists()
+    assert not (tmp_path / ".claude" / "settings.json").exists()
+    assert "Agent skills:" in result.stderr
+    assert "installed .codex/skills/decree-ddd/SKILL.md" in result.stderr
+
+
+def test_cli_with_agents_dry_run_writes_nothing(tmp_path: Path) -> None:
+    result = _init("--with-agents", "--dry-run", cwd=tmp_path)
+
+    assert result.returncode == 0
+    assert list(tmp_path.iterdir()) == []
+    assert "would create decree.toml" in result.stderr
+    assert "would install .codex/skills/decree-ddd/SKILL.md" in result.stderr
+    assert "would install .claude/skills/decree-ddd/SKILL.md" in result.stderr
+
+
+def test_cli_with_agents_json_includes_skill_actions(tmp_path: Path) -> None:
+    result = _init("--with-agents", "--json", cwd=tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["summary"]["created"] == 7
+    skill_actions = [action for action in payload["actions"] if action["kind"] == "agent-skill"]
+    assert len(skill_actions) == 4
+    assert {action["action"] for action in skill_actions} == {"installed"}
+    assert any(action["path"].endswith(".codex/skills/decree-ddd/SKILL.md") for action in skill_actions)
+    assert not (tmp_path / ".claude" / "settings.json").exists()
 
 
 def test_cli_partial_only_missing_created(tmp_path: Path) -> None:

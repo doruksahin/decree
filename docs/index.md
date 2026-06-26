@@ -34,7 +34,7 @@ Decree is intentionally explicit:
 |------------|------------------|----------------|
 | Document lifecycle | `decree new`, `decree status`, `decree lint` | Create PRDs, ADRs, SPECs, enforce valid status transitions, and validate references. |
 | Document navigation | `decree list`, `decree new --bucket` | Keep PRDs, ADRs, and SPECs in physical concern/feature buckets without changing decision relationships. |
-| HTML board export | `decree generate-html` | Generate a self-contained read-only sprint kanban board PoC from decree documents and the sprint ledger. |
+| HTML board export | `decree generate-html` | Generate a self-contained read-only sprint kanban board from decree documents and the sprint ledger. |
 | Parallel-safe identity | `decree new`, `decree migrate ids` | Generate distributed `TYPE-ULID` IDs and explicitly convert old numeric corpora. |
 | Sprint execution tracking | `decree sprint`, `decree progress --corpus` | Optionally scope active work to a sprint ledger while keeping PRD/ADR/SPEC references as governance truth. |
 | Scoped progress | `decree progress`, `decree ddd` | Track checkbox progress globally, by sprint, or by document, chain, changed files, governed path, backlog, or draft pool. |
@@ -46,7 +46,7 @@ Decree is intentionally explicit:
 | Pre-code planning guard | `decree intent-check` | Check a plan and planned file list against existing decisions before coding starts; pass other live sessions' files (`--other-active-files`) to flag parallel `live_conflicts`, or `--under <decision>` for advisory `governs_gaps`. |
 | Post-code intent review | `decree intent-review` | Compare a diff against governed decisions before code review; `--under <decision>` adds advisory `governs_gaps`. |
 | Agent-assisted adoption | `decree migrate governs` | Analyze missing `governs:` links and apply explicit external suggestions for an existing decision corpus. |
-| Agent integration | `decree mcp serve`, Claude Code hook/plugin | Expose decree state to LLM agents through task-shaped tools and session-end snapshots. |
+| Agent integration | `decree init --with-agents`, `decree agents install`, `decree mcp serve`, `decree hook install` | Install portable skills for Codex/Claude Code, then expose decree state through task-shaped tools and optional session-end snapshots. |
 | Retrieval evaluation | `decree retrieval-eval` | Measure query quality with labeled data, baselines, and optional calibrated abstention. |
 | Architecture modeling | `decree lint`, `decree graph` with `[types.<name>.c4]` | Validate and render C4 system/container/component relationships. |
 | Package versioning | `decree --version` | Expose the installed package version from `pyproject.toml` metadata. |
@@ -72,8 +72,8 @@ Use this sequence when adding decree to another application.
 2. Scaffold the project with `decree init`.
 
    ```bash
-   decree init   # canonical decree.toml + PRD/ADR/SPEC dirs + worked example
-                 # chain + .gitignore for the cache + built index; lints clean
+   decree init --with-agents  # canonical decree.toml + PRD/ADR/SPEC dirs +
+                              # worked example chain + local agent skills
    decree lint
    ```
 
@@ -81,9 +81,11 @@ Use this sequence when adding decree to another application.
    do not hand-edit config, and adds a `.gitignore` rule for the derived
    `.decree/` cache. It is idempotent and never overwrites existing files; if a
    `decree.toml` already exists it is left unchanged and its declared types are
-   scaffolded instead of the default trio. Use `--no-examples` to skip the
-   seeded chain, or `--dry-run` to preview. See [`decree init`](usage.md#decree-init)
-   and [configuration](configuration.md).
+   scaffolded instead of the default trio. `--with-agents` installs reviewable
+   project-local Codex/Claude Code skills without hooks; omit it when you only
+   want the decree corpus. Use `--no-examples` to skip the seeded chain, or
+   `--dry-run` to preview. See [`decree init`](usage.md#decree-init) and
+   [configuration](configuration.md).
 
 3. Create or import your own documents (the seeded example chain is just a
    starting point — keep it, edit it, or delete it).
@@ -163,11 +165,22 @@ Use this sequence when adding decree to another application.
    merge. If using pre-commit, keep the lychee and towncrier hooks active so
    markdown links and changelog fragments stay valid.
 
-11. Expose decree to LLM agents only after the corpus is indexed.
+11. Install or verify decree skills for local agents.
+
+   ```bash
+   decree agents install --target all --scope project
+   decree agents status --target all --scope project
+   ```
+
+   New projects can usually use `decree init --with-agents` instead. Keep this
+   command for existing decree projects, personal `--scope user` defaults, force
+   updates, or explicit hook setup. Use `--dry-run` to preview writes.
+
+12. Expose decree to LLM agents only after the corpus is indexed.
 
    ```bash
    decree mcp serve --project .
-   decree hook install
+   decree hook install  # optional Claude Code stop hook
    ```
 
 ## LLM Boundary

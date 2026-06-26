@@ -4,6 +4,7 @@
 
 | SPEC | Title | Status | Date |
 |-----|-----|-----|-----|
+| SPEC-01KW2BEQ5J7JWM93K4YAS9GZAB | Agent Skill Install CLI | approved | 2026-06-26 |
 | SPEC-01KT22NMRWENYKC3MGRA50M7GE | C4 Validation and Diagram Generation | implemented | 2026-04-05 |
 | SPEC-01KT22NMRW79Y92MKZT807B2J1 | DDD CLI, Completion Report, and Stop Hook | implemented | 2026-05-12 |
 | SPEC-01KT22NMRX176PCT00SKJ9G2AQ | SQLite Provenance Index — Schema and Sync | implemented | 2026-05-12 |
@@ -27,6 +28,7 @@
 | SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J | Trailer-coverage gate via decree commit-check | implemented | 2026-06-03 |
 | SPEC-01KW1Z8TDZ6XZDV0G44KDSB92B | Foldered Document Buckets and List CLI | implemented | 2026-06-26 |
 | SPEC-01KW1QJ27R175NVM8QNGW1FX8N | Sprint Ledger CLI and Validation | draft | 2026-06-26 |
-| SPEC-01KW22KE3K4J7M2RJYAC110MPH | Required Buckets and Generate HTML PoC | draft | 2026-06-26 |
+| SPEC-01KW22KE3K4J7M2RJYAC110MPH | Required Buckets and Generate HTML Board | draft | 2026-06-26 |
+| SPEC-01KW25D3W2KH097XXDP4EVE1X4 | HTML Board Markdown Overlay | draft | 2026-06-26 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

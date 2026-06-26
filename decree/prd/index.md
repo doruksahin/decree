@@ -5,6 +5,7 @@
 | PRD | Title | Status | Date |
 |-----|-----|-----|-----|
 | PRD-01KT22NMRTAF9581AXC53EHQTW | Real-Corpus Validation Against jira-task-to-md | approved | 2026-05-12 |
+| PRD-01KW2BDXBB3Y6KAW081GPQTVG8 | Agent Skill Install DevX | approved | 2026-06-26 |
 | PRD-01KT22NMRR63TXR7NX5XYRG5FK | C4 Architecture Support | implemented | 2026-04-05 |
 | PRD-01KT22NMRR0BX7KBF0F0N5ER6Z | DDD CLI Command and Proofshot Integration | implemented | 2026-04-30 |
 | PRD-01KT22NMRS4QGHSFDBZ858PP1T | Queryable Decision Provenance Graph | implemented | 2026-05-12 |

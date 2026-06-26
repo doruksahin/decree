@@ -20,11 +20,11 @@ governs:
 - docs/usage.md
 ---
 
-# SPEC-01KW22KE3K4J7M2RJYAC110MPH Required Buckets and Generate HTML PoC
+# SPEC-01KW22KE3K4J7M2RJYAC110MPH Required Buckets and Generate HTML Board
 
 ## Overview
 
-This PoC tightens document creation so every newly generated decree document
+This change tightens document creation so every newly generated decree document
 must declare a non-root bucket, then adds a read-only static HTML board export.
 
 The generated board is an inspection surface, not a source of truth. It reads
@@ -122,12 +122,12 @@ affected CLI tests.
 - [x] The generated HTML can switch between sprint records in the browser.
 - [x] `decree generate-html --sprint SPRINT-ID` selects that sprint by default
   and rejects unknown sprint IDs.
-- [x] Public docs explain required buckets and the PoC status of
-  `generate-html`.
+- [x] Public docs explain required buckets and the static board export behavior
+  of `generate-html`.
 - [x] The generated HTML can filter work by bucket, document type, status, and
   progress while keeping related PRD/ADR context visible.
 
-### Deferred (post-PoC)
+### Deferred
 
 - [ ] Decide whether to replace the Jinja template with Astro.
 - [ ] Add visual regression screenshots for the generated board.

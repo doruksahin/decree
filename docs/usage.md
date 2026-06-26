@@ -18,12 +18,18 @@ It creates, reporting every action with a reason:
   lints clean immediately — learn from it or delete it),
 - a `.gitignore` rule for `.decree/` (the derived index cache is rebuildable and
   should not be committed),
-- a built `.decree/index.sqlite` query cache.
+- a built `.decree/index.sqlite` query cache,
+- with `--with-agents`, packaged Codex and Claude Code skills under
+  `.codex/skills/<name>/SKILL.md` and `.claude/skills/<name>/SKILL.md`.
 
 ```bash
-decree init
+decree init --with-agents
 decree lint   # the scaffolded project lints clean immediately
 ```
+
+Use plain `decree init` when you only want the decree corpus. Add
+`--with-agents` when Codex or Claude Code should get project-local decree skills
+as part of the same bootstrap.
 
 **Idempotent.** Re-running never overwrites your files: anything already
 present is left untouched and reported as skipped with a reason. The only file
@@ -50,6 +56,9 @@ Flags:
   that counts only real corpus file/dir creations — not the `.gitignore` or the
   index).
 - `--no-examples` — scaffold the config and directories but seed no example docs.
+- `--with-agents` — also install packaged Codex and Claude Code skills into the
+  project. This never installs hooks; use `decree agents install --hooks`
+  explicitly for the Claude Code stop hook.
 - `--project DIR` — target another directory instead of the current one.
 
 ### `decree --version`
@@ -125,11 +134,53 @@ decree generate-html --output decree-board.html
 decree generate-html --sprint SPRINT-01KW212NVEEDAZF2343KSX6QNM --output /tmp/decree-board.html
 ```
 
-This is a read-only PoC. It embeds a `decree.board.v1` payload and renders a
-kanban-style sprint board with document cards, bucket labels, status, sprint
-outcomes, acceptance-criteria progress, filters, and related PRD/ADR context.
-The file can be opened directly in a browser; no server, Astro build, or
-derived index rebuild is required.
+This is a read-only static board export. It embeds a `decree.board.v1` payload
+and renders a kanban-style sprint board with document cards, bucket labels,
+status, sprint outcomes, acceptance-criteria progress, filters, and related
+PRD/ADR context.
+Cards and related context entries can open a read-only markdown overlay with
+document metadata, clickable references, primary/deferred progress, and file
+actions. The overlay can open `file://` links for the document or containing
+folder and can copy the full filesystem path or file URL from visible buttons
+or the custom context menu. The file can be opened directly in a browser; no
+server, Astro build, CDN, or derived index rebuild is required.
+
+### `decree agents install`
+
+Install packaged decree portable skills into Codex, Claude Code, or both:
+
+```bash
+decree agents install --target all --scope project
+decree agents install --target codex --scope user
+decree agents install --target claude --scope project --hooks
+decree agents install --target all --scope project --dry-run
+```
+
+For a new project, `decree init --with-agents` is the simpler bootstrap. Use
+`decree agents install` for existing decree projects, user-scope installs,
+force updates, or explicit hook setup.
+
+Defaults are intentionally conservative: `--target all --scope project` writes
+reviewable project-local skill files under `.codex/skills/<name>/SKILL.md` and
+`.claude/skills/<name>/SKILL.md`. User scope writes to `~/.codex/skills` or
+`~/.claude/skills`. Existing different files are skipped and make the command
+exit non-zero unless `--force` is explicit.
+
+`--hooks` is opt-in. It reuses the existing project-local Claude Code stop-hook
+installer and is rejected for user scope. Skill installation never silently
+enables hooks.
+
+### `decree agents status`
+
+Report whether packaged decree skills are installed for a host and scope:
+
+```bash
+decree agents status --target all --scope project
+decree agents status --target claude --scope user
+```
+
+The command compares installed skill files against the packaged templates and
+reports `unchanged`, `missing`, or `installed file differs`.
 
 ### `decree status ADR-01KT22NMRV8ZFMDKV0WNFNGMCJ accept`
 

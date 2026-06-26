@@ -48,22 +48,7 @@
 
     .shell {
       min-height: 100vh;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
-
-    .topbar {
-      position: sticky;
-      top: 0;
-      z-index: 5;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 20px;
-      align-items: center;
-      padding: 14px 24px;
-      background: rgba(255, 255, 255, 0.94);
-      border-bottom: 1px solid var(--line);
-      backdrop-filter: blur(10px);
+      display: block;
     }
 
     h1,
@@ -79,28 +64,10 @@
       letter-spacing: 0;
     }
 
-    .subtle {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .project-line {
-      margin-top: 3px;
-      overflow: hidden;
-      color: var(--muted);
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .project-line code {
-      color: #44546f;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12px;
-    }
-
     .controls {
-      display: grid;
-      grid-template-columns: auto minmax(260px, 360px);
+      min-width: 0;
+      display: flex;
+      justify-content: flex-end;
       gap: 8px;
       align-items: center;
     }
@@ -112,22 +79,21 @@
     }
 
     select {
-      min-height: 38px;
+      min-height: 32px;
       border: 1px solid var(--line-strong);
       border-radius: 6px;
       background: var(--panel);
-      padding: 7px 34px 7px 10px;
+      padding: 5px 30px 5px 9px;
       color: var(--ink);
       font: inherit;
-      box-shadow: var(--shadow);
     }
 
     .workspace {
       min-width: 0;
-      padding: 20px 24px 28px;
+      padding: 14px 18px 22px;
       display: grid;
       grid-template-columns: minmax(0, 1fr) 340px;
-      gap: 18px;
+      gap: 14px;
       align-items: start;
     }
 
@@ -136,11 +102,11 @@
     }
 
     .sprint-bar {
-      margin-bottom: 14px;
+      margin-bottom: 10px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 16px;
-      align-items: end;
+      grid-template-columns: minmax(0, 1fr) minmax(320px, auto);
+      gap: 12px;
+      align-items: center;
     }
 
     .sprint-title {
@@ -148,17 +114,16 @@
     }
 
     .sprint-title h2 {
-      font-size: 18px;
+      font-size: 17px;
       line-height: 1.25;
       letter-spacing: 0;
     }
 
-    .sprint-id {
-      margin-top: 4px;
-      color: var(--muted);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 12px;
-      overflow-wrap: anywhere;
+    .sprint-tools {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+      justify-items: end;
     }
 
     .metrics {
@@ -178,7 +143,7 @@
       border-radius: 999px;
       background: var(--panel);
       color: var(--muted);
-      padding: 3px 9px;
+      padding: 2px 8px;
       font-size: 12px;
       font-weight: 600;
       white-space: nowrap;
@@ -190,28 +155,77 @@
     }
 
     .filters {
-      margin-bottom: 14px;
+      margin-bottom: 10px;
       display: grid;
       grid-template-columns: repeat(4, minmax(150px, 1fr));
-      gap: 10px;
-      padding: 12px;
+      gap: 8px;
+      padding: 8px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
       background: var(--panel);
-      box-shadow: var(--shadow);
     }
 
     .filter-field {
       min-width: 0;
       display: grid;
-      gap: 5px;
+      gap: 3px;
     }
 
     .filter-field select {
       width: 100%;
       min-width: 0;
-      min-height: 34px;
+      min-height: 30px;
       box-shadow: none;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .card-actions {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .open-button,
+    .modal-close {
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--panel);
+      color: #44546f;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 750;
+      line-height: 1;
+    }
+
+    .open-button {
+      min-height: 24px;
+      padding: 5px 8px;
+    }
+
+    .open-button:hover,
+    .modal-close:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    .link-button {
+      border: 0;
+      background: transparent;
+      color: var(--blue);
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      padding: 0;
+      text-align: left;
+      overflow-wrap: anywhere;
+    }
+
+    .link-button:hover {
+      text-decoration: underline;
     }
 
     .board-scroll {
@@ -223,16 +237,16 @@
     .board {
       display: grid;
       grid-auto-flow: column;
-      grid-auto-columns: minmax(280px, 320px);
-      gap: 12px;
+      grid-auto-columns: minmax(270px, 310px);
+      gap: 10px;
       align-items: stretch;
-      min-height: min(650px, calc(100vh - 205px));
+      min-height: min(590px, calc(100vh - 125px));
     }
 
     .column {
       display: grid;
       grid-template-rows: auto 1fr;
-      min-height: 420px;
+      min-height: 360px;
       border: 1px solid var(--line);
       border-radius: var(--radius);
       background: var(--column);
@@ -240,7 +254,7 @@
     }
 
     .column-head {
-      padding: 10px 10px 8px;
+      padding: 8px 10px 7px;
       border-top: 3px solid var(--faint);
       display: flex;
       justify-content: space-between;
@@ -283,16 +297,16 @@
     }
 
     .lane {
-      padding: 2px 8px 10px;
+      padding: 2px 8px 8px;
       overflow-y: auto;
     }
 
     .work-card {
-      margin-top: 8px;
+      margin-top: 7px;
       border: 1px solid var(--line);
       border-radius: 6px;
       background: var(--panel);
-      padding: 10px;
+      padding: 9px;
       box-shadow: var(--shadow);
     }
 
@@ -574,6 +588,303 @@
       font-weight: 700;
     }
 
+    body.modal-open {
+      overflow: hidden;
+    }
+
+    .document-modal[hidden] {
+      display: none;
+    }
+
+    .document-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      padding: 26px;
+    }
+
+    .modal-backdrop {
+      position: absolute;
+      inset: 0;
+      border: 0;
+      background: rgba(9, 30, 66, 0.54);
+      cursor: default;
+    }
+
+    .modal-shell {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      width: min(1060px, 100%);
+      max-height: min(820px, calc(100vh - 32px));
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: var(--panel);
+      box-shadow: 0 20px 44px rgba(9, 30, 66, 0.28);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      border-bottom: 1px solid var(--line);
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .modal-title h2 {
+      font-size: 18px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .modal-doc-id {
+      margin-top: 5px;
+      color: var(--blue);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .modal-close {
+      min-width: 34px;
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 18px;
+    }
+
+    .modal-body {
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: minmax(250px, 300px) minmax(0, 1fr);
+    }
+
+    .modal-aside {
+      min-width: 0;
+      overflow: auto;
+      border-right: 1px solid var(--line);
+      background: var(--panel-muted);
+      padding: 13px;
+    }
+
+    .modal-section {
+      margin-bottom: 16px;
+    }
+
+    .modal-section h3 {
+      margin-bottom: 8px;
+      color: #44546f;
+      font-size: 12px;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .modal-meta {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .modal-meta div {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .modal-meta strong {
+      display: block;
+      color: #44546f;
+      font-weight: 750;
+    }
+
+    .modal-progress {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .modal-progress .outcome-stat {
+      min-width: 0;
+    }
+
+    .modal-progress .outcome-stat {
+      background: var(--panel);
+    }
+
+    .modal-refs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .modal-actions {
+      display: grid;
+      gap: 8px;
+    }
+
+    .modal-action {
+      width: 100%;
+      min-height: 32px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: var(--panel);
+      color: #44546f;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 750;
+      text-align: left;
+      padding: 7px 9px;
+    }
+
+    .modal-action:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+    }
+
+    .markdown-body {
+      min-width: 0;
+      overflow: auto;
+      padding: 18px 22px 30px;
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .markdown-body * {
+      max-width: 100%;
+    }
+
+    .markdown-body h1,
+    .markdown-body h2,
+    .markdown-body h3 {
+      margin: 1.1em 0 0.45em;
+      letter-spacing: 0;
+      line-height: 1.25;
+    }
+
+    .markdown-body h1:first-child,
+    .markdown-body h2:first-child,
+    .markdown-body h3:first-child {
+      margin-top: 0;
+    }
+
+    .markdown-body h1 {
+      font-size: 22px;
+    }
+
+    .markdown-body h2 {
+      padding-top: 0.4em;
+      border-top: 1px solid var(--line);
+      font-size: 17px;
+    }
+
+    .markdown-body h3 {
+      font-size: 15px;
+    }
+
+    .markdown-body p,
+    .markdown-body ul,
+    .markdown-body ol,
+    .markdown-body pre,
+    .markdown-body blockquote,
+    .markdown-body table {
+      margin: 0 0 12px;
+    }
+
+    .markdown-body code {
+      border-radius: 4px;
+      background: var(--panel-muted);
+      padding: 1px 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .markdown-body pre {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 12px;
+    }
+
+    .markdown-body pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+
+    .markdown-body blockquote {
+      border-left: 3px solid var(--line-strong);
+      color: var(--muted);
+      padding-left: 10px;
+    }
+
+    .markdown-body table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .markdown-body th,
+    .markdown-body td {
+      border: 1px solid var(--line);
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .context-menu[hidden] {
+      display: none;
+    }
+
+    .context-menu {
+      position: fixed;
+      z-index: 40;
+      min-width: 220px;
+      max-width: min(320px, calc(100vw - 24px));
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 12px 28px rgba(9, 30, 66, 0.24);
+      padding: 6px;
+    }
+
+    .context-menu-title {
+      padding: 7px 9px 6px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    .context-menu button {
+      display: block;
+      width: 100%;
+      border: 0;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--ink);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 650;
+      padding: 8px 9px;
+      text-align: left;
+    }
+
+    .context-menu button:hover {
+      background: var(--blue-soft);
+      color: var(--blue);
+    }
+
     @media (max-width: 1180px) {
       .workspace {
         grid-template-columns: 1fr;
@@ -585,7 +896,6 @@
     }
 
     @media (max-width: 760px) {
-      .topbar,
       .sprint-bar {
         grid-template-columns: 1fr;
       }
@@ -618,32 +928,36 @@
       .filters {
         grid-template-columns: 1fr;
       }
+
+      .document-modal {
+        padding: 12px;
+      }
+
+      .modal-body {
+        grid-template-columns: 1fr;
+      }
+
+      .modal-aside {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
     }
   </style>
 </head>
 <body>
   <script id="decree-data" type="application/json">{{ payload_json | safe }}</script>
   <div class="shell">
-    <header class="topbar">
-      <div>
-        <h1>Decree Board</h1>
-        <div class="project-line subtle">
-          <span id="generated-at">{{ payload.generated_at }}</span>
-          <span>from</span>
-          <code id="project-root" title="{{ payload.project_root }}">{{ payload.project_root }}</code>
-        </div>
-      </div>
-      <div class="controls">
-        <label for="sprint-select">Sprint</label>
-        <select id="sprint-select"></select>
-      </div>
-    </header>
-
     <main class="workspace">
       <section class="board-area">
         <div class="sprint-bar">
           <div class="sprint-title" id="sprint-title"></div>
-          <div class="metrics" id="sprint-meta"></div>
+          <div class="sprint-tools">
+            <div class="controls">
+              <label for="sprint-select">Sprint</label>
+              <select id="sprint-select"></select>
+            </div>
+            <div class="metrics" id="sprint-meta"></div>
+          </div>
         </div>
         <div class="filters" id="filters">
           <div class="filter-field">
@@ -693,6 +1007,54 @@
     </main>
   </div>
 
+  <div class="document-modal" id="document-modal" hidden>
+    <button class="modal-backdrop" id="modal-backdrop" type="button" aria-label="Close document"></button>
+    <section class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <header class="modal-header">
+        <div class="modal-title">
+          <h2 id="modal-title">Document</h2>
+          <div class="modal-doc-id" id="modal-doc-id"></div>
+        </div>
+        <button class="modal-close" id="modal-close" type="button" aria-label="Close document">x</button>
+      </header>
+      <div class="modal-body">
+        <aside class="modal-aside">
+          <section class="modal-section">
+            <h3>Metadata</h3>
+            <div class="modal-meta" id="modal-meta"></div>
+          </section>
+          <section class="modal-section">
+            <h3>Progress</h3>
+            <div class="modal-progress" id="modal-progress"></div>
+          </section>
+          <section class="modal-section">
+            <h3>References</h3>
+            <div class="modal-refs" id="modal-refs"></div>
+          </section>
+          <section class="modal-section">
+            <h3>File actions</h3>
+            <div class="modal-actions">
+              <button class="modal-action" type="button" data-modal-action="open-file">Open document file</button>
+              <button class="modal-action" type="button" data-modal-action="open-folder">Open containing folder</button>
+              <button class="modal-action" type="button" data-modal-action="copy-path">Copy full path</button>
+              <button class="modal-action" type="button" data-modal-action="copy-url">Copy file URL</button>
+            </div>
+          </section>
+        </aside>
+        <article class="markdown-body" id="modal-markdown"></article>
+      </div>
+    </section>
+  </div>
+
+  <div class="context-menu" id="context-menu" hidden>
+    <div class="context-menu-title" id="context-menu-title"></div>
+    <button type="button" data-context-action="open-overlay">Open preview</button>
+    <button type="button" data-context-action="open-file">Open document file</button>
+    <button type="button" data-context-action="open-folder">Open containing folder</button>
+    <button type="button" data-context-action="copy-path">Copy full path</button>
+    <button type="button" data-context-action="copy-url">Copy file URL</button>
+  </div>
+
   <script>
     const data = JSON.parse(document.getElementById("decree-data").textContent);
     const sprintSelect = document.getElementById("sprint-select");
@@ -702,6 +1064,21 @@
     const outcomeSummary = document.getElementById("outcome-summary");
     const accountability = document.getElementById("accountability");
     const contextDocs = document.getElementById("context-docs");
+    const modal = {
+      root: document.getElementById("document-modal"),
+      backdrop: document.getElementById("modal-backdrop"),
+      close: document.getElementById("modal-close"),
+      title: document.getElementById("modal-title"),
+      docId: document.getElementById("modal-doc-id"),
+      meta: document.getElementById("modal-meta"),
+      progress: document.getElementById("modal-progress"),
+      refs: document.getElementById("modal-refs"),
+      markdown: document.getElementById("modal-markdown"),
+    };
+    const contextMenu = {
+      root: document.getElementById("context-menu"),
+      title: document.getElementById("context-menu-title"),
+    };
     const filters = {
       bucket: document.getElementById("bucket-filter"),
       type: document.getElementById("type-filter"),
@@ -710,6 +1087,8 @@
     };
     const docsById = new Map((data.documents || []).map(doc => [doc.id, doc]));
     const outcomeColumnIds = ["carried_over", "deferred", "dropped", "superseded"];
+    let activeDocumentId = null;
+    let contextDocumentId = null;
 
     function text(value) {
       return value === null || value === undefined || value === "" ? "none" : String(value);
@@ -731,28 +1110,6 @@
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
-    }
-
-    function formatDate(value) {
-      if (!value) {
-        return "not set";
-      }
-      const parsed = new Date(value);
-      if (Number.isNaN(parsed.getTime())) {
-        return text(value);
-      }
-      return parsed.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-
-    function shortRoot(path) {
-      const parts = text(path).split("/").filter(Boolean);
-      return parts.length ? parts[parts.length - 1] : text(path);
     }
 
     function bucketLabel(bucket) {
@@ -899,17 +1256,20 @@
 
     function cardHtml(card) {
       const doc = card.doc;
-      const references = doc.references && doc.references.length ? doc.references.join(", ") : "none";
+      const references = doc.references && doc.references.length ? doc.references.map(referenceHtml).join("") : "none";
       const outcome = card.outcome ? card.outcome.kind : "open";
       const source = card.source === "new" ? "created in sprint" : card.source;
       const contextTag = hasContext(card)
         ? `<span class="tag">${doc.references.length} refs</span>`
         : `<span class="tag" data-kind="risk">no context</span>`;
       return `
-        <article class="work-card">
+        <article class="work-card" data-doc-menu="${attr(card.document)}">
           <div class="card-top">
             <span class="type-badge">${esc(doc.type)}</span>
-            <span class="status-badge" data-status="${esc(doc.status)}">${esc(doc.status)}</span>
+            <div class="card-actions">
+              <button class="open-button" type="button" data-open-doc="${attr(card.document)}">Open</button>
+              <span class="status-badge" data-status="${esc(doc.status)}">${esc(doc.status)}</span>
+            </div>
           </div>
           <h3 class="card-title">${esc(doc.title)}</h3>
           <div class="card-id">${esc(card.document)}</div>
@@ -928,7 +1288,7 @@
             <summary>Details</summary>
             <div class="kv">
               <strong>Path</strong><span>${esc(doc.path)}</span>
-              <strong>Refs</strong><span>${esc(references)}</span>
+              <strong>Refs</strong><span>${references}</span>
               <strong>Added</strong><span>${esc(card.added)}</span>
               <strong>Reason</strong><span>${esc(card.reason)}</span>
             </div>
@@ -940,10 +1300,13 @@
     function queueCardHtml(card) {
       const doc = card.doc;
       return `
-        <article class="queue-card">
+        <article class="queue-card" data-doc-menu="${attr(card.document)}">
           <div class="queue-title">${esc(doc.title)}</div>
           <div class="queue-meta">${esc(card.document)}</div>
           <div class="queue-meta">${esc(doc.bucket)} / ${esc(card.reason)}</div>
+          <div class="tags">
+            <button class="open-button" type="button" data-open-doc="${attr(card.document)}">Open</button>
+          </div>
         </article>
       `;
     }
@@ -952,16 +1315,145 @@
       const progress = doc.progress && doc.progress.primary;
       const progressLabel = progress && progress.total ? `${progress.done}/${progress.total} ACs` : "context";
       return `
-        <article class="context-card">
+        <article class="context-card" data-doc-menu="${attr(doc.id)}">
           <div class="card-top">
             <span class="type-badge">${esc(doc.type)}</span>
-            <span class="status-badge" data-status="${esc(doc.status)}">${esc(doc.status)}</span>
+            <div class="card-actions">
+              <button class="open-button" type="button" data-open-doc="${attr(doc.id)}">Open</button>
+              <span class="status-badge" data-status="${esc(doc.status)}">${esc(doc.status)}</span>
+            </div>
           </div>
           <div class="context-title">${esc(doc.title)}</div>
           <div class="context-meta">${esc(doc.id)}</div>
           <div class="context-meta">${esc(bucketLabel(doc.bucket))} / ${esc(progressLabel)}</div>
         </article>
       `;
+    }
+
+    function modalStat(value, label) {
+      return `
+        <div class="outcome-stat">
+          <strong>${esc(value)}</strong>
+          <span>${esc(label)}</span>
+        </div>
+      `;
+    }
+
+    function copyText(value) {
+      const textValue = text(value);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textValue).catch(() => copyTextFallback(textValue));
+        return;
+      }
+      copyTextFallback(textValue);
+    }
+
+    function copyTextFallback(value) {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+
+    function openUrl(url) {
+      if (!url) {
+        return;
+      }
+      window.open(url, "_blank", "noopener");
+    }
+
+    function runDocumentAction(docId, action) {
+      const doc = docsById.get(docId);
+      if (!doc) {
+        return;
+      }
+      if (action === "open-overlay") {
+        openDocument(doc.id);
+      } else if (action === "open-file") {
+        openUrl(doc.file_url);
+      } else if (action === "open-folder") {
+        openUrl(doc.folder_url);
+      } else if (action === "copy-path") {
+        copyText(doc.absolute_path);
+      } else if (action === "copy-url") {
+        copyText(doc.file_url);
+      }
+    }
+
+    function referenceHtml(ref) {
+      if (docsById.has(ref)) {
+        return `<button class="link-button" type="button" data-open-doc="${attr(ref)}" data-doc-menu="${attr(ref)}">${esc(ref)}</button>`;
+      }
+      return `<span class="tag">${esc(ref)}</span>`;
+    }
+
+    function showContextMenu(docId, x, y) {
+      const doc = docsById.get(docId);
+      if (!doc) {
+        return;
+      }
+      contextDocumentId = doc.id;
+      contextMenu.title.textContent = doc.absolute_path || doc.path || doc.id;
+      contextMenu.root.hidden = false;
+      const rect = contextMenu.root.getBoundingClientRect();
+      const left = Math.min(x, window.innerWidth - rect.width - 8);
+      const top = Math.min(y, window.innerHeight - rect.height - 8);
+      contextMenu.root.style.left = `${Math.max(8, left)}px`;
+      contextMenu.root.style.top = `${Math.max(8, top)}px`;
+    }
+
+    function hideContextMenu() {
+      contextMenu.root.hidden = true;
+      contextDocumentId = null;
+    }
+
+    function openDocument(docId) {
+      const doc = docsById.get(docId);
+      if (!doc) {
+        return;
+      }
+      hideContextMenu();
+      activeDocumentId = doc.id;
+      const primary = doc.progress.primary;
+      const deferred = doc.progress.deferred;
+      const primaryLabel = primary.total ? `${primary.done}/${primary.total}` : "0/0";
+      const deferredLabel = deferred.total ? `${deferred.done}/${deferred.total}` : "0/0";
+      modal.title.textContent = doc.title;
+      modal.docId.textContent = doc.id;
+      modal.meta.innerHTML = `
+        <div><strong>Type</strong>${esc(doc.type)}</div>
+        <div><strong>Status</strong>${esc(doc.status)}</div>
+        <div><strong>Bucket</strong>${esc(bucketLabel(doc.bucket))}</div>
+        <div><strong>Path</strong>${esc(doc.path)}</div>
+        <div><strong>Full path</strong>${esc(doc.absolute_path)}</div>
+      `;
+      modal.progress.innerHTML = [
+        modalStat(primaryLabel, "primary ACs"),
+        modalStat(primary.percent === null ? "n/a" : `${primary.percent}%`, "primary progress"),
+        modalStat(deferredLabel, "deferred ACs"),
+        modalStat(doc.references.length, "references"),
+      ].join("");
+      modal.refs.innerHTML = doc.references.length
+        ? doc.references.map(referenceHtml).join("")
+        : `<div class="empty">No references</div>`;
+      modal.markdown.innerHTML = doc.markdown_html || `<p>No markdown body.</p>`;
+      modal.root.setAttribute("data-doc-menu", doc.id);
+      modal.root.hidden = false;
+      document.body.classList.add("modal-open");
+      modal.close.focus();
+    }
+
+    function closeDocument() {
+      modal.root.hidden = true;
+      document.body.classList.remove("modal-open");
+      modal.markdown.innerHTML = "";
+      modal.root.removeAttribute("data-doc-menu");
+      activeDocumentId = null;
     }
 
     function renderList(targetId, cards) {
@@ -1028,7 +1520,6 @@
       if (!sprint) {
         sprintTitle.innerHTML = `
           <h2>No sprint selected</h2>
-          <div class="sprint-id">Sprint mode disabled or no sprint records found</div>
         `;
         sprintMeta.innerHTML = "";
         board.innerHTML = `<div class="empty">No sprint items</div>`;
@@ -1044,15 +1535,11 @@
       const percent = totals.total ? Math.round(totals.done / totals.total * 100) : 0;
       sprintTitle.innerHTML = `
         <h2>${esc(sprint.name)}</h2>
-        <div class="sprint-id">${esc(sprint.id)}</div>
       `;
       sprintMeta.innerHTML = `
-        <span class="metric"><strong>${esc(sprint.status)}</strong> status</span>
         <span class="metric"><strong>${totals.cards}/${sprint.cards.length}</strong> cards</span>
         <span class="metric"><strong>${totals.done}/${totals.total}</strong> primary ACs</span>
         <span class="metric"><strong>${percent}%</strong> progress</span>
-        <span class="metric"><strong>${esc(sprint.started)}</strong> started</span>
-        ${sprint.closed ? `<span class="metric"><strong>${esc(sprint.closed)}</strong> closed</span>` : ""}
       `;
 
       board.innerHTML = visibleColumns(cards).map(column => {
@@ -1074,10 +1561,6 @@
     }
 
     function init() {
-      document.getElementById("generated-at").textContent = `Updated ${formatDate(data.generated_at)}`;
-      const root = document.getElementById("project-root");
-      root.textContent = shortRoot(data.project_root);
-      root.title = data.project_root;
       populateFilters();
 
       if (!data.sprints.length) {
@@ -1099,6 +1582,51 @@
           renderQueues();
         });
       }
+      document.addEventListener("click", event => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+        const contextAction = target.closest("[data-context-action]");
+        if (contextAction && contextDocumentId) {
+          runDocumentAction(contextDocumentId, contextAction.getAttribute("data-context-action"));
+          hideContextMenu();
+          return;
+        }
+        const modalAction = target.closest("[data-modal-action]");
+        if (modalAction && activeDocumentId) {
+          runDocumentAction(activeDocumentId, modalAction.getAttribute("data-modal-action"));
+          return;
+        }
+        const opener = target.closest("[data-open-doc]");
+        if (opener) {
+          openDocument(opener.getAttribute("data-open-doc"));
+          return;
+        }
+        hideContextMenu();
+      });
+      document.addEventListener("contextmenu", event => {
+        const target = event.target;
+        if (!(target instanceof Element)) {
+          return;
+        }
+        const menuTarget = target.closest("[data-doc-menu]");
+        if (!menuTarget) {
+          hideContextMenu();
+          return;
+        }
+        event.preventDefault();
+        showContextMenu(menuTarget.getAttribute("data-doc-menu"), event.clientX, event.clientY);
+      });
+      modal.close.addEventListener("click", closeDocument);
+      modal.backdrop.addEventListener("click", closeDocument);
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && !modal.root.hidden) {
+          closeDocument();
+        } else if (event.key === "Escape" && !contextMenu.root.hidden) {
+          hideContextMenu();
+        }
+      });
       renderQueues();
     }
 

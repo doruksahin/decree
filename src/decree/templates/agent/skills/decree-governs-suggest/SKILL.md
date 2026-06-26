@@ -86,6 +86,3 @@ The agent owns:
   omission in your response instead of guessing.
 - Never edit frontmatter directly for this task. Always pass suggestions back
   through `decree migrate governs --apply-suggestions`.
-
-For deeper agent integration context, read
-[LLM Agent Integration](../../docs/llm-agent-integration.md).

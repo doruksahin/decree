@@ -117,9 +117,24 @@ def test_generate_html_writes_self_contained_board(tmp_path, monkeypatch) -> Non
     assert payload["sprints"][0]["cards"][0]["doc"]["bucket"] == "delivery"
     assert payload["documents"][0]["id"] == SPEC_ID
     assert payload["documents"][0]["bucket"] == "delivery"
+    assert payload["documents"][0]["absolute_path"].endswith(f"{SPEC_ID.lower()}-board.md")
+    assert payload["documents"][0]["file_url"].startswith("file://")
+    assert payload["documents"][0]["folder_path"].endswith("decree/spec/delivery")
+    assert payload["documents"][0]["folder_url"].startswith("file://")
     assert payload["documents"][0]["progress"]["primary"] == {"done": 1, "total": 2, "percent": 50}
+    assert "<h1>" in payload["documents"][0]["markdown_html"]
+    assert "Acceptance Criteria" in payload["documents"][0]["markdown_html"]
+    assert payload["documents"][0]["markdown_source"].startswith(f"# {SPEC_ID} Board")
     assert "Sprint 1" in html
     assert "function renderSprint" in html
+    assert "function openDocument" in html
+    assert 'id="document-modal"' in html
+    assert 'id="context-menu"' in html
+    assert "data-open-doc" in html
+    assert "data-doc-menu" in html
+    assert 'data-context-action="copy-path"' in html
+    assert "function copyText" in html
+    assert "function showContextMenu" in html
     assert "Related PRDs &amp; ADRs" in html
     assert "function attr(value)" in html
     assert 'fillSelect(filters.bucket, "All buckets"' in html

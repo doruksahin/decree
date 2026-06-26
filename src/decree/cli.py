@@ -1,10 +1,10 @@
 """Decree CLI — software decision lifecycle toolkit."""
 
 import argparse
+import importlib
 import json
 import sys
 
-from decree.commands import generate_html, graph, index, lint, list_docs, new, progress, sprint, status
 from decree.log import error as _log_error
 from decree.version import get_version
 
@@ -19,6 +19,7 @@ examples:
   decree new prd "Sprint Planning" --bucket delivery
   decree list --tree
   decree generate-html --output decree-board.html
+  decree agents install --target all --scope project
   decree migrate governs --analyze --json
   decree migrate governs --apply-suggestions suggestions.json --apply --yes
   decree why src/auth/tokens.py
@@ -155,7 +156,7 @@ def main() -> int:
     p_generate_html = subparsers.add_parser(
         "generate-html",
         help="Generate a self-contained HTML board for decree documents and sprints",
-        description="Write a read-only, self-contained HTML PoC board from the current decree corpus. "
+        description="Write a read-only, self-contained HTML board from the current decree corpus. "
         "The generated file embeds sprint records, document metadata, buckets, and checkbox progress. "
         "No server or derived index rebuild is performed.",
     )
@@ -171,6 +172,65 @@ def main() -> int:
         default=None,
         metavar="SPRINT-ID",
         help="Sprint selected by default in the generated board. Defaults to the active sprint.",
+    )
+
+    # ── agents ─────────────────────────────────────────────
+    p_agents = subparsers.add_parser(
+        "agents",
+        help="Install or inspect decree skills for Codex and Claude Code",
+        description="Install packaged decree portable skills into Codex or Claude Code. "
+        "Project scope writes under .codex/skills and .claude/skills. "
+        "User scope writes under ~/.codex/skills and ~/.claude/skills. "
+        "Existing different files are preserved unless --force is passed.",
+    )
+    agents_subs = p_agents.add_subparsers(dest="agents_action", required=True)
+    p_agents_install = agents_subs.add_parser(
+        "install",
+        help="Install packaged decree skills for Codex, Claude Code, or both",
+    )
+    p_agents_install.add_argument(
+        "--target",
+        choices=("codex", "claude", "all"),
+        default="all",
+        help="Agent host to install for (default: all).",
+    )
+    p_agents_install.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="Install into the current project or the current user's home directory (default: project).",
+    )
+    p_agents_install.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report planned skill writes without changing files.",
+    )
+    p_agents_install.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing different skill files.",
+    )
+    p_agents_install.add_argument(
+        "--hooks",
+        action="store_true",
+        help="Also install the project-local Claude Code stop hook when target includes Claude.",
+    )
+
+    p_agents_status = agents_subs.add_parser(
+        "status",
+        help="Report whether packaged decree skills are installed",
+    )
+    p_agents_status.add_argument(
+        "--target",
+        choices=("codex", "claude", "all"),
+        default="all",
+        help="Agent host to inspect (default: all).",
+    )
+    p_agents_status.add_argument(
+        "--scope",
+        choices=("project", "user"),
+        default="project",
+        help="Inspect project-local or user-local skill destinations (default: project).",
     )
 
     # ── status ───────────────────────────────────────────────
@@ -692,7 +752,9 @@ def main() -> int:
         "worked PRD→ADR→SPEC example chain, and a built .decree/index.sqlite — "
         "creating only what is missing, never overwriting, reporting every "
         "action (created / skipped-with-reason / would-create). Safe to re-run. "
-        "Exit 0 on success (including a fully-present project); exit 2 on IO/config error.",
+        "Use --with-agents to also install project-local Codex/Claude skills. "
+        "Exit 0 on success (including a fully-present project), exit 1 on "
+        "agent skill conflicts, exit 2 on IO/config error.",
     )
     p_init.add_argument(
         "--dry-run",
@@ -710,6 +772,12 @@ def main() -> int:
         action="store_true",
         dest="no_examples",
         help="Scaffold config + dirs + index only; do not seed the example chain.",
+    )
+    p_init.add_argument(
+        "--with-agents",
+        action="store_true",
+        dest="with_agents",
+        help="Also install packaged Codex and Claude Code skills under the project; never installs hooks.",
     )
     p_init.add_argument(
         "--project",
@@ -1044,23 +1112,19 @@ def main() -> int:
     )
 
     args = parser.parse_args()
-    from decree.commands import commit as commit_cmd
-    from decree.commands import commit_check as commit_check_cmd
-    from decree.commands import ddd as ddd_cmd
-    from decree.commands import eval as eval_cmd
-    from decree.commands import health as health_cmd
-    from decree.commands import hook as hook_cmd
-    from decree.commands import index_db_cli
-    from decree.commands import init as init_cmd
-    from decree.commands import intent_check as intent_check_cmd
-    from decree.commands import intent_review as intent_review_cmd
-    from decree.commands import mcp_server as mcp_cmd
-    from decree.commands import migrate as migrate_cmd
-    from decree.commands import queries as queries_cmd
-    from decree.commands import report as report_cmd
+
+    def _run(module_name: str, function_name: str = "run"):
+        def _runner(a):
+            module = importlib.import_module(f"decree.commands.{module_name}")
+            return getattr(module, function_name)(a)
+
+        return _runner
 
     # The `index` command has sub-actions: rebuild, status, verify, regenerate.
     def _index_dispatch(a):
+        from decree.commands import index as index_cmd
+        from decree.commands import index_db_cli
+
         action = a.index_action
         if action == "rebuild":
             return index_db_cli.rebuild_run(a)
@@ -1069,11 +1133,13 @@ def main() -> int:
         if action == "verify":
             return index_db_cli.verify_run(a)
         if action == "regenerate":
-            return index.run(a)
+            return index_cmd.run(a)
         raise ValueError(f"unknown index action: {action}")
 
     # The `mcp` command has sub-actions: serve (more may land in future SPECs).
     def _mcp_dispatch(a):
+        from decree.commands import mcp_server as mcp_cmd
+
         action = a.mcp_action
         if action == "serve":
             return mcp_cmd.mcp_serve_run(a)
@@ -1082,6 +1148,8 @@ def main() -> int:
     # The `migrate` command has sub-actions: audit-coherence (SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR),
     # governs (SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S); future: backfill-trailers (v2).
     def _migrate_dispatch(a):
+        from decree.commands import migrate as migrate_cmd
+
         action = a.migrate_action
         if action == "audit-coherence":
             return migrate_cmd.audit_coherence_run(a)
@@ -1092,37 +1160,40 @@ def main() -> int:
         raise ValueError(f"unknown migrate action: {action}")
 
     def _report_dispatch(a):
+        from decree.commands import report as report_cmd
+
         action = a.report_action
         if action == "regenerate":
             return report_cmd.regenerate_run(a)
         raise ValueError(f"unknown report action: {action}")
 
     commands = {
-        "new": new.run,
-        "init": init_cmd.run,
-        "status": status.run,
-        "list": list_docs.run,
-        "generate-html": generate_html.run,
-        "sprint": sprint.run,
-        "lint": lint.run,
+        "new": _run("new"),
+        "init": _run("init"),
+        "status": _run("status"),
+        "list": _run("list_docs"),
+        "generate-html": _run("generate_html"),
+        "agents": _run("agents"),
+        "sprint": _run("sprint"),
+        "lint": _run("lint"),
         "index": _index_dispatch,
-        "graph": graph.run,
-        "progress": progress.run,
+        "graph": _run("graph"),
+        "progress": _run("progress"),
         "report": _report_dispatch,
-        "ddd": ddd_cmd.run,
-        "find-root": ddd_cmd.find_root_run,
-        "hook": hook_cmd.run,
-        "why": queries_cmd.why_run,
-        "refs": queries_cmd.refs_run,
-        "commit": commit_cmd.commit_run,
+        "ddd": _run("ddd"),
+        "find-root": _run("ddd", "find_root_run"),
+        "hook": _run("hook"),
+        "why": _run("queries", "why_run"),
+        "refs": _run("queries", "refs_run"),
+        "commit": _run("commit", "commit_run"),
         "mcp": _mcp_dispatch,
-        "health": health_cmd.health_run,
-        "stale": health_cmd.stale_run,
-        "intent-review": intent_review_cmd.intent_review_run,
-        "intent-check": intent_check_cmd.intent_check_run,
-        "commit-check": commit_check_cmd.commit_check_run,
+        "health": _run("health", "health_run"),
+        "stale": _run("health", "stale_run"),
+        "intent-review": _run("intent_review", "intent_review_run"),
+        "intent-check": _run("intent_check", "intent_check_run"),
+        "commit-check": _run("commit_check", "commit_check_run"),
         "migrate": _migrate_dispatch,
-        "retrieval-eval": eval_cmd.eval_run,
+        "retrieval-eval": _run("eval", "eval_run"),
     }
     try:
         return commands[args.command](args)

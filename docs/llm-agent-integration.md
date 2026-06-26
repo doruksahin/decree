@@ -27,28 +27,47 @@ with the [Capability Index](index.md).
 
 ## Recommended Agent Loop
 
-0. If the project is not yet set up, an agent can scaffold it in one machine-readable
-   step with `decree init --json` (idempotent; never overwrites existing files).
-1. Run `decree lint`.
-2. Run `decree index rebuild`.
-3. Before coding, run `decree intent-check --plan "..." --files ... --json`. When
+0. If the project is not yet set up, scaffold it and install reviewable
+   project-local agent skills in one machine-readable step:
+
+   ```bash
+   decree init --with-agents --json
+   ```
+
+   `--with-agents` writes `.codex/skills` and `.claude/skills` as reviewable
+   project files. It does not install hooks.
+
+1. For an existing decree project, install or verify the portable skills:
+
+   ```bash
+   decree agents install --target all --scope project
+   decree agents status --target all --scope project
+   ```
+
+   Use `--scope user` for personal defaults. Use `--dry-run` before committing
+   generated host files. Add `--hooks` only when you explicitly want the
+   project-local Claude Code stop hook; skill installation does not enable hooks
+   by default.
+2. Run `decree lint`.
+3. Run `decree index rebuild`.
+4. Before coding, run `decree intent-check --plan "..." --files ... --json`. When
    other agent sessions run in parallel, also pass their planned paths via
    `--other-active-files '{"session-id": ["path", ...]}'` so the report includes
    `live_conflicts` (files another live session is about to write). In a governed
    session, pass `--under <your-decision>` so the report also surfaces
    `governs_gaps` — files your decision repeat-touches but doesn't declare.
-4. If the response recommends `draft_adr_first`, `update_spec_first`,
+5. If the response recommends `draft_adr_first`, `update_spec_first`,
    `resolve_conflict_first`, or `isolate_session`, resolve it before
    implementation. For `isolate_session`, run in a dedicated worktree or split
    the overlapping file out of one plan.
-5. After code exists, run `decree intent-review --json` to compare the diff
+6. After code exists, run `decree intent-review --json` to compare the diff
    against the same governance corpus. Commit through `decree commit` so the
    change carries an `Implements:` trailer linking it to its decision, and gate
    the net diff in CI with `decree commit-check --diff-base origin/main --strict`
    — it reports which governed-file changes lack a matching trailer (coverage you
    can gate, not a guarantee).
-6. Run `decree lint` again after changing decree documents.
-7. Add or verify a `changelog.d/` Towncrier fragment for user-visible changes.
+7. Run `decree lint` again after changing decree documents.
+8. Add or verify a `changelog.d/` Towncrier fragment for user-visible changes.
 
 Between the rebuild (step 2) and planning (step 3), run `decree health --json`
 (or the MCP `health` tool) to surface governance drift — stale decisions,
@@ -159,7 +178,8 @@ Nine tools, all returning JSON (read-only except `report`):
 
 ```bash
 decree --help
-decree init --json
+decree init --with-agents --json
+decree agents install --target all --scope project
 decree lint
 decree index rebuild
 decree health --json

@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import mistletoe
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from decree.buckets import bucket_for_path
@@ -167,12 +168,18 @@ def _doc_payload(doc: DocDocument | None, root: Path) -> dict[str, Any]:
             "status": "missing",
             "bucket": None,
             "path": None,
+            "absolute_path": None,
+            "file_url": None,
+            "folder_path": None,
+            "folder_url": None,
             "references": [],
         }
+    absolute_path = doc.path.resolve()
+    folder_path = absolute_path.parent
     try:
-        rel_path = doc.path.relative_to(root).as_posix()
+        rel_path = absolute_path.relative_to(root).as_posix()
     except ValueError:
-        rel_path = doc.path.as_posix()
+        rel_path = absolute_path.as_posix()
     type_dir = root / doc.doc_type.dir
     return {
         "id": doc.doc_id,
@@ -181,6 +188,10 @@ def _doc_payload(doc: DocDocument | None, root: Path) -> dict[str, Any]:
         "status": doc.meta.status,
         "bucket": bucket_for_path(doc.path, type_dir),
         "path": rel_path,
+        "absolute_path": absolute_path.as_posix(),
+        "file_url": absolute_path.as_uri(),
+        "folder_path": folder_path.as_posix(),
+        "folder_url": folder_path.as_uri(),
         "references": list(doc.meta.references or []),
     }
 
@@ -188,6 +199,8 @@ def _doc_payload(doc: DocDocument | None, root: Path) -> dict[str, Any]:
 def _document_record(doc: DocDocument, root: Path) -> dict[str, Any]:
     payload = _doc_payload(doc, root)
     payload["progress"] = _progress_for_doc(doc, root)
+    payload["markdown_html"] = mistletoe.markdown(doc.body)
+    payload["markdown_source"] = doc.body
     return payload
 
 

@@ -59,6 +59,18 @@ def test_generate_html_help():
     assert r.returncode == 0
     assert "--output" in r.stdout
     assert "--sprint" in r.stdout
+    assert "PoC" not in r.stdout
+
+
+def test_agents_help():
+    r = subprocess.run(
+        [sys.executable, "-m", "decree.cli", "agents", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    assert "install" in r.stdout
+    assert "status" in r.stdout
 
 
 def test_version_metadata_is_single_sourced_from_pyproject():

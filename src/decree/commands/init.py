@@ -35,8 +35,12 @@ import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from decree.log import error, info, success, warn
+
+if TYPE_CHECKING:
+    from decree.commands.agents import SkillResult
 
 try:  # Python 3.11+ ships tomllib; tomli is the backport elsewhere.
     import tomllib
@@ -417,6 +421,12 @@ def _json_action(a: Action) -> dict:
         "would-write": "would-write",
         "would-append": "would-append",
         "would-rebuild": "would-rebuild",
+        "installed": "installed",
+        "updated": "updated",
+        "unchanged": "unchanged",
+        "would-install": "would-install",
+        "would-update": "would-update",
+        "would-keep": "would-keep",
     }.get(a.action, a.action)
     return {
         "kind": a.kind,
@@ -424,6 +434,38 @@ def _json_action(a: Action) -> dict:
         "action": machine,
         "reason": a.reason,
     }
+
+
+def _agent_skill_reason(result: SkillResult) -> str:
+    """Compact display detail for a SkillResult without importing it at startup."""
+    label = f"{result.target} {result.scope} {result.skill}"
+    reason = result.reason
+    return f"{label}; {reason}" if reason else label
+
+
+def _install_agent_skill_actions(target: Path, *, dry_run: bool) -> list[Action]:
+    """Install project-local packaged agent skills and adapt results to init actions."""
+    from decree.commands.agents import install_agent_skills
+
+    results = install_agent_skills(
+        target_value="all",
+        scope="project",
+        project_root=target,
+        dry_run=dry_run,
+    )
+    return [
+        Action(
+            "agent-skill",
+            result.path,
+            result.status,
+            _agent_skill_reason(result),
+        )
+        for result in results
+    ]
+
+
+def _has_agent_skill_conflict(actions: list[Action]) -> bool:
+    return any(action.kind == "agent-skill" and action.action == "skipped" for action in actions)
 
 
 def _print_human_report(
@@ -442,7 +484,15 @@ def _print_human_report(
 
     def line(a: Action) -> None:
         suffix = f" — {a.reason}" if a.reason else ""
-        if a.action in ("rebuilt", "would-rebuild", "rebuild"):
+        if a.kind == "agent-skill":
+            label = a.action.replace("-", " ")
+            if a.action == "skipped":
+                warn(PREFIX, f"{label} {_shown(a)}{suffix}")
+            elif a.action in ("unchanged", "would-keep"):
+                info(PREFIX, f"{label} {_shown(a)}{suffix}")
+            else:
+                success(f"{label} {_shown(a)}{suffix}")
+        elif a.action in ("rebuilt", "would-rebuild", "rebuild"):
             label = "would rebuild" if dry_run else "rebuilt"
             success(f"{label} {_shown(a)}")
         elif a.action in ("wrote", "would-write", "write"):
@@ -465,6 +515,7 @@ def _print_human_report(
         ("Examples", "example"),
         ("Ignore", "gitignore"),
         ("Index", "index"),
+        ("Agent skills", "agent-skill"),
     ]
     for title, kind in sections:
         members = [a for a in actions if a.kind == kind]
@@ -496,6 +547,7 @@ def run(args: argparse.Namespace) -> int:
     dry_run = bool(getattr(args, "dry_run", False))
     no_examples = bool(getattr(args, "no_examples", False))
     as_json = bool(getattr(args, "json", False))
+    with_agents = bool(getattr(args, "with_agents", False))
 
     if not target.exists():
         try:
@@ -530,6 +582,8 @@ def run(args: argparse.Namespace) -> int:
             actions = applied.actions
             created = applied.created
             skipped = applied.skipped
+        if with_agents:
+            actions = [*actions, *_install_agent_skill_actions(target, dry_run=dry_run)]
     except OSError as e:
         error(PREFIX, f"IO error during init: {e}")
         return 2
@@ -556,5 +610,13 @@ def run(args: argparse.Namespace) -> int:
             git=git,
             dry_run=dry_run,
         )
+
+    if _has_agent_skill_conflict(actions):
+        error(
+            PREFIX,
+            "one or more existing agent skill files differ; run "
+            "`decree agents install --target all --scope project --force` to overwrite.",
+        )
+        return 1
 
     return 0

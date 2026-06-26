@@ -4,6 +4,24 @@ All notable changes to Decree are documented here.
 
 <!-- towncrier release notes start -->
 
+## v2.0.0 - 2026-06-26
+
+### Features
+
+- Add `decree agents install` and `decree agents status` for Codex and Claude
+  Code skill onboarding.
+- Add `decree init --with-agents` to scaffold a project and install
+  project-local Codex/Claude Code skills in one command.
+- Add document markdown overlays to the generated HTML board.
+- Require buckets for new documents and add a `decree generate-html` static
+  sprint board export.
+
+### Bug Fixes
+
+- Speed up CLI startup by loading command modules only for the command being
+  run.
+
+
 ## v1.3.0 - 2026-06-26
 
 ### Features

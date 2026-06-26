@@ -56,5 +56,13 @@ sprints:
     kind: execution
     source: new
     added: '2026-06-26'
+  - document: SPEC-01KW25D3W2KH097XXDP4EVE1X4
+    kind: execution
+    source: new
+    added: '2026-06-26'
+  - document: SPEC-01KW2BEQ5J7JWM93K4YAS9GZAB
+    kind: execution
+    source: new
+    added: '2026-06-26'
 backlog: []
 draft_pool: []
