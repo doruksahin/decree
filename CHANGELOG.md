@@ -4,6 +4,20 @@ All notable changes to Decree are documented here.
 
 <!-- towncrier release notes start -->
 
+## v1.2.0 - 2026-06-26
+
+### Features
+
+- Add optional sprint ledger tracking with `decree sprint`, active-sprint
+  defaults for new SPEC/progress/DDD, sprint lint invariants, and MCP progress
+  scope parity.
+
+### Documentation
+
+- Document and prototype the planned sprint-scoped execution workflow and
+  end-user behavior.
+
+
 ## v1.1.0 - 2026-06-04
 
 ### Features

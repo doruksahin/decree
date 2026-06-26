@@ -382,7 +382,7 @@ Before picking, three questions worth answering explicitly:
   - Repowise architecture analysis: `docs/market-analysis/repowise/`.
   - entire.io analysis: `docs/market-analysis/entire-io/`.
 - **Tools / libraries**
-  - sqlite-utils: https://sqlite-utils.datasette.io/en/stable/
+  - sqlite-utils: https://github.com/simonw/sqlite-utils
   - sqlite-vec: https://github.com/asg017/sqlite-vec
   - Datasette: https://datasette.io
   - pygls (LSP framework for Python): https://github.com/openlawlibrary/pygls
