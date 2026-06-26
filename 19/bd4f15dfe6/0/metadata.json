@@ -1,0 +1,145 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "19bd4f15dfe6",
+  "session_id": "019f035c-e33a-7983-94f7-a3e47af5500f",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-26T17:20:43.790372Z",
+  "branch": "main",
+  "checkpoints_count": 9,
+  "save_step_count": 8,
+  "files_touched": [
+    "README.md",
+    "changelog.d/+required-buckets-html-board-poc.feature.md",
+    "decree/adr/index.md",
+    "decree/adr/integrations/agents/adr-01kw2beb2kk28j2g4qaqt81737-packaged-project-local-agent-skills-installer.md",
+    "decree/adr/reports/ADR-01KW2BEB2KK28J2G4QAQT81737.md",
+    "decree/prd/index.md",
+    "decree/prd/integrations/agents/prd-01kw2bdxbb3y6kaw081gpqtvg8-agent-skill-install-devx.md",
+    "decree/spec/index.md",
+    "decree/spec/integrations/agents/spec-01kw2beq5j7jwm93k4yas9gzab-agent-skill-install-cli.md",
+    "decree/spec/reporting/html-board/spec-01kw22ke3k4j7m2rjyac110mph-required-buckets-and-generate-html-poc.md",
+    "decree/spec/reporting/html-board/spec-01kw25d3w2kh097xxdp4eve1x4-html-board-markdown-overlay.md",
+    "decree/sprints/ledger.yaml",
+    "docs/index.md",
+    "docs/llm-agent-integration.md",
+    "docs/usage.md",
+    "pyproject.toml",
+    "skills/decree-ddd/SKILL.md",
+    "skills/decree-governs-suggest/SKILL.md",
+    "src/decree/cli.py",
+    "src/decree/commands/agents.py",
+    "src/decree/commands/generate_html.py",
+    "src/decree/commands/init.py",
+    "src/decree/templates/agent/skills/decree-ddd/SKILL.md",
+    "src/decree/templates/agent/skills/decree-governs-suggest/SKILL.md",
+    "src/decree/templates/html_board.html.j2",
+    "tests/test_agents.py",
+    "tests/test_cli.py",
+    "tests/test_generate_html.py",
+    "tests/test_init.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "324601dbaed3",
+  "checkpoint_transcript_start": 4082,
+  "transcript_lines_at_start": 4082,
+  "token_usage": {
+    "input_tokens": 1506978,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 44953088,
+    "output_tokens": 115577,
+    "api_call_count": 313
+  },
+  "session_metrics": {
+    "turn_count": 32
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-26T17:20:43.422256Z",
+    "agent_lines": 1883,
+    "agent_removed": 195,
+    "human_added": 176,
+    "human_modified": 29,
+    "human_removed": 0,
+    "total_committed": 2088,
+    "total_lines_changed": 2284,
+    "agent_percentage": 90.98073555166376,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2604,
+      "agent_lines_removed": 6
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2858,
+      "agent_lines_removed": 13
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4053,
+      "agent_lines_removed": 197
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4053,
+      "agent_lines_removed": 197
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 4053,
+      "agent_lines_removed": 197
+    }
+  ]
+}

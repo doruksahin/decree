@@ -1,0 +1,51 @@
+tamam guzel su ana kadar olanlari commitle.
+ama daha ilerleyecagiz.
+
+---
+
+simdi daha kullanisli olmasi icin bir seyler yapacagiz:
+progress'i gorebilmek icin markdown viewer tarzi bir sey belki kullanabilirsin, agentkith projemizde markdown viewer var. 
+bunlari overlay olarak acariz.
+
+---
+
+simdi daha kullanisli olmasi icin bir seyler yapacagiz:
+progress'i gorebilmek icin markdown viewer tarzi bir sey belki kullanabilirsin. 
+bunlari overlay olarak acariz.
+$context7 kullan.
+
+---
+
+ayrica, referanslar vs tiklanabilir olmali, file explorer, finderda vs acmali, full path copy yapabilmeli, context menude bunlari goster.
+
+---
+
+[Image #1] it has overflows.
+fix that.
+
+[Image #2] remove that topbar.
+
+[Image #3] make it more compact.
+no unnecessary duplicate infos, remove vibe vibe.
+
+---
+
+scope ne icin?
+peki ya init? bu su an eforsuzca uretilebiliyor mu?
+o konuda devximiz nasil?
+
+---
+
+su nasil olur: installdan sonra init'i yapmasi icin prompt veririz?
+LLM'e yigabiliriz bu yuku.
+
+---
+
+su nasil olur: installdan sonra init'i yapmasi icin prompt veririz?
+LLM'e yigabiliriz bu yuku.
+eger sistematik bir flowumuz yoksa boyle yapalim
+
+---
+
+ben sadece toml uretimi sikinti olacaksa diye demistim. yoksa akisi bulandirmayalim.
+kullanicilar basitce baslayabilmeli.

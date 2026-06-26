@@ -1,0 +1,53 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "19bd4f15dfe6",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 9,
+  "files_touched": [
+    "README.md",
+    "changelog.d/+required-buckets-html-board-poc.feature.md",
+    "decree/adr/index.md",
+    "decree/adr/integrations/agents/adr-01kw2beb2kk28j2g4qaqt81737-packaged-project-local-agent-skills-installer.md",
+    "decree/adr/reports/ADR-01KW2BEB2KK28J2G4QAQT81737.md",
+    "decree/prd/index.md",
+    "decree/prd/integrations/agents/prd-01kw2bdxbb3y6kaw081gpqtvg8-agent-skill-install-devx.md",
+    "decree/spec/index.md",
+    "decree/spec/integrations/agents/spec-01kw2beq5j7jwm93k4yas9gzab-agent-skill-install-cli.md",
+    "decree/spec/reporting/html-board/spec-01kw22ke3k4j7m2rjyac110mph-required-buckets-and-generate-html-poc.md",
+    "decree/spec/reporting/html-board/spec-01kw25d3w2kh097xxdp4eve1x4-html-board-markdown-overlay.md",
+    "decree/sprints/ledger.yaml",
+    "docs/index.md",
+    "docs/llm-agent-integration.md",
+    "docs/usage.md",
+    "pyproject.toml",
+    "skills/decree-ddd/SKILL.md",
+    "skills/decree-governs-suggest/SKILL.md",
+    "src/decree/cli.py",
+    "src/decree/commands/agents.py",
+    "src/decree/commands/generate_html.py",
+    "src/decree/commands/init.py",
+    "src/decree/templates/agent/skills/decree-ddd/SKILL.md",
+    "src/decree/templates/agent/skills/decree-governs-suggest/SKILL.md",
+    "src/decree/templates/html_board.html.j2",
+    "tests/test_agents.py",
+    "tests/test_cli.py",
+    "tests/test_generate_html.py",
+    "tests/test_init.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/19/bd4f15dfe6/0/metadata.json",
+      "transcript": "/19/bd4f15dfe6/0/full.jsonl",
+      "content_hash": "/19/bd4f15dfe6/0/content_hash.txt",
+      "prompt": "/19/bd4f15dfe6/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1506978,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 44953088,
+    "output_tokens": 115577,
+    "api_call_count": 313
+  }
+}
