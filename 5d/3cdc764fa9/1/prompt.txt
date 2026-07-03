@@ -1,0 +1,223 @@
+su anda paralel gelistirme yapamiyorum cunku ledger engel oluyor. bunu nasil cozerdin? 
+architectural olarak dusunur musun? git worktreelerle calisabiliyoruz, ayni worktreede birden fazla planning yapabiliyoruz, bunlari yaparken decree kilitlenmemeli. 
+Bir sey yapmadan once dusun, recon et. Bu librarynin dogru kullanimi icin bir cozum onerisi yap.
+
+---
+
+Simdi kafanda bir simule et:
+3 tane worktree ayni anda decree yazip kendi decreelerinde calisip bunlari isaretleyebiliyor olacak mi?
+Ayri bir worktree'de bir orchestrator bunlari denetleyebilecek mi?
+
+---
+
+tamam gerekli tum degisiklikleri yap ve documentlari guncelle.
+yapabiliyorsan decree kullanarak yap.
+borcsuz gidelim, bu library saglam olmali ve developmentima yaramali gercek senaryoda is gormeli.
+
+---
+
+tamam gerekli tum degisiklikleri yap ve documentlari guncelle.
+yapabiliyorsan decree kullanarak yap.
+borcsuz gidelim, bu library saglam olmali ve developmentima yaramali gercek senaryoda is gormeli.
+phase phase ilerle, doclari da update et, help komutunu da, hicbir seyi atlama.
+ultracode
+
+---
+
+<task-notification>
+<task-id>w0qkp3ylw</task-id>
+<tool-use-id>toolu_01WrXWcLGzptGGGNGjgCQ4tg</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/tasks/w0qkp3ylw.output</output-file>
+<status>completed</status>
+<summary>Dynamic workflow "Inventory everything the sprint-ledger v2 redesign must touch" completed</summary>
+<result>{"cli-surface":{"summary":"All sprint/migrate parsers live in one function, cli.main() (src/decree/cli.py:71-1114); commands/ modules only export run(args)/named entrypoints dispatched via a dict at cli.py:1170-1197 (sprint -&gt; lazy importlib `decree.commands.sprint.run`, migrate -&gt; _migrate_dispatch at cli.py:1150). Sprint has 8 subcommands (init, status, pause, resume, add, backlog, draft-pool/draft alias, rollover) defined at cli.py:261-306; no `complete` yet, and no --json or --project on any of them. Migrate has audit-coherence, governs, ids (cli.py:916-1029); a `sprint-ledger` sub-action must be added to both the parser and _migrate_dispatch. The sprint parser description hardcodes \"decree/sprints/ledger.yaml\" (cli.py:264) — the single top-level help string that must change; `sprint pause` help \"after active items have outcomes\" and `rollover --outcomes` help also change semantics under v2 item-level outcomes. Other CLI surfaces reading the ledger: `new --backlog/--draft-pool/--reason` (cli.py:113-129), `generate-html --sprint` (cli.py:171), `progress`/`ddd` sprint scopes (cli.py:400-408, 495-503), `lint` ledger validation. Conventions: stdout = machine/human payload, stderr = log.py info/error/warn/success/fail; exit 0 ok, 1 error, 2 config/JSON-contract error (decree.error.v1 via cli.py:51 when --json).","findings":[{"path":"src/decree/cli.py:261-266","detail":"Top-level `sprint` parser: help=\"Manage sprint-scoped execution tracking\", description hardcodes \"Manage the optional sprint ledger at decree/sprints/ledger.yaml. Sprint mode is disabled until `decree sprint init` creates the ledger.\" This is THE help string that must change for v2 (directory layout: state.yaml + live/ + closed/). Subparsers use dest=\"sprint_action\", required=True."},{"path":"src/decree/cli.py:269-270","detail":"`sprint init` parser: one positional `name` (help: 'Sprint name, e.g. \"Sprint 1\"'). No flags. v2: init must create decree/sprints/state.yaml instead of ledger.yaml."},{"path":"src/decree/cli.py:272","detail":"`sprint status` parser: no args at all (help: \"Show sprint mode state, active sprint, backlog, and draft pool\"). v2 status must aggregate state.yaml + live/*.yaml; note there is currently no --json flag anywhere under sprint — consider whether v2 adds one."},{"path":"src/decree/cli.py:274-275","detail":"`sprint pause` parser: --reason REQUIRED (help: \"Why sprint mode is paused\"). Subcommand help says \"Pause sprint mode after active items have outcomes\" — under v2 (items with outcome are no longer live) this precondition wording likely changes."},{"path":"src/decree/cli.py:277-278","detail":"`sprint resume` parser: positional `name` (help: 'New sprint name, e.g. \"Sprint 2\"'). Help: \"Resume sprint mode with a new active sprint\"."},{"path":"src/decree/cli.py:280-282","detail":"`sprint add` parser: positional `document` (\"Document ID to add\") + --kind choices=(execution, planning) default=None, NO help string on --kind (shows blank in --help; same for backlog/draft-pool). Default kind resolution happens in commands/sprint.py:_resolve_kind (defaults to execution, and execution requires a SPEC doc type)."},{"path":"src/decree/cli.py:284-287","detail":"`sprint backlog` parser: positional `document`, --kind (same choices, default None, no help), --reason REQUIRED (\"Why this item is not in the active sprint\")."},{"path":"src/decree/cli.py:289-296","detail":"`sprint draft-pool` parser with aliases=(\"draft\",) — the only aliased sprint subcommand; dispatch in commands/sprint.py:64 checks `action in {\"draft-pool\", \"draft\"}`. Args: positional `document`, --kind (default None, no help), --reason REQUIRED (\"Why this item has no sprint commitment\")."},{"path":"src/decree/cli.py:298-306","detail":"`sprint rollover` parser: positional `name` ('Successor sprint name, e.g. \"Sprint 2\"') + --outcomes REQUIRED, help: \"YAML file mapping each open active sprint document to completed/carried_over/deferred/dropped/superseded.\" v2's item-level `decree sprint complete DOC-ID` changes what counts as an \"open\" document; rollover writes closed/&lt;SPRINT-ID&gt;.yaml archives. The new `complete` subcommand parser must be added in this block, and the new dispatch branch in commands/sprint.py run()."},{"path":"src/decree/cli.py:916-925","detail":"Top-level `migrate` parser: description enumerates only audit-coherence and governs (\"v1 ships `audit-coherence` … `governs` emits …\") and help=\"Corpus migration tooling — dry-run audits, explicit suggestions, and ID migration\". Both strings must be extended to mention `sprint-ledger`. Subparsers dest=\"migrate_action\", required=True."},{"path":"src/decree/cli.py:1148-1160","detail":"_migrate_dispatch: maps migrate_action -&gt; migrate_cmd.{audit_coherence_run, governs_run, migrate_ids_run}; raises ValueError on unknown action. Comment at 1148-1149 even notes \"future: backfill-trailers (v2)\". v2 must add an \"sprint-ledger\" branch here plus a new entrypoint (e.g. migrate_sprint_ledger_run) — dispatchers use explicit named functions, not run()."},{"path":"src/decree/cli.py:927-958","detail":"`migrate audit-coherence` parser: --gate (append, repeatable, values terminal_status_progress/unreferenced_active/status_field_requirements, default all), --fix (interactive, TTY-required), --json, --project (default cwd). Exit 0 clean / 1 findings. Pattern to copy for migrate sprint-ledger: every migrate subcommand takes --project and --json."},{"path":"src/decree/cli.py:960-1012","detail":"`migrate governs` parser: required mutually-exclusive (--analyze | --apply-suggestions FILE), plus --apply, --dry-run, --only ID (append), --yes, --json, --project. Exit convention in governs_run: 0 ok, 1 validation/apply errors, 2 config/mode errors — the three-level exit model migrate sprint-ledger should follow."},{"path":"src/decree/cli.py:1014-1029","detail":"`migrate ids` parser: required mutually-exclusive (--dry-run | --apply) + --project. This is the closest template for `decree migrate sprint-ledger` (one-shot corpus conversion with dry-run plan output). Its impl (migrate.py:694-729) prints the plan to stdout, success()/fail() to stderr, writes a mapping JSON under decree/migrations/&lt;stamp&gt;-id-migration.json — a precedent for recording the v1→v2 ledger migration."},{"path":"src/decree/cli.py:113-129","detail":"`decree new` sprint integration: mutually-exclusive --backlog / --draft-pool (dest=draft_pool) + --reason (\"Required with --backlog or --draft-pool; explains why the SPEC is not in the active sprint\"). commands/new.py:92-154 loads the ledger, routes new SPECs into active/backlog/draft_pool, and logs \"created document but failed to update sprint ledger\" on error — under v2 this becomes a single live/&lt;DOC-ID&gt;.yaml write."},{"path":"src/decree/cli.py:156-175","detail":"`generate-html` parser: -o/--output (default decree-board.html) and --sprint SPRINT-ID (\"Sprint selected by default in the generated board. Defaults to the active sprint.\"). commands/generate_html.py:77-87 reads ledger.active, ledger.sprints, ledger.backlog, ledger.draft_pool directly — must be rewritten against the v2 loader."},{"path":"src/decree/cli.py:391-421","detail":"`progress` sprint-scope flags (mutually-exclusive group): --sprint SPRINT-ID, --all-sprints, --backlog, --draft-pool, --corpus (\"Show the whole corpus even when sprint mode is enabled\"), plus --include-context (\"In sprint scopes, also display referenced PRD/ADR context documents…\") and --json help mentioning \"sprint, backlog, draft-pool, or corpus scopes\". These scopes resolve through the ledger; --sprint on a closed sprint must resolve via closed/&lt;SPRINT-ID&gt;.yaml in v2."},{"path":"src/decree/cli.py:486-504","detail":"`ddd` has the identical sprint-scope group: --sprint, --all-sprints, --backlog, --draft-pool, --corpus (\"Assess the whole corpus even when sprint mode is enabled\"). Same v2 resolution concerns as progress. (commands/ddd.py and co
+... (truncated 56520 chars, full result in /private/tmp/claude-501/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/tasks/w0qkp3ylw.output)</result>
+<diagnostics>Per-agent results: /Users/doruk/.claude/projects/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/subagents/workflows/wf_d75bd460-e4d/journal.jsonl — one {"type":"result",...} line per completed agent with its full return value.
+If the result above is empty or unexpected, Read this file BEFORE diagnosing — do not assume agents returned non-empty results.
+To re-run with edited post-processing: Workflow({scriptPath: '/Users/doruk/.claude/projects/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/workflows/scripts/sprint-v2-recon-wf_d75bd460-e4d.js', resumeFromRunId: 'wf_d75bd460-e4d'}) — agents whose (prompt, opts) are unchanged replay from cache.</diagnostics>
+<usage><agent_count>5</agent_count><agents_done>5</agents_done><agents_error>0</agents_error><agents_skipped>0</agents_skipped><agents_empty_result>0</agents_empty_result><subagent_tokens>389290</subagent_tokens><tool_uses>109</tool_uses><duration_ms>350171</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>abab54750901932fa</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/tasks/abab54750901932fa.output</output-file>
+<status>completed</status>
+<summary>Agent "Dogfood PRD/ADR/SPEC via decree" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Phase 2 dogfooding complete. Final report:
+
+## New documents
+
+| Type | ID | Status | Path |
+|---|---|---|---|
+| PRD | `PRD-01KWKXH2EX1WH7XWXCNKSMRW24` | `draft` | `/Users/doruk/Desktop/SIDE_HUSTLE/decree/decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md` |
+| ADR | `ADR-01KWKXH8423XTBV6CDVXB4B2ZB` | `accepted` | `/Users/doruk/Desktop/SIDE_HUSTLE/decree/decree/adr/sprints/REDACTED.md` |
+| SPEC | `SPEC-01KWKXHERB56W94SCRZEVMBQMJ` | `draft` | `/Users/doruk/Desktop/SIDE_HUSTLE/decree/decree/spec/sprints/REDACTED.md` |
+
+All three created with `uv run decree new ... --bucket sprints`; content written per design doc §1/§2-§7/§10 (PRD problem = 4 serialization mechanisms, 7 `- [ ]` success criteria; ADR compares merge-driver / frontmatter-membership / lanes / directory-store with all mandated consequences; SPEC covers storage layout with YAML examples, write API, operation semantics, kept-vs-changed invariants, CLI additions, migration algorithm, 9 primary + 6 Deferred `- [ ]` acceptance criteria).
+
+## Supersession (bidirectional, verified in frontmatter)
+
+- `ADR-01KW1QGHBT2BSZ2HVT55G1QSJB`: status `superseded`, frontmatter `superseded-by: ADR-01KWKXH8423XTBV6CDVXB4B2ZB` (transitioned proposed→accepted→superseded via CLI; body untouched)
+- `ADR-01KWKXH8423XTBV6CDVXB4B2ZB`: frontmatter `supersedes: ADR-01KW1QGHBT2BSZ2HVT55G1QSJB` (written automatically by the supersede command)
+
+## Verification
+
+- `decree lint` final exit status: **0** ("48 documents validated. 0 errors." — remaining output is informational deferred-section notes)
+- `decree sprint status`: SPEC-01KWKXHERB56W94SCRZEVMBQMJ listed in active sprint SPRINT-01KW212NVEEDAZF2343KSX6QNM (5 items, source `new`)
+- `decree progress`: new SPEC shown in Tasks at 0% (0/9 primary; deferred 0/6)
+
+## Files created/modified
+
+Created:
+- `decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md`
+- `decree/adr/sprints/REDACTED.md`
+- `decree/spec/sprints/REDACTED.md`
+- `decree/adr/reports/ADR-01KWKXH8423XTBV6CDVXB4B2ZB.md` (auto-generated by `decree status`)
+- `decree/adr/reports/ADR-01KW1QGHBT2BSZ2HVT55G1QSJB.md` (auto-generated by `decree status`)
+
+Modified:
+- `decree/adr/REDACTED.md` (frontmatter only, via CLI: status + superseded-by)
+- `decree/spec/REDACTED.md` (frontmatter only: reference swapped ADR-01KW1QGHBT... → ADR-01KWKXH8...; body untouched)
+- `decree/sprints/ledger.yaml` (auto-enrollment of the new SPEC by `decree new spec` — expected v1 path)
+- `decree/prd/index.md`, `decree/adr/index.md`, `decree/spec/index.md` (regenerated)
+
+Nothing under `src/` or `tests/` was touched.</result>
+<usage><subagent_tokens>77221</subagent_tokens><tool_uses>20</tool_uses><duration_ms>294024</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a3f2fccb8e082c652</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/tasks/a3f2fccb8e082c652.output</output-file>
+<status>completed</status>
+<summary>Agent "Core sprint-ledger v2 implementation" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Implementation complete and all gates green. Final report:
+
+## Per-file changes
+
+**`src/decree/sprints.py`** — full rewrite of the storage layer to the v2 directory store (`decree/sprints/state.yaml` + `live/&lt;DOC-ID&gt;.yaml` + `closed/&lt;SPRINT-ID&gt;.yaml`, schema `decree.sprints.v2`). New frozen dataclasses `SprintState`, `LiveItem`, `LedgerView`; `SprintRecord`/`SprintItem` kept for archives. Per-file write API (O_EXCL creates, tempfile+rename rewrites), `_ledger_lock` fcntl contextmanager (no-op without fcntl, used only by init/pause/resume/rollover), new `complete_item`/`drop_item`, reworked init/add/backlog/draft-pool/pause/resume/rollover, validation rebased per §5, v1 detection everywhere. `load_outcomes_file`, `document_context_for`, `_snapshot_for_doc`, checkbox-snapshot logic unchanged.
+
+**`src/decree/commands/sprint.py`** — all branches ported to the new API; new `complete`/`drop` branches; `status` now prints open Tasks/Planning plus a `Done (awaiting rollover):` section and backlog/draft-pool counts.
+
+**`src/decree/commands/new.py`** — gating via cheap `load_state()`; enrollment still goes through `add_to_active_sprint`/`add_to_backlog`/`add_to_draft_pool` (each now writes exactly one live file). All error texts verbatim.
+
+**`src/decree/commands/generate_html.py`** — board built from `load_view`: closed archives ULID-sorted, synthesized active `SprintRecord` (from `state.active` + live active items as `SprintItem`s incl. outcomes) appended last; backlog/draft_pool from live files. `decree.board.v1` payload unchanged; active is default selection with last-closed fallback.
+
+**`src/decree/commands/migrate.py`** — new section with `migrate_sprint_ledger_run` + private v1 reader (`_plan_sprint_ledger_migration`, `_apply_sprint_ledger_migration`, `SprintLedgerPlan`, `_load_corpus`, `_iso_date`). `--dry-run` prints plan to stdout, writes nothing (exit 0); `--apply` guards (state.yaml present → 2; ledger.yaml missing → 2; malformed v1 → 2), writes via the sprints.py public write API, deletes ledger.yaml, runs `validate_ledger` (errors → 1, clean → 0).
+
+**`src/decree/cli.py`** — sprint parser description rewritten for the directory store; new `sprint complete DOCUMENT [--commit SHA]…` and `sprint drop DOCUMENT --reason TEXT` subparsers; pause/rollover help updated per §6; new `migrate sprint-ledger` parser (required mutually-exclusive `--dry-run|--apply`, `--project`, no `--json`) + dispatch branch; migrate namespace description now enumerates all four sub-actions.
+
+## Public API of sprints.py v2
+
+```python
+# constants
+SPRINTS_REL_PATH, STATE_REL_PATH, LIVE_REL_PATH, CLOSED_REL_PATH, LEDGER_REL_PATH  # v1, detection/migration only
+SCHEMA = "decree.sprints.v2"; MODE_ENABLED; BACKLOG_WARN_AFTER_DAYS = 30
+ITEM_KINDS; LIVE_SCOPES; OUTCOME_KINDS; LIVE_OUTCOME_KINDS = {"completed", "dropped"}; OUTCOMES_REQUIRING_REASON
+V1_DETECTED_MESSAGE; NOT_ENABLED_MESSAGE
+
+# model
+class SprintLedgerError(ValueError)
+@dataclass(frozen=True) SprintState(schema, mode, state, active: dict|None, paused: dict|None)  # .from_raw(raw), .to_dict()
+@dataclass(frozen=True) LiveItem(document, scope, kind="execution", source="manual", added=today, since=None, reason=None, review_after=None, carryover_from=None, outcome=None)  # .from_raw(raw, *, where), .to_dict()
+@dataclass(frozen=True) SprintItem(...)   # unchanged v1 shape
+@dataclass(frozen=True) SprintRecord(...) # unchanged v1 shape
+@dataclass(frozen=True) LedgerView(state, live: dict[str, LiveItem], closed: tuple[SprintRecord, ...])
+    # properties: active_items, active_open_items, active_done_items, backlog_items, draft_pool_items
+    # live_membership() -&gt; dict[str, str]  (doc -&gt; scope, outcome-less only)
+@dataclass(frozen=True) SprintValidation(errors, warnings)
+@dataclass(frozen=True) SprintScope(...)  # UNCHANGED shape
+
+# paths / detection
+def sprints_path(root=None) -&gt; Path; state_path(root=None); live_path(root=None); closed_path(root=None); ledger_path(root=None)
+def sprint_mode_enabled(root=None) -&gt; bool   # True if state.yaml OR legacy ledger.yaml
+
+# I/O (each write touches exactly one file)
+def load_state(root=None) -&gt; SprintState
+def load_view(root=None) -&gt; LedgerView
+def save_state(state: SprintState, root=None) -&gt; None
+def create_live_item(item: LiveItem, root=None) -&gt; None      # O_CREAT|O_EXCL
+def rewrite_live_item(item: LiveItem, root=None) -&gt; None     # tempfile+rename
+def remove_live_item(doc_id: str, root=None) -&gt; None         # fold-time only
+def write_closed_sprint(record: SprintRecord, root=None) -&gt; None  # O_EXCL, append-only
+
+# operations
+def init_ledger(name, *, root=None, today=None) -&gt; SprintState
+def add_to_active_sprint(document, *, kind="execution", source="manual", root=None, today=None) -&gt; LiveItem
+def add_to_backlog(document, *, reason, kind="execution", source="manual", root=None, today=None, review_after=None) -&gt; LiveItem
+def add_to_draft_pool(document, *, reason, kind="execution", root=None, today=None) -&gt; LiveItem
+def complete_item(document, *, commits: tuple[str, ...] = (), root=None, today=None) -&gt; LiveItem
+def drop_item(document, *, reason, root=None, today=None) -&gt; LiveItem
+def pause_ledger(reason, *, root=None, today=None) -&gt; SprintState
+def resume_ledger(name, *, root=None, today=None) -&gt; SprintState
+def rollover_ledger(name, outcomes, docs, *, root=None, today=None) -&gt; SprintState
+def load_outcomes_file(path) -&gt; dict[str, dict]              # unchanged
+
+# validation / scoping (UNCHANGED signatures)
+def validate_ledger(root: Path, docs: list) -&gt; SprintValidation
+def select_sprint_scope(docs, args, *, root=None) -&gt; SprintScope | None
+def document_context_for(items, by_id) -&gt; tuple
+```
+
+## Deviations from the design doc
+
+1. **`add_to_draft_pool` keeps the v1 signature** (no `source` kwarg) — §4 wrote `add_to_draft_pool(...)` ambiguously; v1 parity minimizes churn. `LiveItem.to_dict()` omits empty `source` so migrated v1 draft-pool items (which had no source field) don't gain `source: ''`.
+2. **Closed-archive filename↔id check added** (`closed/&lt;name&gt;.yaml: filename stem must equal sprint id …`) — not explicitly in §5, but carryover linearity depends on filename order, so a mismatch must surface.
+3. **Migration guards apply to `--dry-run` too** — §7 specified the guards for `--apply`; a dry-run with no v1 ledger (or v2 present) also exits 2 since there's nothing to plan. This is what makes "second `--apply` exits 2" work (ledger.yaml is gone).
+4. **`pause` writes the archive even with zero items** — preserves sprint history (v1 kept the closed record in the monolith).
+5. **New `_stringify_dates` normalization** on outcome dicts at parse time — YAML unquoted dates became `datetime.date` objects and broke the JSON board (latent v1 bug, surfaced by the smoke test).
+6. **`init_ledger` ordering**: existing state.yaml → `"sprint ledger already exists"` (v1 message); only-v1-ledger → the v1-detected message.
+7. **`sprint status`** keeps v1's `Tasks:`/`Planning:` grouping for open items (design only said "open items"), adding the `Done (awaiting rollover):` section.
+
+## Smoke results (throwaway tmp projects, via the installed CLI)
+
+**68/68 assertions passed**, including: init creates state.yaml+live/+closed/ and lints clean; `new spec` auto-enrolls exactly one live file with `scope: active, source: new, kind: execution`; planning PRD add; backlog/draft-pool with reasons; complete &lt;100% refused with the exact gate message; complete at 100% writes `outcome{kind: completed, evidence.commits: [abc123], snapshot 1/1}` into **only** its own live file (all other live files byte-identical, state.yaml untouched, closed/ empty); drop records reason+snapshot; re-complete refused ("already has a recorded outcome"); pause refused with open items (exact new message); rollover with outcomes for open items only — archive folds pre-resolved outcomes verbatim, `carried_over.to_sprint` = new id, carryover live file has `carryover_from`, state.active updated; pause folds resolved carryover into second archive; paused `new spec` refused / `--backlog` works; resume; **lint exit 0 at every green step**; v1 detection: `sprint status`, `new spec`, and `lint` all exit 1 with `sprint ledger v1 detected; run \`decree migrate sprint-ledger\``; migrate `--dry-run` writes nothing; `--apply` on a dogfood-shaped v1 ledger (closed sprint w/ completed+carried_over incl. snapshots, active carryover, backlog, draft_pool) produces a store that lints clean with all fields preserved; second `--apply` exits 2; no-ledger guard exits 2; generate-html board is `decree.board.v1` with archives ULID-sorted, active last and selected. Also verified `progress` (human+JSON, scope `active sprint SPRINT-… (Sprint 1)`) and `ddd` work against the v2 store.
+
+## Gate confirmation
+
+- `uv run ruff check src/ --fix` + `uv run ruff format src/` — clean, no changes.
+- `uv run pytest -q --ignore=tests/test_sprint.py --ignore=tests/test_generate_html.py` — **729 passed**.
+- `uv run decree lint` in this repo fails with the v1 migrate hint — intended; left untouched. (The dirty `decree/` files in git status predate this task — Phase 2 dogfooding.)
+
+## For the tests/docs phases
+
+- **New CLI help strings** (exact): sprint parser description "Manage the sprint directory store at decree/sprints/: state.yaml holds the lifecycle state, live/&lt;DOC-ID&gt;.yaml holds one file per live membership, and closed/&lt;SPRINT-ID&gt;.yaml holds one archive per closed sprint. Sprint mode is disabled until \`decree sprint init\` creates state.yaml."; `complete` help "Record a completed outcome for one active sprint item mid-sprint (requires 100% primary acceptance criteria)" (`%%`-escaped in source); `drop` help "Record a dropped outcome for one active sprint item mid-sprint"; pause help "Pause sprint mode after every active item is completed, dropped, or rolled over"; rollover `--outcomes` help now begins "YAML file mapping each OPEN active sprint document (items completed or dropped mid-sprint are already resolved) to …".
+- **New error messages introduced**: `"{DOC} is not an active sprint item"`, `"{DOC} is in {scope}, not the active sprint"`, `"{DOC} already has a recorded outcome ({kind})"`, `"cannot pause with open active-sprint items; complete, drop, or rollover them first"`, `"{DOC} already has a resolved live record ({kind}); resolved record folds at next rollover"`, `"{DOC} is already in {active sprint|backlog|draft_pool}"`, `"live/&lt;f&gt;.yaml: filename stem must equal document field {DOC}"`, `"live/&lt;f&gt;.yaml: scope must be one of […]"`, `"live/&lt;f&gt;.yaml: outcome is only allowed on scope=active items"`, `"live/&lt;f&gt;.yaml: live outcome kind must be one of ['completed', 'dropped']"`, `"live/&lt;f&gt;.yaml: scope=active live item is not allowed while sprint mode is paused"`, `"closed/&lt;f&gt;.yaml: closed archive must have status closed"`, `"closed/&lt;f&gt;.yaml: archive id matches the active sprint id {ID}"`, `"closed/&lt;f&gt;.yaml: filename stem must equal sprint id {ID}"`, `"closed sprint archive already exists: {path}"`, migrate guards `"sprint ledger v2 already present at decree/sprints/state.yaml; nothing to migrate"` / `"no v1 sprint ledger found at decree/sprints/ledger.yaml; nothing to migrate"`.
+- **Live-file validation `where` prefixes are file-based** (`decree/sprints/live/&lt;DOC-ID&gt;.yaml: …`), so v1's `"backlog {DOC}: …"` prefixes are gone — but load-bearing substrings ("backlog item is … days old", "terminal SPEC requires explicit reopen semantics", "completed outcome requires snapshot primary progress at 100%", "must be in active sprint, backlog, or draft_pool", stale-reference wording) survive verbatim.
+- **`sprint status` stdout**: `Sprint mode: {state}` / `Active: {id} {name} ({n} items)` / `Tasks:`+`Planning:` (open only) / `Done (awaiting rollover):` with `  {DOC} ({kind})` lines / `Backlog: {n} items` / `Draft pool: {n} items`.
+- Rollover/complete share the exact v1 gate message `"{DOC} cannot be completed unless primary acceptance criteria are 100%"`; rollover missing/extra messages unchanged.
+- `select_sprint_scope --sprint &lt;active-id&gt;` includes resolved items; default active scope excludes them; `--all-sprints` = archives + all active live items.</result>
+<usage><subagent_tokens>217632</subagent_tokens><tool_uses>60</tool_uses><duration_ms>1416516</duration_ms></usage>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>w3dkhc83w</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/private/tmp/claude-501/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/tasks/w3dkhc83w.output</output-file>
+<status>completed</status>
+<summary>Dynamic workflow "Parallel test rewrite + documentation update for sprint-ledger v2" completed</summary>
+<result>{"T1-test_sprint":{"summary":"Rewrote /Users/doruk/Desktop/SIDE_HUSTLE/decree/tests/test_sprint.py for the sprint-ledger v2 directory store. All 14 v1 test intents are preserved and ported to v2 fixtures (every inline v1 ledger.yaml heredoc replaced by the single shared helper _write_v2_ledger(root, *, state=..., live=[...], closed=[...]) that writes state.yaml, live/&lt;DOC-ID&gt;.yaml files with optional _filename override, and closed/&lt;SPRINT-ID&gt;.yaml archives). The lint completed&lt;100% fixture is now a closed/&lt;SPRINT-ID&gt;.yaml archive; the duplicate-membership test now models the structural reality (two live files whose document fields collide via filename mismatch -&gt; 'filename stem must equal document field' + 'live document appears in both active sprint and backlog' errors, plus the old-backlog age warning). Added the required v2 behavior tests from design §8 using exact impl-facts messages: complete happy path asserting outcome+snapshot land ONLY in that item's live file (state.yaml and sibling live files byte-identical before/after) plus 'Done (awaiting rollover):' status output; complete refusal below 100% ('{DOC} cannot be completed unless primary acceptance criteria are 100%'); complete on a planning PRD item; complete refusals for already-resolved ('{DOC} already has a recorded outcome (completed)'), wrong-scope ('{DOC} is in backlog, not the active sprint'), and non-enrolled ('{DOC} is not an active sprint item') items; terminal doc status AFTER complete keeps validate_ledger clean; default progress scope excludes resolved items while --sprint &lt;active-id&gt; includes them; drop requires reason ('reason is required') and records a dropped outcome with audit snapshot; pause refuses open items ('cannot pause with open active-sprint items; complete, drop, or rollover them first') then folds resolved items into a closed archive; rollover requires outcomes for OPEN items only (extra: 'outcomes include document(s) not open in active sprint: ...', missing: 'outcomes missing active sprint item(s): ...') and folds pre-resolved outcomes verbatim (dict-equality against the live outcome, at/evidence preserved). Also added, per the updated tests/CLAUDE.md test map assigning them to this file: v1-ledger detection with migrate hint from lint + sprint status + new spec, malformed live/closed store files reported as per-file validation errors (not crashes), and the fcntl advisory-lock test (init + rollover each flock LOCK_EX once, skipped when fcntl is unavailable). 26 tests total, all passing; ruff check/format clean.","files_changed":[{"path":"/Users/doruk/Desktop/SIDE_HUSTLE/decree/tests/test_sprint.py","detail":"Full v2 rewrite: shared _write_v2_ledger helper (state.yaml + live/ + closed/, _filename override for mismatch fixtures), SPRINT_1 all-zero-ULID constant, 14 ported v1 intents, 9 new §8 behavior tests (complete/drop/pause/rollover semantics with exact impl-facts messages), v1-detection + malformed-file + flock tests; imports switched from load_ledger to load_view/complete_item/drop_item/SprintLedgerError."}],"verification":["uv run ruff check tests/test_sprint.py --fix -&gt; All checks passed!","uv run ruff format tests/test_sprint.py -&gt; 1 file left unchanged","uv run pytest -q tests/test_sprint.py -&gt; 26 passed in 0.75s","git status --porcelain tests/ -&gt; only tests/test_sprint.py modified by me (tests/CLAUDE.md, test_cli.py, test_generate_html.py are concurrent agents' edits)"],"notes_for_review":"Message assertions use exact-string equality (pytest.raises + str(excinfo.value) ==) for API-level errors and substring checks on stderr for CLI-wrapped errors, matching impl-facts wording verbatim. Two tests beyond my assignment's explicit list (v1-detection via lint/status/new, and the init/rollover flock test) were added because the concurrently updated tests/CLAUDE.md test map explicitly assigns 'v1-ledger detection, advisory lock' coverage to test_sprint.py and design §8 requires them; the malformed-store-file test covers §5's 'per-file error, not crash' invariant. The rollover-verbatim test pins complete_item(today='2026-07-01', commits=('cafe123',)) and asserts the folded archive outcome dict-equals the pre-rollover live outcome. The old-backlog age warning depends on wall-clock today being &gt;30 days after 2026-01-01 (same assumption as the v1 test). The lock test asserts exactly one LOCK_EX call per transition; it will need updating if lock granularity changes."},"T2-migrate-parallel":{"summary":"Created the two assigned test files for the sprint-ledger v2 redesign. tests/test_sprint_migrate.py (8 tests) covers `decree migrate sprint-ledger` end to end plus v1 detection and store robustness: (a) a dogfood-shaped v1 fixture (closed sprint with carried_over [reason/to_sprint/snapshot] + completed [100% snapshot, evidence commits] items, active sprint with a carryover item [carryover_from] + a fresh item, backlog with since/reason/review_after, draft_pool with reason) migrated with --apply asserts exit 0, ledger.yaml deleted, field-by-field load_view equivalence (state block, all four live files incl. since/reason/review_after/carryover_from, closed archive items with exact outcome dicts), and validate_ledger fully clean (no errors, no warnings); (b) --dry-run prints the full plan to stdout and a byte-level directory snapshot proves nothing was written; (c) exit-2 guards for no-v1-file (apply AND dry-run), v2-already-present, and a second --apply, each with the exact stderr message; (d) a fake v1 ledger makes lint.run, sprint.run(status), and new.run(spec) all exit 1 with the literal 'sprint ledger v1 detected; run `decree migrate sprint-ledger`' message (lint on stdout, others on stderr; no doc file created); (e) a non-mapping live YAML and a filename/document-mismatched live file both surface as per-file validate_ledger errors ('expected mapping', 'filename stem must equal document field ...') without crashing; (f) with pytest.importorskip('fcntl') and a monkeypatched recording fcntl.flock, init and rollover each acquire exactly one LOCK_EX on decree/sprints/.lock. tests/test_sprint_parallel.py (3 tests) is the file-level parallel-development proof without git: two copytree'd 'worktrees' each run new.run; snapshot diffs prove each change-set is exactly {one .md doc, one live/&lt;ID&gt;.yaml} and the two sets are disjoint (state.yaml untouched — the conflict-free-merge invariant); union-copying B's files into A lints clean with all three SPECs in the default active-sprint progress scope (JSON payload checked); the same doc with divergent scopes brought into one tree under a second (mismatched) filename yields the filename/document-mismatch validation error and lint exit 1, not a crash; and same-worktree concurrency: two sequential new.run calls produce two independent live files, and `sprint complete` on one (with --commit evidence) leaves the other byte-identical while only the completed item's file gains the outcome.","files_changed":[{"path":"/Users/doruk/Desktop/SIDE_HUSTLE/decree/tests/test_sprint_migrate.py","detail":"NEW — 8 tests: migrate sprint-ledger --apply equivalence on a dogfood-shaped v1 fixture, --dry-run write-nothing snapshot check, three exit-2 guards, v1-detection blocking lint/sprint status/new spec with the migrate hint, validate_ledger robustness for non-mapping and filename-mismatched live files, and fcntl LOCK_EX acquisition on decree/sprints/.lock for init + rollover. Uses the binding conventions: module-level _write_config/_write_doc helpers, all-zero-ULID ids, monkeypatch.chdir(tmp_path), in-process run(argparse.Namespace(...)) with every parser flag defaulted (_new_args, _migrate_args with dry_run/apply/project), capsys, exit codes 0/1/2, model inspection via decree.sprints.load_view/validate_ledger."},{"path":"/Users/doruk/Desktop/SIDE_HUSTLE/decree/tests/test_sprint_parallel.py","detail":"NEW — 3 tests: disjoint-path property of two parallel spec creations across copied project trees
+... (truncated 21355 chars, full result in /private/tmp/claude-501/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/tasks/w3dkhc83w.output)</result>
+<diagnostics>Per-agent results: /Users/doruk/.claude/projects/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/subagents/workflows/wf_6defd3bd-2c7/journal.jsonl — one {"type":"result",...} line per completed agent with its full return value.
+If the result above is empty or unexpected, Read this file BEFORE diagnosing — do not assume agents returned non-empty results.
+To re-run with edited post-processing: Workflow({scriptPath: '/Users/doruk/.claude/projects/-Users-doruk-Desktop-SIDE-HUSTLE-decree/9aba7607-c379-42b0-82e5-f238fc1a47cb/workflows/scripts/sprint-v2-tests-docs-wf_6defd3bd-2c7.js', resumeFromRunId: 'wf_6defd3bd-2c7'}) — agents whose (prompt, opts) are unchanged replay from cache.</diagnostics>
+<usage><agent_count>6</agent_count><agents_done>6</agents_done><agents_error>0</agents_error><agents_skipped>0</agents_skipped><agents_empty_result>0</agents_empty_result><subagent_tokens>623260</subagent_tokens><tool_uses>145</tool_uses><duration_ms>624718</duration_ms></usage>
+</task-notification>
+
+---
+
+olm kafayi mi yedin fable'la bunlar yapilir mi aq
+bitirdin mi implementasyonunu?
+
+---
+
+yok kapattim o taramalari, cunku 62 tane actin!

@@ -1,0 +1,271 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "5d3cdc764fa9",
+  "session_id": "9aba7607-c379-42b0-82e5-f238fc1a47cb",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-03T13:59:14.161165Z",
+  "branch": "main",
+  "checkpoints_count": 9,
+  "save_step_count": 6,
+  "files_touched": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "decree/adr/adr-01kw1qghbt2bsz2hvt55g1qsjb-sprint-ledger-and-carryover-semantics.md",
+    "decree/adr/index.md",
+    "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md",
+    "decree/prd/index.md",
+    "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md",
+    "decree/spec/index.md",
+    "decree/spec/spec-01kw1qj27r175nvm8qngw1fx8n-sprint-ledger-cli-and-validation.md",
+    "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md",
+    "decree/sprints/closed/SPRINT-01KW1XA3P35NA0D34MWWDXYWX6.yaml",
+    "decree/sprints/ledger.yaml",
+    "decree/sprints/live/SPEC-01KW1QJ27R175NVM8QNGW1FX8N.yaml",
+    "decree/sprints/live/SPEC-01KW22KE3K4J7M2RJYAC110MPH.yaml",
+    "decree/sprints/live/SPEC-01KW25D3W2KH097XXDP4EVE1X4.yaml",
+    "decree/sprints/live/SPEC-01KW2BEQ5J7JWM93K4YAS9GZAB.yaml",
+    "decree/sprints/live/SPEC-01KWKXHERB56W94SCRZEVMBQMJ.yaml",
+    "decree/sprints/state.yaml",
+    "docs/architecture.md",
+    "docs/index.md",
+    "docs/plans/2026-06-26-sprint-scoped-execution-handoff.md",
+    "docs/usage.md",
+    "skills/decree-ddd/SKILL.md",
+    "src/decree/CLAUDE.md",
+    "src/decree/cli.py",
+    "src/decree/commands/AGENTS.md",
+    "src/decree/commands/generate_html.py",
+    "src/decree/commands/migrate.py",
+    "src/decree/commands/new.py",
+    "src/decree/commands/sprint.py",
+    "src/decree/sprints.py",
+    "src/decree/templates/agent/skills/decree-ddd/SKILL.md",
+    "tests/CLAUDE.md",
+    "tests/test_cli.py",
+    "tests/test_generate_html.py",
+    "tests/test_sprint.py"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-fable-5",
+  "turn_id": "4fbf999380f6",
+  "token_usage": {
+    "input_tokens": 29838,
+    "cache_creation_tokens": 657942,
+    "cache_read_tokens": 15815581,
+    "output_tokens": 148426,
+    "api_call_count": 76
+  },
+  "session_metrics": {
+    "turn_count": 9
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-03T13:59:14.080514Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 6883,
+    "human_modified": 1082,
+    "human_removed": 0,
+    "total_committed": 6883,
+    "total_lines_changed": 7972,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2138,
+      "user_lines_removed": 2,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 549,
+      "user_lines_removed": 22,
+      "agent_lines_added": 2212,
+      "agent_lines_removed": 2,
+      "user_added_per_file": {
+        "decree/adr/adr-01kw1qghbt2bsz2hvt55g1qsjb-sprint-ledger-and-carryover-semantics.md": 3,
+        "decree/adr/index.md": 2,
+        "decree/adr/reports/ADR-01KW1QGHBT2BSZ2HVT55G1QSJB.md": 20,
+        "decree/adr/reports/ADR-01KWKXH8423XTBV6CDVXB4B2ZB.md": 21,
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 97,
+        "decree/prd/index.md": 1,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 90,
+        "decree/spec/index.md": 1,
+        "decree/spec/spec-01kw1qj27r175nvm8qngw1fx8n-sprint-ledger-cli-and-validation.md": 1,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 313
+      },
+      "user_removed_per_file": {
+        "decree/adr/adr-01kw1qghbt2bsz2hvt55g1qsjb-sprint-ledger-and-carryover-semantics.md": 2,
+        "decree/adr/index.md": 1,
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 9,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 6,
+        "decree/spec/spec-01kw1qj27r175nvm8qngw1fx8n-sprint-ledger-cli-and-validation.md": 1,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 3
+      }
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 1788,
+      "user_lines_removed": 705,
+      "agent_lines_added": 2220,
+      "agent_lines_removed": 6,
+      "user_added_per_file": {
+        "decree/adr/reports/ADR-01KW1QGHBT2BSZ2HVT55G1QSJB.md": 20,
+        "decree/adr/reports/ADR-01KWKXH8423XTBV6CDVXB4B2ZB.md": 21,
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 97,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 90,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 313,
+        "src/decree/cli.py": 65,
+        "src/decree/commands/generate_html.py": 33,
+        "src/decree/commands/migrate.py": 189,
+        "src/decree/commands/new.py": 3,
+        "src/decree/commands/sprint.py": 53,
+        "src/decree/sprints.py": 904
+      },
+      "user_removed_per_file": {
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 9,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 6,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 3,
+        "src/decree/cli.py": 11,
+        "src/decree/commands/generate_html.py": 7,
+        "src/decree/commands/new.py": 3,
+        "src/decree/commands/sprint.py": 32,
+        "src/decree/sprints.py": 634
+      }
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 2121,
+      "user_lines_removed": 312,
+      "agent_lines_added": 3534,
+      "agent_lines_removed": 761,
+      "user_added_per_file": {
+        "AGENTS.md": 9,
+        "CLAUDE.md": 4,
+        "changelog.d/+sprint-complete.feature.md": 1,
+        "changelog.d/+sprint-ledger-v2.breaking.md": 1,
+        "decree/adr/reports/ADR-01KW1QGHBT2BSZ2HVT55G1QSJB.md": 20,
+        "decree/adr/reports/ADR-01KWKXH8423XTBV6CDVXB4B2ZB.md": 21,
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 97,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 90,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 313,
+        "docs/architecture.md": 6,
+        "docs/index.md": 14,
+        "docs/plans/2026-06-26-sprint-scoped-execution-handoff.md": 1,
+        "docs/plans/2026-07-03-parallel-safe-sprint-ledger.md": 113,
+        "docs/usage.md": 78,
+        "skills/decree-ddd/SKILL.md": 14,
+        "src/decree/CLAUDE.md": 3,
+        "src/decree/commands/AGENTS.md": 2,
+        "src/decree/templates/agent/skills/decree-ddd/SKILL.md": 14,
+        "tests/CLAUDE.md": 4,
+        "tests/test_cli.py": 52,
+        "tests/test_generate_html.py": 94,
+        "tests/test_sprint.py": 518,
+        "tests/test_sprint_migrate.py": 410,
+        "tests/test_sprint_parallel.py": 242
+      },
+      "user_removed_per_file": {
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 9,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 6,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 3,
+        "docs/index.md": 8,
+        "docs/usage.md": 9,
+        "skills/decree-ddd/SKILL.md": 1,
+        "src/decree/commands/AGENTS.md": 1,
+        "src/decree/templates/agent/skills/decree-ddd/SKILL.md": 1,
+        "tests/test_generate_html.py": 36,
+        "tests/test_sprint.py": 238
+      }
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 1308,
+      "user_lines_removed": 18,
+      "agent_lines_added": 4347,
+      "agent_lines_removed": 1055,
+      "user_added_per_file": {
+        "changelog.d/+sprint-complete.feature.md": 1,
+        "changelog.d/+sprint-ledger-v2.breaking.md": 1,
+        "decree/adr/reports/ADR-01KW1QGHBT2BSZ2HVT55G1QSJB.md": 20,
+        "decree/adr/reports/ADR-01KWKXH8423XTBV6CDVXB4B2ZB.md": 21,
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 97,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 90,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 313,
+        "docs/plans/2026-07-03-parallel-safe-sprint-ledger.md": 113,
+        "tests/test_sprint_migrate.py": 410,
+        "tests/test_sprint_parallel.py": 242
+      },
+      "user_removed_per_file": {
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 9,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 6,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 3
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 1308,
+      "user_lines_removed": 18,
+      "agent_lines_added": 4347,
+      "agent_lines_removed": 1055,
+      "user_added_per_file": {
+        "changelog.d/+sprint-complete.feature.md": 1,
+        "changelog.d/+sprint-ledger-v2.breaking.md": 1,
+        "decree/adr/reports/ADR-01KW1QGHBT2BSZ2HVT55G1QSJB.md": 20,
+        "decree/adr/reports/ADR-01KWKXH8423XTBV6CDVXB4B2ZB.md": 21,
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 97,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 90,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 313,
+        "docs/plans/2026-07-03-parallel-safe-sprint-ledger.md": 113,
+        "tests/test_sprint_migrate.py": 410,
+        "tests/test_sprint_parallel.py": 242
+      },
+      "user_removed_per_file": {
+        "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md": 9,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 6,
+        "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md": 3
+      }
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 898,
+      "user_lines_removed": 6,
+      "agent_lines_added": 4829,
+      "agent_lines_removed": 1058,
+      "user_added_per_file": {
+        "changelog.d/+sprint-complete.feature.md": 1,
+        "changelog.d/+sprint-ledger-v2.breaking.md": 1,
+        "decree/adr/reports/ADR-01KW1QGHBT2BSZ2HVT55G1QSJB.md": 20,
+        "decree/adr/reports/ADR-01KWKXH8423XTBV6CDVXB4B2ZB.md": 21,
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 90,
+        "docs/plans/2026-07-03-parallel-safe-sprint-ledger.md": 113,
+        "tests/test_sprint_migrate.py": 410,
+        "tests/test_sprint_parallel.py": 242
+      },
+      "user_removed_per_file": {
+        "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md": 6
+      }
+    }
+  ]
+}

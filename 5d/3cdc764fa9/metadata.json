@@ -3,7 +3,7 @@
   "checkpoint_id": "5d3cdc764fa9",
   "strategy": "manual-commit",
   "branch": "main",
-  "checkpoints_count": 5,
+  "checkpoints_count": 14,
   "files_touched": [
     ".lychee.toml",
     "AGENTS.md",
@@ -12,12 +12,21 @@
     "changelog.d/AGENTS.md",
     "decree/adr/adr-01kw1qghbt2bsz2hvt55g1qsjb-sprint-ledger-and-carryover-semantics.md",
     "decree/adr/index.md",
+    "decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md",
     "decree/prd/index.md",
+    "decree/prd/sprints/prd-01kwkxh2ex1wh7xwxcnksmrw24-parallel-safe-sprint-execution.md",
     "decree/spec/index.md",
     "decree/spec/reports/SPEC-01KWKXHERB56W94SCRZEVMBQMJ.md",
     "decree/spec/spec-01kw1qj27r175nvm8qngw1fx8n-sprint-ledger-cli-and-validation.md",
     "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md",
+    "decree/sprints/closed/SPRINT-01KW1XA3P35NA0D34MWWDXYWX6.yaml",
     "decree/sprints/ledger.yaml",
+    "decree/sprints/live/SPEC-01KW1QJ27R175NVM8QNGW1FX8N.yaml",
+    "decree/sprints/live/SPEC-01KW22KE3K4J7M2RJYAC110MPH.yaml",
+    "decree/sprints/live/SPEC-01KW25D3W2KH097XXDP4EVE1X4.yaml",
+    "decree/sprints/live/SPEC-01KW2BEQ5J7JWM93K4YAS9GZAB.yaml",
+    "decree/sprints/live/SPEC-01KWKXHERB56W94SCRZEVMBQMJ.yaml",
+    "decree/sprints/state.yaml",
     "docs/architecture.md",
     "docs/index.md",
     "docs/market-analysis/research-frontiers.md",
@@ -46,13 +55,19 @@
       "transcript": "/5d/3cdc764fa9/0/full.jsonl",
       "content_hash": "/5d/3cdc764fa9/0/content_hash.txt",
       "prompt": "/5d/3cdc764fa9/0/prompt.txt"
+    },
+    {
+      "metadata": "/5d/3cdc764fa9/1/metadata.json",
+      "transcript": "/5d/3cdc764fa9/1/full.jsonl",
+      "content_hash": "/5d/3cdc764fa9/1/content_hash.txt",
+      "prompt": "/5d/3cdc764fa9/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 636761,
-    "cache_creation_tokens": 0,
-    "cache_read_tokens": 15187328,
-    "output_tokens": 51889,
-    "api_call_count": 125
+    "input_tokens": 666599,
+    "cache_creation_tokens": 657942,
+    "cache_read_tokens": 31002909,
+    "output_tokens": 200315,
+    "api_call_count": 201
   }
 }
