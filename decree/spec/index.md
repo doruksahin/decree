@@ -27,6 +27,7 @@
 | SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5 | Point-of-change governs-gap suggestions in intent-check and intent-review | implemented | 2026-06-03 |
 | SPEC-01KT7E7SQ7QVXZYK2Q0Y37QD3J | Trailer-coverage gate via decree commit-check | implemented | 2026-06-03 |
 | SPEC-01KW1Z8TDZ6XZDV0G44KDSB92B | Foldered Document Buckets and List CLI | implemented | 2026-06-26 |
+| SPEC-01KWKXHERB56W94SCRZEVMBQMJ | Sprint Ledger v2 Storage and Item-Level Completion | implemented | 2026-07-03 |
 | SPEC-01KW1QJ27R175NVM8QNGW1FX8N | Sprint Ledger CLI and Validation | draft | 2026-06-26 |
 | SPEC-01KW22KE3K4J7M2RJYAC110MPH | Required Buckets and Generate HTML Board | draft | 2026-06-26 |
 | SPEC-01KW25D3W2KH097XXDP4EVE1X4 | HTML Board Markdown Overlay | draft | 2026-06-26 |

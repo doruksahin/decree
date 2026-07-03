@@ -9,7 +9,7 @@ The canonical package version is:
 
 ```toml
 [project]
-version = "0.1.0"
+version = "3.0.0"
 ```
 
 in [`pyproject.toml`](../pyproject.toml).

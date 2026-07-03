@@ -22,6 +22,10 @@ uv run pytest -k supersede    # by keyword
 | [test_index.py](test_index.py) | `commands/index.py` | Index generation, sorting, marker presence |
 | [test_graph.py](test_graph.py) | `commands/graph.py` | Diagram generation, marker handling, idempotency |
 | [test_progress.py](test_progress.py) | `commands/progress.py` | Checkbox counting, progress bars |
+| [test_sprint.py](test_sprint.py) | `sprints.py` + `commands/sprint.py` | v2 directory store (`state.yaml` + `live/` + `closed/`): init, mid-sprint `complete`/`drop`, pause/rollover folding, validation invariants, sprint scoping, v1-ledger detection, advisory lock |
+| [test_sprint_migrate.py](test_sprint_migrate.py) | `commands/migrate.py` (`sprint-ledger`) | v1 `ledger.yaml` → v2 store: `--apply` load_view equivalence + clean validation + ledger removal, `--dry-run` writes nothing, guards exit 2 |
+| [test_sprint_parallel.py](test_sprint_parallel.py) | `sprints.py` | Parallel-worktree simulation without git: per-copy live files union conflict-free (lint green, both in scope); mismatched duplicate live files are a lint error, not a crash |
+| [test_generate_html.py](test_generate_html.py) | `commands/generate_html.py` | `decree.board.v1` payload, synthesized active sprint record, closed-archive selection, unknown-sprint rejection |
 | [test_integration.py](test_integration.py) | Multi-module | Cross-cutting scenarios across types |
 | [test_smoke_scenarios.py](test_smoke_scenarios.py) | Full lifecycle | Uses [scenarios.py](scenarios.py) fixtures — realistic "Team Billing" SaaS lifecycle |
 | [test_cli.py](test_cli.py) | `cli.py` | CLI argument parsing, help output |

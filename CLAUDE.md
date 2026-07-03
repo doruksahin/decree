@@ -22,6 +22,9 @@ decree graph                      # Mermaid diagrams in index.md
 decree progress                   # checkbox completion tracking
 decree progress --changed --base origin/main  # scoped progress for parallel work
 decree ddd --governs src/foo.py   # scoped lifecycle guidance
+decree sprint init "Sprint 1"     # enable sprint mode (creates decree/sprints/state.yaml)
+decree sprint complete SPEC-01KT22NMS0D19VMD8VPK4D2MNX  # record completed outcome mid-sprint (needs 100% primary ACs)
+decree migrate sprint-ledger --apply  # convert v1 ledger.yaml to the v2 directory store
 decree why src/foo.py             # path -> governing decisions
 decree refs SPEC-01KT22NMS0D19VMD8VPK4D2MNX  # reverse graph for one decision
 decree --version                  # installed package version
@@ -55,6 +58,7 @@ All config in `decree.toml` (not pyproject.toml). See [docs/configuration.md](do
 - Staleness is direct-only, not transitive
 - Provenance is two-layered: git guarantees commit→files (deterministic, content-addressed); commit→decision is the `Implements:/Refs:/Fixes:` trailer **convention**, not a git guarantee. Git-derived signals (`commits`, staleness, observed/dead governance) are deterministic to compute but advisory + coverage-honest, and never feed `why()` ([docs/provenance-model.md](docs/provenance-model.md))
 - C4 is coupled in `c4.py`, not pluggable ([decree/adr/adr-01kt22nmrv7gmaxkwsbeen68ke-coupled-c4-module-vs-plugin-architecture.md](decree/adr/adr-01kt22nmrv7gmaxkwsbeen68ke-coupled-c4-module-vs-plugin-architecture.md))
+- Sprint membership is one `live/<DOC-ID>.yaml` per document — items with an outcome are not live, and live items are sprint-agnostic until a rollover folds them into `closed/<SPRINT-ID>.yaml`, so parallel worktrees merge without conflicts ([decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md](decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md))
 
 ## Development
 

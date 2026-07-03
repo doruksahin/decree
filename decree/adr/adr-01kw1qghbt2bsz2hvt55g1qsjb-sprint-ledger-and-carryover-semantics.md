@@ -1,9 +1,10 @@
 ---
+date: '2026-06-26'
 id: ADR-01KW1QGHBT2BSZ2HVT55G1QSJB
-status: proposed
-date: 2026-06-26
 references:
 - PRD-01KW1QEZEC1R1BSTZN1SSPPCEJ
+status: superseded
+superseded-by: ADR-01KWKXH8423XTBV6CDVXB4B2ZB
 ---
 
 # ADR-01KW1QGHBT2BSZ2HVT55G1QSJB Sprint Ledger and Carryover Semantics

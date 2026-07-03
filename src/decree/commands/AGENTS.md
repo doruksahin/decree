@@ -38,7 +38,8 @@ Applies to command modules under `src/decree/commands/`.
 - `health.py`: `health` / `stale` — coherence drift (stale, ungoverned hotspots, dead-governance, advisory suggested-governance); reads `observed_governs`, never feeds `queries.py`. See [../../../docs/health-signals.md](../../../docs/health-signals.md).
 - `intent_check.py`: pre-code plan governance; opt-in `other_active_files` adds cross-session `live_conflicts`.
 - `intent_review.py`: post-code diff governance.
-- `migrate.py`: explicit corpus migrations and agent-assisted backfills.
+- `sprint.py`: sprint lifecycle over the `decree/sprints/` directory store; every mutation writes exactly one file (`state.yaml`, one `live/<DOC-ID>.yaml`, or one `closed/<SPRINT-ID>.yaml`).
+- `migrate.py`: explicit corpus migrations and agent-assisted backfills, including `sprint-ledger` (v1 `ledger.yaml` monolith → v2 directory store).
 - `report.py`: completion report snapshots.
 - `commit.py`: git commit wrapper and trailer sync.
 - `mcp_server.py`: FastMCP tool wrappers (`why`/`refs`/`stale`/`health`/`intent_check`/`intent_review`/`progress`/`report`); no duplicate query logic.

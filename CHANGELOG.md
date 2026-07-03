@@ -4,6 +4,26 @@ All notable changes to Decree are documented here.
 
 <!-- towncrier release notes start -->
 
+## v3.0.0 - 2026-07-03
+
+### Breaking Changes
+
+- Replace the monolithic sprint ledger `decree/sprints/ledger.yaml` with a
+  directory store (`state.yaml` plus one `live/<DOC-ID>.yaml` file per
+  membership and one `closed/<SPRINT-ID>.yaml` archive per closed sprint);
+  existing projects must run `decree migrate sprint-ledger --apply` once.
+
+### Features
+
+- Add `decree sprint complete` and `decree sprint drop` to record item-level
+  outcomes mid-sprint; the one-file-per-membership sprint store makes parallel
+  worktree development conflict-free.
+
+### Documentation
+
+- Add Homebrew version and install badges to the README.
+
+
 ## v2.0.0 - 2026-06-26
 
 ### Features

@@ -34,9 +34,9 @@ Decree is intentionally explicit:
 |------------|------------------|----------------|
 | Document lifecycle | `decree new`, `decree status`, `decree lint` | Create PRDs, ADRs, SPECs, enforce valid status transitions, and validate references. |
 | Document navigation | `decree list`, `decree new --bucket` | Keep PRDs, ADRs, and SPECs in physical concern/feature buckets without changing decision relationships. |
-| HTML board export | `decree generate-html` | Generate a self-contained read-only sprint kanban board from decree documents and the sprint ledger. |
+| HTML board export | `decree generate-html` | Generate a self-contained read-only sprint kanban board from decree documents and the sprint directory store. |
 | Parallel-safe identity | `decree new`, `decree migrate ids` | Generate distributed `TYPE-ULID` IDs and explicitly convert old numeric corpora. |
-| Sprint execution tracking | `decree sprint`, `decree progress --corpus` | Optionally scope active work to a sprint ledger while keeping PRD/ADR/SPEC references as governance truth. |
+| Sprint execution tracking | `decree sprint`, `decree progress --corpus` | Optionally scope active work to the sprint directory store (`state.yaml` plus one live membership file per document) while keeping PRD/ADR/SPEC references as governance truth. |
 | Scoped progress | `decree progress`, `decree ddd` | Track checkbox progress globally, by sprint, or by document, chain, changed files, governed path, backlog, or draft pool. |
 | Governed-file lookup | `decree why`, `decree refs` | Ask which decisions govern a file and what depends on a decision. |
 | Index maintenance | `decree index rebuild`, `decree index verify`, `decree index status` | Keep the SQLite query cache synchronized and auditable. |
@@ -103,24 +103,30 @@ Use this sequence when adding decree to another application.
 
 4. Optionally enable sprint-scoped execution tracking.
 
-   Sprint mode changes task-facing defaults only after the ledger exists:
+   Sprint mode changes task-facing defaults only after `decree sprint init`
+   creates `decree/sprints/state.yaml`:
 
    ```bash
    decree sprint init "Sprint 1"
-   decree progress          # active sprint scope
+   decree progress          # active sprint scope (open items)
+   decree sprint complete SPEC-01KT22NMS0D19VMD8VPK4D2MNX  # mid-sprint completed outcome
    decree progress --corpus # whole-corpus scope
    decree generate-html --output decree-board.html
    ```
 
-   New SPECs enter the active sprint by default while sprint mode is active.
-   Use `--backlog --reason` or `--draft-pool --reason` for work that should not
-   be committed to the current sprint.
+   New SPECs enter the active sprint by default while sprint mode is active —
+   each membership is one `live/<DOC-ID>.yaml` file, so parallel worktrees
+   merge cleanly. Use `--backlog --reason` or `--draft-pool --reason` for work
+   that should not be committed to the current sprint.
 
-5. If importing an old numeric corpus, convert it once.
+5. If importing an old numeric corpus or a v1 single-file sprint ledger,
+   convert them once.
 
    ```bash
    decree migrate ids --dry-run
    decree migrate ids --apply
+   decree migrate sprint-ledger --dry-run
+   decree migrate sprint-ledger --apply
    ```
 
 6. Add `governs:` coverage.

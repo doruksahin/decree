@@ -44,6 +44,15 @@ uv run decree progress --changed --base origin/main
 uv run decree progress --governs src/decree/parser.py
 ```
 
+Sprint mode is enabled in this repo (`decree/sprints/state.yaml` exists), so
+`decree progress` and `decree ddd` default to the open items of the active
+sprint; pass `--corpus` for whole-corpus views. When a SPEC's primary
+acceptance criteria reach 100%, record the outcome immediately:
+
+```bash
+uv run decree sprint complete SPEC-01KT22NMS0D19VMD8VPK4D2MNX
+```
+
 When several agent sessions touch the same tree, pass the others' planned files
 so intent-check flags live overlaps before you start:
 
@@ -112,7 +121,7 @@ uv run ruff format --check src/ tests/
 uv run decree lint
 uv run decree index verify
 lychee --config .lychee.toml --no-progress '**/*.md'
-uv run towncrier build --draft --version 0.2.0
+uv run towncrier build --draft --version 3.0.0
 uv run pytest -q
 uv run pre-commit run --all-files
 ```

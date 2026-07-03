@@ -1451,3 +1451,204 @@ def apply_governs_run(args: argparse.Namespace) -> int:
     """Thin alias used by older internal tests; writes only explicit suggestions."""
     args.apply = True
     return governs_run(args)
+
+
+# ─── SPEC-01KWKXHERB56W94SCRZEVMBQMJ: sprint ledger v1 → v2 migration ────────
+#
+# The v1 monolith (decree/sprints/ledger.yaml, schema decree.sprints.v1) is
+# parsed only here; runtime sprints.py refuses v1 stores and points at this
+# command. Exit codes follow the governs_run convention: 0 clean, 1 failed
+# apply/validation, 2 configuration or guard errors.
+
+
+@dataclasses.dataclass(frozen=True)
+class SprintLedgerPlan:
+    """Planned v2 files derived from a v1 ledger (model objects, ready to write)."""
+
+    state: object
+    live: tuple
+    closed: tuple
+
+
+def migrate_sprint_ledger_run(args: argparse.Namespace) -> int:
+    """`decree migrate sprint-ledger` — convert ledger.yaml to the v2 directory store."""
+    from decree.sprints import CLOSED_REL_PATH, LEDGER_REL_PATH, LIVE_REL_PATH, STATE_REL_PATH
+
+    try:
+        root = _resolve_root(getattr(args, "project", None))
+    except FileNotFoundError as e:
+        fail(str(e))
+        return 2
+
+    ledger_file = root / LEDGER_REL_PATH
+    state_file = root / STATE_REL_PATH
+    if state_file.exists():
+        fail(f"sprint ledger v2 already present at {STATE_REL_PATH}; nothing to migrate")
+        return 2
+    if not ledger_file.exists():
+        fail(f"no v1 sprint ledger found at {LEDGER_REL_PATH}; nothing to migrate")
+        return 2
+
+    try:
+        plan = _plan_sprint_ledger_migration(ledger_file)
+    except Exception as e:
+        fail(f"could not plan sprint-ledger migration: {e}")
+        return 2
+
+    print(
+        f"migrate sprint-ledger: {len(plan.closed)} closed sprint(s), "
+        f"{len(plan.live)} live item(s), state: {plan.state.state}"
+    )
+    print(f"  create {STATE_REL_PATH}")
+    for item in plan.live:
+        print(f"  create {LIVE_REL_PATH / (item.document + '.yaml')}")
+    for record in plan.closed:
+        print(f"  create {CLOSED_REL_PATH / (record.id + '.yaml')}")
+    print(f"  remove {LEDGER_REL_PATH}")
+
+    if not getattr(args, "apply", False):
+        success("dry-run complete; no files changed.")
+        return 0
+
+    try:
+        _apply_sprint_ledger_migration(root, plan, ledger_file)
+    except Exception as e:
+        fail(f"sprint-ledger migration failed: {e}")
+        return 1
+
+    from decree.sprints import validate_ledger
+
+    try:
+        result = validate_ledger(root, _load_corpus(root))
+    except Exception as e:
+        # The store itself was written; a corpus that fails strict parsing must
+        # not turn the one-time migration into a traceback after ledger.yaml is gone.
+        fail(
+            f"migration applied, but post-migration validation could not run: {e}; fix the corpus and run `decree lint`"
+        )
+        return 1
+    if result.errors:
+        for err in result.errors:
+            error("migrate-sprint-ledger", err)
+        fail(f"migrated store failed validation with {len(result.errors)} error(s)")
+        return 1
+    success(f"migrated sprint ledger: wrote {1 + len(plan.live) + len(plan.closed)} file(s); removed {LEDGER_REL_PATH}")
+    return 0
+
+
+def _plan_sprint_ledger_migration(ledger_file: Path) -> SprintLedgerPlan:
+    import yaml
+
+    from decree.sprints import MODE_ENABLED, SCHEMA, LiveItem, SprintRecord, SprintState
+
+    raw = yaml.safe_load(ledger_file.read_text()) or {}
+    if not isinstance(raw, dict):
+        raise ValueError("v1 ledger must be a YAML mapping")
+    if str(raw.get("schema", "")).strip() != "decree.sprints.v1":
+        raise ValueError("v1 ledger schema must be 'decree.sprints.v1'")
+
+    state_value = str(raw.get("state", "")).strip()
+    active_id = str(raw.get("active") or "").strip().upper() or None
+    closed: list[SprintRecord] = []
+    active_record: SprintRecord | None = None
+    for idx, sprint_raw in enumerate(raw.get("sprints") or []):
+        record = SprintRecord.from_raw(sprint_raw, where=f"ledger.sprints[{idx}]")
+        if record.status == "closed":
+            closed.append(record)
+        elif record.status == "active" and record.id == active_id:
+            active_record = record
+        else:
+            raise ValueError(f"v1 ledger contains unexpected sprint record: {record.id} (status {record.status!r})")
+
+    live: list[LiveItem] = []
+    if active_record is not None:
+        # v1 guarantees active items are outcome-less; carry outcome through
+        # defensively so post-apply validation can flag a corrupt v1 ledger.
+        live.extend(
+            LiveItem(
+                document=item.document,
+                scope="active",
+                kind=item.kind,
+                source=item.source,
+                added=item.added,
+                carryover_from=item.carryover_from,
+                outcome=item.outcome,
+            )
+            for item in active_record.items
+        )
+    for idx, item_raw in enumerate(raw.get("backlog") or []):
+        if not isinstance(item_raw, dict):
+            raise ValueError(f"ledger.backlog[{idx}]: expected mapping")
+        # v1 fallback: `added` defaults to `since`, never the migration date.
+        merged = {**item_raw, "scope": "backlog"}
+        if not merged.get("added") and merged.get("since"):
+            merged["added"] = merged["since"]
+        live.append(LiveItem.from_raw(merged, where=f"ledger.backlog[{idx}]"))
+    for idx, item_raw in enumerate(raw.get("draft_pool") or []):
+        if not isinstance(item_raw, dict):
+            raise ValueError(f"ledger.draft_pool[{idx}]: expected mapping")
+        live.append(LiveItem.from_raw({**item_raw, "scope": "draft_pool"}, where=f"ledger.draft_pool[{idx}]"))
+
+    if state_value == "active":
+        if active_record is None:
+            raise ValueError("v1 ledger state is active but no matching active sprint record was found")
+        state = SprintState(
+            schema=SCHEMA,
+            mode=MODE_ENABLED,
+            state="active",
+            active={"id": active_record.id, "name": active_record.name, "started": active_record.started},
+            paused=None,
+        )
+    elif state_value == "paused":
+        paused_raw = raw.get("paused") or {}
+        if not isinstance(paused_raw, dict):
+            raise ValueError("v1 ledger paused block must be a mapping")
+        state = SprintState(
+            schema=SCHEMA,
+            mode=MODE_ENABLED,
+            state="paused",
+            active=None,
+            paused={
+                "since": _iso_date(paused_raw.get("since", "")),
+                "reason": str(paused_raw.get("reason", "")).strip(),
+            },
+        )
+    else:
+        raise ValueError(f"v1 ledger has unsupported state: {state_value!r}")
+
+    return SprintLedgerPlan(state=state, live=tuple(live), closed=tuple(closed))
+
+
+def _apply_sprint_ledger_migration(root: Path, plan: SprintLedgerPlan, ledger_file: Path) -> None:
+    from decree.sprints import closed_path, create_live_item, live_path, save_state, write_closed_sprint
+
+    live_path(root).mkdir(parents=True, exist_ok=True)
+    closed_path(root).mkdir(parents=True, exist_ok=True)
+    for record in plan.closed:
+        write_closed_sprint(record, root=root)
+    for item in plan.live:
+        create_live_item(item, root=root)
+    save_state(plan.state, root=root)
+    ledger_file.unlink()
+
+
+def _load_corpus(root: Path) -> list:
+    cwd_before = Path.cwd()
+    os.chdir(root)
+    try:
+        from decree.config import get_project_root, load_doc_types
+        from decree.parser import load_all_types
+
+        get_project_root.cache_clear()
+        load_doc_types.cache_clear()
+        return load_all_types()
+    finally:
+        os.chdir(cwd_before)
+
+
+def _iso_date(value: object) -> str:
+    import datetime
+
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    return str(value).strip()

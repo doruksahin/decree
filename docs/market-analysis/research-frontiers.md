@@ -384,7 +384,7 @@ Before picking, three questions worth answering explicitly:
 - **Tools / libraries**
   - sqlite-utils: https://github.com/simonw/sqlite-utils
   - sqlite-vec: https://github.com/asg017/sqlite-vec
-  - Datasette: https://datasette.io
+  - Datasette: https://github.com/simonw/datasette
   - pygls (LSP framework for Python): https://github.com/openlawlibrary/pygls
   - networkx: https://networkx.org
   - PyDriller: https://github.com/ishepard/pydriller

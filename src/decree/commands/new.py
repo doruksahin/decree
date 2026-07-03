@@ -15,7 +15,7 @@ from decree.sprints import (
     add_to_active_sprint,
     add_to_backlog,
     add_to_draft_pool,
-    load_ledger,
+    load_state,
     sprint_mode_enabled,
 )
 from decree.template import render_template
@@ -89,7 +89,7 @@ def run(args: argparse.Namespace) -> int:
         return 1
     if sprint_mode_enabled() and doc_type.name == "spec":
         try:
-            ledger = load_ledger()
+            sprint_state = load_state()
             if wants_backlog:
                 if not reason:
                     error(prefix, "--backlog requires --reason")
@@ -100,7 +100,7 @@ def run(args: argparse.Namespace) -> int:
                     error(prefix, "--draft-pool requires --reason")
                     return 1
                 sprint_destination = "draft_pool"
-            elif ledger.state == "paused":
+            elif sprint_state.state == "paused":
                 error(prefix, "sprint mode is paused; pass --backlog or --draft-pool with --reason")
                 return 1
             else:

@@ -17,7 +17,7 @@ from decree.commands.report import load_report_config
 from decree.config import get_project_root
 from decree.log import error, info, success
 from decree.parser import DocDocument, load_all_types
-from decree.sprints import SprintLedgerError, load_ledger, sprint_mode_enabled
+from decree.sprints import SprintItem, SprintLedgerError, SprintRecord, load_view, sprint_mode_enabled
 
 TEMPLATE_PATH = Path(__file__).resolve().parent.parent / "templates" / "html_board.html.j2"
 
@@ -74,17 +74,21 @@ def _resolve_output(root: Path, value: str | None) -> Path:
 
 def _board_payload(docs: list[DocDocument], *, selected_sprint_id: str | None, root: Path) -> dict[str, Any]:
     by_id = {doc.doc_id: doc for doc in docs}
-    ledger = load_ledger(root) if sprint_mode_enabled(root) else None
+    view = load_view(root) if sprint_mode_enabled(root) else None
     sprints = []
     backlog: list[dict[str, Any]] = []
     draft_pool: list[dict[str, Any]] = []
     active_sprint_id = None
 
-    if ledger is not None:
-        active_sprint_id = ledger.active
-        sprints = [_sprint_payload(sprint, by_id, root) for sprint in ledger.sprints]
-        backlog = [_item_card(item, by_id, root, default_column="backlog") for item in ledger.backlog]
-        draft_pool = [_item_card(item, by_id, root, default_column="draft_pool") for item in ledger.draft_pool]
+    if view is not None:
+        # Closed archives are already ULID-sorted; the synthesized active sprint goes last.
+        records = list(view.closed)
+        if view.state.active:
+            active_sprint_id = view.state.active.get("id")
+            records.append(_synthesized_active_record(view))
+        sprints = [_sprint_payload(record, by_id, root) for record in records]
+        backlog = [_item_card(item, by_id, root, default_column="backlog") for item in view.backlog_items]
+        draft_pool = [_item_card(item, by_id, root, default_column="draft_pool") for item in view.draft_pool_items]
 
     available = {sprint["id"] for sprint in sprints}
     if selected_sprint_id is not None and selected_sprint_id not in available:
@@ -104,6 +108,28 @@ def _board_payload(docs: list[DocDocument], *, selected_sprint_id: str | None, r
         "backlog": backlog,
         "draft_pool": draft_pool,
     }
+
+
+def _synthesized_active_record(view: Any) -> SprintRecord:
+    active = view.state.active or {}
+    return SprintRecord(
+        id=active.get("id", ""),
+        name=active.get("name", ""),
+        status="active",
+        started=active.get("started", ""),
+        closed=None,
+        items=tuple(
+            SprintItem(
+                document=item.document,
+                kind=item.kind,
+                source=item.source,
+                added=item.added,
+                carryover_from=item.carryover_from,
+                outcome=item.outcome,
+            )
+            for item in view.active_items
+        ),
+    )
 
 
 def _sprint_payload(sprint: Any, by_id: dict[str, DocDocument], root: Path) -> dict[str, Any]:

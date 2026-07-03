@@ -261,8 +261,10 @@ def main() -> int:
     p_sprint = subparsers.add_parser(
         "sprint",
         help="Manage sprint-scoped execution tracking",
-        description="Manage the optional sprint ledger at decree/sprints/ledger.yaml. "
-        "Sprint mode is disabled until `decree sprint init` creates the ledger.",
+        description="Manage the sprint directory store at decree/sprints/: state.yaml holds the "
+        "lifecycle state, live/<DOC-ID>.yaml holds one file per live membership, and "
+        "closed/<SPRINT-ID>.yaml holds one archive per closed sprint. "
+        "Sprint mode is disabled until `decree sprint init` creates state.yaml.",
     )
     sprint_subs = p_sprint.add_subparsers(dest="sprint_action", required=True)
 
@@ -271,7 +273,10 @@ def main() -> int:
 
     sprint_subs.add_parser("status", help="Show sprint mode state, active sprint, backlog, and draft pool")
 
-    p_sprint_pause = sprint_subs.add_parser("pause", help="Pause sprint mode after active items have outcomes")
+    p_sprint_pause = sprint_subs.add_parser(
+        "pause",
+        help="Pause sprint mode after every active item is completed, dropped, or rolled over",
+    )
     p_sprint_pause.add_argument("--reason", required=True, help="Why sprint mode is paused")
 
     p_sprint_resume = sprint_subs.add_parser("resume", help="Resume sprint mode with a new active sprint")
@@ -295,13 +300,38 @@ def main() -> int:
     p_sprint_draft.add_argument("--kind", choices=("execution", "planning"), default=None)
     p_sprint_draft.add_argument("--reason", required=True, help="Why this item has no sprint commitment")
 
+    p_sprint_complete = sprint_subs.add_parser(
+        "complete",
+        help="Record a completed outcome for one active sprint item mid-sprint "
+        "(requires 100%% primary acceptance criteria)",
+        description="Record a completed outcome for one item mid-sprint. The item must be an open "
+        "scope=active live item and its primary acceptance criteria must be 100% checked. "
+        "The outcome and a progress snapshot are written into that item's own live file only.",
+    )
+    p_sprint_complete.add_argument("document", help="Document ID to complete")
+    p_sprint_complete.add_argument(
+        "--commit",
+        action="append",
+        default=None,
+        metavar="SHA",
+        help="Evidence commit SHA recorded in the outcome (repeatable).",
+    )
+
+    p_sprint_drop = sprint_subs.add_parser(
+        "drop",
+        help="Record a dropped outcome for one active sprint item mid-sprint",
+    )
+    p_sprint_drop.add_argument("document", help="Document ID to drop")
+    p_sprint_drop.add_argument("--reason", required=True, help="Why this item is dropped from the sprint")
+
     p_sprint_rollover = sprint_subs.add_parser("rollover", help="Close the active sprint and create its successor")
     p_sprint_rollover.add_argument("name", help='Successor sprint name, e.g. "Sprint 2"')
     p_sprint_rollover.add_argument(
         "--outcomes",
         required=True,
         help=(
-            "YAML file mapping each open active sprint document to completed/carried_over/deferred/dropped/superseded."
+            "YAML file mapping each OPEN active sprint document (items completed or dropped mid-sprint "
+            "are already resolved) to completed/carried_over/deferred/dropped/superseded."
         ),
     )
 
@@ -912,15 +942,17 @@ def main() -> int:
         "advisory governs: gap (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5). Invalid id exits 2.",
     )
 
-    # ── migrate (sub-namespace: audit-coherence, governs) ───
+    # ── migrate (sub-namespace: audit-coherence, governs, ids, sprint-ledger) ───
     p_migrate = subparsers.add_parser(
         "migrate",
-        help="Corpus migration tooling — dry-run audits, explicit suggestions, and ID migration",
-        description="Migration tooling for the decree corpus. v1 ships "
-        "`audit-coherence`, which runs coherence gates in "
-        "dry-run mode against every doc and reports per-gate violations. "
+        help="Corpus migration tooling — dry-run audits, explicit suggestions, ID and sprint-ledger migration",
+        description="Migration tooling for the decree corpus. "
+        "`audit-coherence` runs coherence gates in dry-run mode against every doc "
+        "and reports per-gate violations. "
         "`governs` emits deterministic analysis JSON and applies externally "
-        "generated suggestions for the typed `governs:` frontmatter field.",
+        "generated suggestions for the typed `governs:` frontmatter field. "
+        "`ids` converts legacy sequential filenames to TYPE-ULID frontmatter IDs. "
+        "`sprint-ledger` converts the v1 sprints/ledger.yaml monolith to the v2 directory store.",
     )
     migrate_subs = p_migrate.add_subparsers(dest="migrate_action", required=True)
 
@@ -1023,6 +1055,25 @@ def main() -> int:
     ids_mode.add_argument("--dry-run", action="store_true", help="Print the migration plan without writing files")
     ids_mode.add_argument("--apply", action="store_true", help="Apply the migration")
     p_mig_ids.add_argument(
+        "--project",
+        default=None,
+        help="Operate on the project at this path (default: cwd).",
+    )
+
+    p_mig_sprint = migrate_subs.add_parser(
+        "sprint-ledger",
+        help="Migrate the v1 sprints/ledger.yaml monolith to the v2 directory store",
+        description="Convert decree/sprints/ledger.yaml (schema decree.sprints.v1) into the v2 "
+        "directory store: state.yaml plus one live/<DOC-ID>.yaml per live membership and one "
+        "closed/<SPRINT-ID>.yaml per closed sprint. Dry-run prints the migration plan without "
+        "writing. Apply writes the new files, deletes ledger.yaml, and validates the result.",
+    )
+    sprint_ledger_mode = p_mig_sprint.add_mutually_exclusive_group(required=True)
+    sprint_ledger_mode.add_argument(
+        "--dry-run", action="store_true", help="Print the migration plan without writing files"
+    )
+    sprint_ledger_mode.add_argument("--apply", action="store_true", help="Apply the migration")
+    p_mig_sprint.add_argument(
         "--project",
         default=None,
         help="Operate on the project at this path (default: cwd).",
@@ -1146,7 +1197,8 @@ def main() -> int:
         raise ValueError(f"unknown mcp action: {action}")
 
     # The `migrate` command has sub-actions: audit-coherence (SPEC-01KT22NMRZ4W0CFDSJVHVQ8JBR),
-    # governs (SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S); future: backfill-trailers (v2).
+    # governs (SPEC-01KT22NMRZZ0ZZ0DQ4N0SJPN9S), ids, sprint-ledger (SPEC-01KWKXHERB56W94SCRZEVMBQMJ);
+    # future: backfill-trailers (v2).
     def _migrate_dispatch(a):
         from decree.commands import migrate as migrate_cmd
 
@@ -1157,6 +1209,8 @@ def main() -> int:
             return migrate_cmd.governs_run(a)
         if action == "ids":
             return migrate_cmd.migrate_ids_run(a)
+        if action == "sprint-ledger":
+            return migrate_cmd.migrate_sprint_ledger_run(a)
         raise ValueError(f"unknown migrate action: {action}")
 
     def _report_dispatch(a):

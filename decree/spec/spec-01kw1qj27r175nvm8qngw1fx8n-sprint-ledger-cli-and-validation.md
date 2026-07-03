@@ -4,7 +4,7 @@ status: draft
 date: 2026-06-26
 references:
 - PRD-01KW1QEZEC1R1BSTZN1SSPPCEJ
-- ADR-01KW1QGHBT2BSZ2HVT55G1QSJB
+- ADR-01KWKXH8423XTBV6CDVXB4B2ZB
 governs:
 - src/decree/cli.py
 - src/decree/identity.py

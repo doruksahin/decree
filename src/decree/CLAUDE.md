@@ -9,6 +9,7 @@
 | [doctypes.py](doctypes.py) | `DocType` frozen dataclass | Defines canonical ID pattern, lifecycle, transitions. Migration-only numeric handling lives in `commands/migrate.py` |
 | [validators.py](validators.py) | Cross-file integrity + cross-type references | Pure functions: take doc lists, return error strings. No file I/O |
 | [c4.py](c4.py) | C4 validation + Mermaid C4Container diagrams | Opt-in: only activated when `[types.*.c4]` exists in config. Reads `raw_metadata` for C4 fields |
+| [sprints.py](sprints.py) | Sprint directory store at `decree/sprints/` (`state.yaml` + `live/<DOC-ID>.yaml` + `closed/<SPRINT-ID>.yaml`) | Writes touch exactly one file; items with an outcome are not live membership |
 | [cli.py](cli.py) | argparse entry point | Dispatches to `commands/` modules |
 | [log.py](log.py) | `info()`, `error()`, `success()`, `fail()` | All output goes to stderr. Stdout is reserved for machine-readable output |
 | [template.py](template.py) | Fills template placeholders for `decree new` | Appends required sections not already in the template |
@@ -27,8 +28,10 @@ Each file in `commands/` is one CLI subcommand. All export a `run(args)` functio
 | `graph` | [commands/graph.py](commands/graph.py) | Appends Mermaid diagrams below the marker. Auto-runs `index` if marker is missing |
 | `progress` | [commands/progress.py](commands/progress.py) | Counts primary `- [x]` / `- [ ]` checkboxes, with all/doc/chain/changed/governs scopes and separate deferred counts |
 | `ddd` | [commands/ddd.py](commands/ddd.py) | Lifecycle assessment and next action; supports doc/chain/changed/governs scopes |
+| `sprint` | [commands/sprint.py](commands/sprint.py) | `init`/`status`/`add`/`backlog`/`draft-pool`/`complete`/`drop`/`pause`/`resume`/`rollover` over the `decree/sprints/` directory store; `complete`/`drop` record item-level outcomes mid-sprint |
 | `report` | [commands/report.py](commands/report.py) | Explicit completion-report regeneration; no hidden refresh during lint |
 | `commit` | [commands/commit.py](commands/commit.py) | Git commit wrapper for canonical `Implements:`/`Refs:`/`Fixes:` trailers |
+| `migrate` | [commands/migrate.py](commands/migrate.py) | Explicit corpus migrations: `audit-coherence`, `governs`, `ids`, and `sprint-ledger` (v1 `ledger.yaml` monolith → v2 directory store) |
 | `health` / `stale` | [commands/health.py](commands/health.py) | Stale decisions, ungoverned hotspots, dead-governance (findings), advisory suggested-governance — reads `observed_governs`; never feeds `queries.py`. See [health-signals.md](../../docs/health-signals.md) |
 | `why` / `refs` | [commands/queries.py](commands/queries.py) | SQLite-index-backed governance queries; never silently re-parse markdown |
 | `mcp serve` | [commands/mcp_server.py](commands/mcp_server.py) | FastMCP server exposing `why`/`refs`/`stale`/`health`/`intent_check`/`intent_review`/`progress`/`report` as agent tools; thin wrappers over command cores, no duplicate query logic |

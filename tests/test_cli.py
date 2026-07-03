@@ -73,6 +73,58 @@ def test_agents_help():
     assert "status" in r.stdout
 
 
+def test_sprint_help():
+    r = subprocess.run(
+        [sys.executable, "-m", "decree.cli", "sprint", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    assert "state.yaml" in r.stdout
+
+
+def test_sprint_complete_help():
+    r = subprocess.run(
+        [sys.executable, "-m", "decree.cli", "sprint", "complete", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    assert "--commit" in r.stdout
+    assert "100%" in r.stdout
+
+
+def test_sprint_drop_help():
+    r = subprocess.run(
+        [sys.executable, "-m", "decree.cli", "sprint", "drop", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    assert "--reason" in r.stdout
+
+
+def test_migrate_help():
+    r = subprocess.run(
+        [sys.executable, "-m", "decree.cli", "migrate", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    assert "sprint-ledger" in r.stdout
+
+
+def test_migrate_sprint_ledger_help():
+    r = subprocess.run(
+        [sys.executable, "-m", "decree.cli", "migrate", "sprint-ledger", "--help"],
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0
+    assert "--dry-run" in r.stdout
+    assert "--apply" in r.stdout
+
+
 def test_version_metadata_is_single_sourced_from_pyproject():
     expected = _project_version()
     assert importlib.metadata.version("decree") == expected

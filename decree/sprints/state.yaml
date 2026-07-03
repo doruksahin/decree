@@ -1,0 +1,7 @@
+schema: decree.sprints.v2
+mode: enabled
+state: active
+active:
+  id: SPRINT-01KW212NVEEDAZF2343KSX6QNM
+  name: Sprint 2 - Sprint Ledger Completion
+  started: '2026-06-26'

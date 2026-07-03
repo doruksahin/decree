@@ -1,0 +1,38 @@
+id: SPRINT-01KW1XA3P35NA0D34MWWDXYWX6
+name: Sprint 1 - Sprint Ledger Adoption
+status: closed
+started: '2026-06-26'
+closed: '2026-06-26'
+items:
+- document: SPEC-01KW1QJ27R175NVM8QNGW1FX8N
+  kind: execution
+  source: manual
+  added: '2026-06-26'
+  outcome:
+    kind: carried_over
+    at: '2026-06-26'
+    reason: remaining sprint ledger validation acceptance criteria are still in progress
+    to_sprint: SPRINT-01KW212NVEEDAZF2343KSX6QNM
+    evidence:
+      commits: []
+    snapshot:
+      status: draft
+      primary_done: 20
+      primary_total: 27
+      deferred_done: 0
+      deferred_total: 4
+- document: SPEC-01KW1Z8TDZ6XZDV0G44KDSB92B
+  kind: execution
+  source: manual
+  added: '2026-06-26'
+  outcome:
+    kind: completed
+    at: '2026-06-26'
+    evidence:
+      commits: []
+    snapshot:
+      status: implemented
+      primary_done: 12
+      primary_total: 12
+      deferred_done: 0
+      deferred_total: 4

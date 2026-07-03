@@ -2,6 +2,7 @@
 
 **Date:** 2026-06-26
 **Status:** Discussion draft
+**Superseded by:** [2026-07-03-parallel-safe-sprint-ledger.md](2026-07-03-parallel-safe-sprint-ledger.md) and [ADR-01KWKXH8423XTBV6CDVXB4B2ZB](../../decree/adr/sprints/adr-01kwkxh8423xtbv6cdvxb4b2zb-directory-decomposed-sprint-ledger.md) — the `ledger.yaml` monolith described below is now the v2 directory store.
 **Related docs:**
 [PRD-01KW1QEZEC1R1BSTZN1SSPPCEJ](../../decree/prd/prd-01kw1qezec1r1bstzn1ssppcej-sprint-scoped-execution-tracking.md),
 [ADR-01KW1QGHBT2BSZ2HVT55G1QSJB](../../decree/adr/adr-01kw1qghbt2bsz2hvt55g1qsjb-sprint-ledger-and-carryover-semantics.md),

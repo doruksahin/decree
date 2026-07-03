@@ -13,6 +13,7 @@ src/decree/
 ├── log.py              ← logging configuration
 ├── c4.py               ← C4 model diagram config and generation
 ├── model_diagram.py    ← document relationship diagram generation
+├── sprints.py          ← sprint directory store (decree/sprints/: state.yaml + live/ + closed/)
 ├── cli.py              ← argparse entry point, dispatches to commands
 ├── commands/
 │   ├── new.py          ← create document from template
@@ -22,6 +23,7 @@ src/decree/
 │   ├── index_db_cli.py ← explicit SQLite index rebuild/status/verify
 │   ├── migrate.py      ← explicit corpus migrations and dry-run audits
 │   ├── progress.py     ← scoped progress summary across document types
+│   ├── sprint.py       ← sprint lifecycle: init/add/complete/drop/pause/resume/rollover
 │   └── graph.py        ← dependency/reference graph generation
 ├── templates/
 │   └── madr-v4.md      ← default MADR v4 template
@@ -41,6 +43,10 @@ src/decree/
 ### Single I/O module
 
 `parser.py` is the only module that reads/writes document files. Commands never call `open()` or `frontmatter.load()` directly. When `python-frontmatter` changes its API, you fix one file.
+
+### Sprint directory store
+
+`sprints.py` owns a second on-disk store, distinct from `parser.py`'s document-file rule: the v2 directory store at `decree/sprints/` (`state.yaml` for lifecycle state, `live/<DOC-ID>.yaml` for one file per live membership, `closed/<SPRINT-ID>.yaml` for one append-only archive per closed sprint). Sprint membership is not document frontmatter, so it never flows through `parser.py`. Every write touches exactly one file — one file per unit of change — so parallel worktrees never contend on a shared ledger.
 
 ### Command interface
 

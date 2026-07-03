@@ -3,7 +3,7 @@ include_fragments = true
 include_verbatim = false
 extensions = ["md"]
 glob_ignore_case = true
-exclude_path = ["^\\.venv/"]
+exclude_path = ["^\\.venv/", "^\\.pytest_cache/"]
 # Tolerate slow external reference links (e.g. personal blogs) and our own site's
 # cold-start/deploy windows so CI doesn't flake.
 timeout = 30

@@ -35,7 +35,7 @@ uv run towncrier create 123.bugfix --content "Fix stale index verification on re
 ## Preview
 
 ```bash
-uv run towncrier build --draft --version 0.2.0
+uv run towncrier build --draft --version X.Y.Z
 ```
 
 ## Fragment Style

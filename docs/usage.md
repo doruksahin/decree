@@ -95,7 +95,9 @@ Buckets are only for navigation. They do not imply references, sprint
 membership, supersession, or `governs:` ownership.
 
 When sprint mode is enabled, `decree new spec "title" --bucket path` adds the
-new SPEC to the active sprint by default. During a paused sprint period, a new
+new SPEC to the active sprint by default. Enrollment writes a single
+`decree/sprints/live/<DOC-ID>.yaml` membership file, so parallel worktrees
+creating SPECs never touch the same file. During a paused sprint period, a new
 SPEC must be placed explicitly:
 
 ```bash
@@ -135,7 +137,10 @@ decree generate-html --sprint SPRINT-01KW212NVEEDAZF2343KSX6QNM --output /tmp/de
 ```
 
 This is a read-only static board export. It embeds a `decree.board.v1` payload
-and renders a kanban-style sprint board with document cards, bucket labels,
+built from the sprint directory store — closed sprints from the
+`decree/sprints/closed/` archives, the active sprint synthesized from
+`state.yaml` plus the live membership files and selected by default — and
+renders a kanban-style sprint board with document cards, bucket labels,
 status, sprint outcomes, acceptance-criteria progress, filters, and related
 PRD/ADR context.
 Cards and related context entries can open a read-only markdown overlay with
@@ -208,8 +213,20 @@ Output format: `{filepath}: {message}` — one line per error, machine-parseable
 
 ### `decree sprint`
 
-Enable and manage optional sprint-scoped execution tracking. Sprint mode is off
-until the repository has `decree/sprints/ledger.yaml`, created explicitly by:
+Enable and manage optional sprint-scoped execution tracking. Sprint state
+lives in a directory store at `decree/sprints/`:
+
+```
+decree/sprints/
+  state.yaml              # lifecycle state; changes only at init/pause/resume/rollover
+  live/<DOC-ID>.yaml      # one file per live membership (active sprint, backlog, draft pool)
+  closed/<SPRINT-ID>.yaml # one append-only archive per closed sprint
+```
+
+One file per membership means parallel worktrees enroll and complete different
+documents without ever writing the same file, so merges never conflict on a
+shared ledger. Sprint mode is off until `decree sprint init` creates
+`state.yaml`:
 
 ```bash
 decree sprint init "Sprint 1"
@@ -224,11 +241,27 @@ decree sprint add SPEC-01KT22NMS0D19VMD8VPK4D2MNX
 decree sprint add PRD-01KT22NMRTFTWFFARAN0PVEETA --kind planning
 decree sprint backlog SPEC-01KT22NMS0D19VMD8VPK4D2MNX --reason "not ready for this sprint"
 decree sprint draft-pool SPEC-01KT22NMS0D19VMD8VPK4D2MNX --reason "exploratory"
+decree sprint complete SPEC-01KT22NMS0D19VMD8VPK4D2MNX --commit abc1234
+decree sprint drop SPEC-01KT22NMS0D19VMD8VPK4D2MNX --reason "superseded by rework"
 decree sprint pause --reason "summer freeze"
 decree sprint resume "Sprint 2"
 ```
 
-Close a sprint by providing an outcomes YAML file for every open active item:
+`decree sprint complete DOC-ID [--commit SHA]` records a completed outcome for
+one active sprint item mid-sprint. It requires 100% primary acceptance
+criteria and writes the outcome plus a progress snapshot into that item's own
+live file only; `--commit` is repeatable evidence. `decree sprint drop DOC-ID
+--reason TEXT` records a dropped outcome the same way. Resolved items leave
+the default progress scope immediately and show in `decree sprint status`
+under "Done (awaiting rollover)".
+
+`decree sprint pause` pauses sprint mode after every active item is completed,
+dropped, or rolled over; open items are an error. It folds the resolved items
+into `closed/<SPRINT-ID>.yaml` and sets the state to paused.
+
+Close a sprint by providing an outcomes YAML file covering exactly the OPEN
+active items — items completed or dropped mid-sprint are already resolved and
+fold into the archive automatically:
 
 ```yaml
 outcomes:
@@ -244,6 +277,19 @@ decree sprint rollover "Sprint 2" --outcomes sprint-outcomes.yaml
 Completed outcomes are accepted only when the close-time acceptance-criteria
 snapshot is 100% for primary criteria. Carryover is linear to the immediate
 successor sprint and requires a reason.
+
+#### Parallel work with worktrees
+
+Each worktree's `decree new` and `decree sprint complete` write only that
+worktree's own files: the document itself plus its one `live/<DOC-ID>.yaml`.
+Merging branches is therefore a plain union of files; semantic conflicts
+surface in post-merge `decree lint`, not as YAML merge conflicts. An
+orchestrator supervises either by running decree commands inside each worktree
+directory, or by merging the branches into an integration branch and running
+`decree lint` there. Rollover stays an integration-branch ceremony: run it
+once, where every live file has been merged. The store is plain committed
+files, so an interrupted transition is recoverable with
+`git checkout -- decree/sprints` (lint flags the half-written state until you do).
 
 ### `decree index regenerate`
 
@@ -268,9 +314,11 @@ is missing, stale, or missing a document. Run `decree index rebuild` to refresh.
 ### `decree progress`
 
 Show progress summary across all document types. When sprint mode is enabled
-and active, the default scope is the active sprint's execution/planning items.
-Use `--corpus` to keep the old whole-corpus view. The output prints its scope.
-For parallel work, prefer explicit scope flags:
+and active, the default scope is the active sprint's open execution/planning
+items — items completed or dropped mid-sprint leave the default scope. Pass
+`--sprint <active-sprint-id>` to include them. Use `--corpus` to keep the old
+whole-corpus view. The output prints its scope. For parallel work, prefer
+explicit scope flags:
 
 ```bash
 decree progress --doc SPEC-01KT22NMS0D19VMD8VPK4D2MNX
@@ -295,7 +343,8 @@ Assess the current Decree Driven Development phase and print the next action.
 The assessment includes a governance-drift hint — dead and suggested governance
 counts (run `decree health` for detail). Scope it the same way as progress when
 an agent or worktree owns one slice. With active sprint mode, the default scope
-is the active sprint; use `--corpus` to assess every document.
+is the active sprint's open items — items resolved mid-sprint are included only
+via `--sprint <active-sprint-id>`; use `--corpus` to assess every document.
 
 ```bash
 decree ddd --doc SPEC-01KT22NMS0D19VMD8VPK4D2MNX
@@ -352,6 +401,28 @@ confirmed.
 Invalid suggestions are reported explicitly and block writes. Documents that
 already have `governs:` are skipped instead of overwritten silently. See
 [LLM Agent Integration](llm-agent-integration.md) for the agent-side contract.
+
+### `decree migrate sprint-ledger`
+
+Convert a v1 single-file sprint ledger (`decree/sprints/ledger.yaml`, schema
+`decree.sprints.v1`) into the v2 directory store: `state.yaml` plus one
+`live/<DOC-ID>.yaml` per live membership and one `closed/<SPRINT-ID>.yaml` per
+closed sprint.
+
+```bash
+decree migrate sprint-ledger --dry-run
+decree migrate sprint-ledger --apply
+decree migrate sprint-ledger --apply --project path/to/repo
+```
+
+Dry-run prints the migration plan — files to create and the `ledger.yaml`
+removal — without writing. Apply writes the new files, deletes `ledger.yaml`,
+and validates the result. Exit codes: `0` clean, `1` post-apply validation
+errors, `2` guard errors (no v1 ledger found, or v2 already present).
+
+Run once per repository; git history preserves the old file. Until it runs,
+every sprint entry point (lint, `sprint status`, `new spec` enrollment) fails
+with ``sprint ledger v1 detected; run `decree migrate sprint-ledger` ``.
 
 ### `decree graph`
 

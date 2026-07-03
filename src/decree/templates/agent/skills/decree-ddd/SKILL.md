@@ -37,6 +37,9 @@ matching decision. Write or update a SPEC first.
   ```
 
 - If sprint mode is enabled, new SPECs enter the active sprint by default.
+  Membership is one `decree/sprints/live/<DOC-ID>.yaml` file per document
+  (state in `decree/sprints/state.yaml`), so parallel worktrees enroll new
+  SPECs without merge conflicts.
 - Use `--backlog --reason "..."` or `--draft-pool --reason "..."` only when the
   work should explicitly stay out of the active sprint.
 - Keep PRD -> ADR -> SPEC references in frontmatter. Keep implementation file
@@ -52,7 +55,17 @@ matching decision. Write or update a SPEC first.
    tested.
 6. Run targeted tests.
 7. Run `decree lint` and `decree progress` again.
-8. For sprint review, generate the local board:
+8. When a SPEC's primary acceptance criteria reach 100% mid-sprint, record the
+   completed outcome, then transition the document status:
+
+   ```bash
+   uv run decree sprint complete SPEC-...
+   uv run decree status SPEC-... implement   # from approved; run submit/approve first if still draft
+   ```
+
+   Completed and dropped items leave the default `decree progress` scope; use
+   `--sprint <SPRINT-ID>` to include them.
+9. For sprint review, generate the local board:
 
    ```bash
    uv run decree generate-html --output decree-board.html

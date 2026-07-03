@@ -1,0 +1,16 @@
+document: SPEC-01KWKXHERB56W94SCRZEVMBQMJ
+scope: active
+kind: execution
+source: new
+added: '2026-07-03'
+outcome:
+  kind: completed
+  at: '2026-07-03'
+  evidence:
+    commits: []
+  snapshot:
+    status: draft
+    primary_done: 9
+    primary_total: 9
+    deferred_done: 0
+    deferred_total: 6
