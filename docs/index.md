@@ -109,6 +109,7 @@ Use this sequence when adding decree to another application.
    ```bash
    decree sprint init "Sprint 1"
    decree progress          # active sprint scope (open items)
+   decree sprint move SPEC-01KT22NMS0D19VMD8VPK4D2MNX --to active  # promote from backlog/draft pool
    decree sprint complete SPEC-01KT22NMS0D19VMD8VPK4D2MNX  # mid-sprint completed outcome
    decree progress --corpus # whole-corpus scope
    decree generate-html --output decree-board.html
@@ -117,7 +118,8 @@ Use this sequence when adding decree to another application.
    New SPECs enter the active sprint by default while sprint mode is active —
    each membership is one `live/<DOC-ID>.yaml` file, so parallel worktrees
    merge cleanly. Use `--backlog --reason` or `--draft-pool --reason` for work
-   that should not be committed to the current sprint.
+   that should not be committed to the current sprint, then `decree sprint move`
+   to promote a live backlog/draft-pool item into the active sprint.
 
 5. If importing an old numeric corpus or a v1 single-file sprint ledger,
    convert them once.

@@ -602,6 +602,58 @@ def add_to_draft_pool(
     return item
 
 
+def move_live_item(
+    document: str,
+    *,
+    target_scope: str,
+    reason: str | None = None,
+    root: Path | None = None,
+    today: str | None = None,
+) -> LiveItem:
+    """Move one unresolved live item between active sprint, backlog, and draft pool."""
+    doc_id = require_doc_id(document)
+    target = _normalize_live_scope(target_scope)
+    with _ledger_lock(root):
+        state = load_state(root)
+        if target == "active" and (state.state != "active" or not state.active):
+            raise SprintLedgerError("sprint ledger is paused; cannot move item to active sprint")
+        view = load_view(root)
+        item = view.live.get(doc_id)
+        if item is None:
+            raise SprintLedgerError(f"{doc_id} is not a live sprint item")
+        if item.outcome is not None:
+            kind = str(item.outcome.get("kind", "")).strip() if isinstance(item.outcome, dict) else ""
+            detail = f" ({kind})" if kind else ""
+            raise SprintLedgerError(
+                f"{doc_id} already has a resolved live record{detail}; resolved record folds at next rollover"
+            )
+        if item.scope == target:
+            labels = {"active": "active sprint", "backlog": "backlog", "draft_pool": "draft pool"}
+            raise SprintLedgerError(f"{doc_id} is already in {labels[target]}")
+        today_str = today or _today()
+        if target == "active":
+            moved = replace(item, scope="active", since=None, reason=None, review_after=None)
+        elif target == "backlog":
+            moved = replace(
+                item,
+                scope="backlog",
+                source=item.source or "manual",
+                since=today_str,
+                reason=_require_reason(reason),
+                review_after=None,
+            )
+        else:
+            moved = replace(
+                item,
+                scope="draft_pool",
+                since=None,
+                reason=_require_reason(reason),
+                review_after=None,
+            )
+        rewrite_live_item(moved, root=root)
+    return moved
+
+
 def complete_item(
     document: str,
     *,
@@ -1319,8 +1371,15 @@ def _validate_item_kind(kind: str) -> None:
         raise SprintLedgerError(f"kind must be one of {sorted(ITEM_KINDS)}")
 
 
-def _require_reason(reason: str) -> str:
-    clean = reason.strip()
+def _normalize_live_scope(scope: str) -> str:
+    normalized = str(scope or "").strip().replace("-", "_")
+    if normalized not in LIVE_SCOPES:
+        raise SprintLedgerError("target scope must be one of active, backlog, or draft-pool")
+    return normalized
+
+
+def _require_reason(reason: str | None) -> str:
+    clean = str(reason or "").strip()
     if not clean:
         raise SprintLedgerError("reason is required")
     return clean

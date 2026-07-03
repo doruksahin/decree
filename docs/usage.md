@@ -241,11 +241,21 @@ decree sprint add SPEC-01KT22NMS0D19VMD8VPK4D2MNX
 decree sprint add PRD-01KT22NMRTFTWFFARAN0PVEETA --kind planning
 decree sprint backlog SPEC-01KT22NMS0D19VMD8VPK4D2MNX --reason "not ready for this sprint"
 decree sprint draft-pool SPEC-01KT22NMS0D19VMD8VPK4D2MNX --reason "exploratory"
+decree sprint move SPEC-01KT22NMS0D19VMD8VPK4D2MNX --to active
+decree sprint move SPEC-01KT22NMS0D19VMD8VPK4D2MNX --to backlog --reason "blocked by API review"
 decree sprint complete SPEC-01KT22NMS0D19VMD8VPK4D2MNX --commit abc1234
 decree sprint drop SPEC-01KT22NMS0D19VMD8VPK4D2MNX --reason "superseded by rework"
 decree sprint pause --reason "summer freeze"
 decree sprint resume "Sprint 2"
 ```
+
+`decree sprint move DOC-ID --to active|backlog|draft-pool` rewrites that
+document's one live membership file. Use it when an orchestrator promotes a
+backlog or draft-pool item into the current sprint, or moves an open active
+item back out. Moving to `backlog` or `draft-pool` requires `--reason`; moving
+to `active` requires sprint mode to be active. Resolved active items with a
+completed or dropped outcome cannot be moved because they fold into the closed
+archive at rollover.
 
 `decree sprint complete DOC-ID [--commit SHA]` records a completed outcome for
 one active sprint item mid-sprint. It requires 100% primary acceptance

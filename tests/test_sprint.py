@@ -256,6 +256,86 @@ def test_prd_requires_planning_kind_for_sprint_membership(tmp_path, monkeypatch)
     assert view.active_items[0].kind == "planning"
 
 
+def test_move_promotes_backlog_item_to_active_by_rewriting_one_live_file(tmp_path, monkeypatch) -> None:
+    _write_config(tmp_path)
+    target = "SPEC-00000000000000000000000001"
+    sibling = "SPEC-00000000000000000000000002"
+    _write_doc(tmp_path, target, "spec", "draft", "## Acceptance Criteria\n\n- [ ] Promote\n")
+    _write_doc(tmp_path, sibling, "spec", "draft", "## Acceptance Criteria\n\n- [ ] Keep\n")
+    _write_v2_ledger(
+        tmp_path,
+        live=[
+            {
+                "document": target,
+                "scope": "backlog",
+                "kind": "execution",
+                "source": "manual",
+                "added": "2026-06-26",
+                "since": "2026-06-26",
+                "reason": "next sprint",
+            },
+            {"document": sibling, "scope": "active", "kind": "execution", "source": "manual", "added": "2026-06-26"},
+        ],
+    )
+    monkeypatch.chdir(tmp_path)
+    sprints_dir = tmp_path / "decree" / "sprints"
+    state_before = (sprints_dir / "state.yaml").read_bytes()
+    sibling_before = (sprints_dir / "live" / f"{sibling}.yaml").read_bytes()
+    target_before = (sprints_dir / "live" / f"{target}.yaml").read_bytes()
+
+    assert sprint.run(argparse.Namespace(sprint_action="move", document=target, to="active", reason=None)) == 0
+
+    assert (sprints_dir / "state.yaml").read_bytes() == state_before
+    assert (sprints_dir / "live" / f"{sibling}.yaml").read_bytes() == sibling_before
+    assert (sprints_dir / "live" / f"{target}.yaml").read_bytes() != target_before
+    item = load_view().live[target]
+    assert item.scope == "active"
+    assert item.reason is None
+    assert item.since is None
+    assert item.review_after is None
+
+
+def test_move_active_item_to_backlog_requires_reason(tmp_path, monkeypatch, capsys) -> None:
+    _write_config(tmp_path)
+    spec_id = "SPEC-00000000000000000000000001"
+    _write_doc(tmp_path, spec_id, "spec", "draft", "## Acceptance Criteria\n\n- [ ] Defer\n")
+    _write_v2_ledger(
+        tmp_path,
+        live=[
+            {"document": spec_id, "scope": "active", "kind": "execution", "source": "manual", "added": "2026-06-26"},
+        ],
+    )
+    monkeypatch.chdir(tmp_path)
+
+    assert sprint.run(argparse.Namespace(sprint_action="move", document=spec_id, to="backlog", reason=None)) == 1
+    assert "reason is required" in capsys.readouterr().err
+    assert load_view().live[spec_id].scope == "active"
+
+    assert sprint.run(argparse.Namespace(sprint_action="move", document=spec_id, to="backlog", reason="blocked")) == 0
+    item = load_view().live[spec_id]
+    assert item.scope == "backlog"
+    assert item.reason == "blocked"
+    assert item.since
+
+
+def test_move_refuses_resolved_active_item(tmp_path, monkeypatch, capsys) -> None:
+    _write_config(tmp_path)
+    spec_id = "SPEC-00000000000000000000000001"
+    _write_doc(tmp_path, spec_id, "spec", "approved", "## Acceptance Criteria\n\n- [x] Done\n")
+    _write_v2_ledger(
+        tmp_path,
+        live=[
+            {"document": spec_id, "scope": "active", "kind": "execution", "source": "manual", "added": "2026-06-26"},
+        ],
+    )
+    monkeypatch.chdir(tmp_path)
+    complete_item(spec_id)
+
+    assert sprint.run(argparse.Namespace(sprint_action="move", document=spec_id, to="backlog", reason="reopen")) == 1
+    assert "already has a resolved live record (completed)" in capsys.readouterr().err
+    assert load_view().live[spec_id].scope == "active"
+
+
 def test_complete_writes_outcome_into_only_its_own_live_file(tmp_path, monkeypatch, capsys) -> None:
     _write_config(tmp_path)
     done_spec = "SPEC-00000000000000000000000001"

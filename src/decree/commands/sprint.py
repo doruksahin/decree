@@ -17,6 +17,7 @@ from decree.sprints import (
     init_ledger,
     load_outcomes_file,
     load_view,
+    move_live_item,
     pause_ledger,
     resume_ledger,
     rollover_ledger,
@@ -64,6 +65,13 @@ def run(args: argparse.Namespace) -> int:
             add_to_draft_pool(args.document, kind=kind, reason=args.reason)
             info("sprint", f"added {args.document.upper()} to draft pool as {kind}")
             success("draft-pool item added")
+            return 0
+        if action == "move":
+            target = _normalize_target_scope(args.to)
+            item = move_live_item(args.document, target_scope=target, reason=args.reason)
+            labels = {"active": "active sprint", "backlog": "backlog", "draft_pool": "draft pool"}
+            info("sprint", f"moved {item.document} to {labels[item.scope]}")
+            success("sprint item moved")
             return 0
         if action == "complete":
             item = complete_item(args.document, commits=tuple(args.commit or ()))
@@ -144,3 +152,7 @@ def _resolve_kind(document: str, requested: str | None) -> str:
         if doc.doc_type is None or doc.doc_type.name != "spec":
             raise SprintLedgerError(f"{document.upper()} can only be added as --kind planning")
     return kind
+
+
+def _normalize_target_scope(scope: str) -> str:
+    return scope.replace("-", "_")

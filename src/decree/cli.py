@@ -300,6 +300,25 @@ def main() -> int:
     p_sprint_draft.add_argument("--kind", choices=("execution", "planning"), default=None)
     p_sprint_draft.add_argument("--reason", required=True, help="Why this item has no sprint commitment")
 
+    p_sprint_move = sprint_subs.add_parser(
+        "move",
+        help="Move one unresolved live item between active sprint, backlog, and draft pool",
+        description="Rewrite one live/<DOC-ID>.yaml membership file to move an unresolved item. "
+        "Moving to active requires an active sprint. Moving to backlog or draft-pool requires --reason.",
+    )
+    p_sprint_move.add_argument("document", help="Document ID to move")
+    p_sprint_move.add_argument(
+        "--to",
+        choices=("active", "backlog", "draft-pool"),
+        required=True,
+        help="Destination scope for the live sprint item.",
+    )
+    p_sprint_move.add_argument(
+        "--reason",
+        default=None,
+        help="Required when moving to backlog or draft-pool.",
+    )
+
     p_sprint_complete = sprint_subs.add_parser(
         "complete",
         help="Record a completed outcome for one active sprint item mid-sprint "

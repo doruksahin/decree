@@ -154,9 +154,14 @@ Add a `decree sprint` command namespace:
 - `decree sprint add DOC_ID [--kind execution|planning]` adds a decision
   document to the active sprint. SPEC defaults to `execution`; PRD/ADR must use
   `--kind planning`.
-- `decree sprint backlog DOC_ID --reason TEXT` moves or creates a backlog entry.
+- `decree sprint backlog DOC_ID --reason TEXT` creates a backlog entry.
 - `decree sprint draft DOC_ID --reason TEXT` records an explicit no-sprint
   commitment for a draft or speculative item.
+- `decree sprint move DOC_ID --to active|backlog|draft-pool [--reason TEXT]`
+  moves one unresolved live membership between active sprint, backlog, and
+  draft pool by rewriting that document's own `live/<DOC-ID>.yaml` file.
+  Moving to backlog or draft pool requires a reason; resolved completed/dropped
+  items are not movable because they fold into the archive at rollover.
 - `decree sprint drop DOC_ID --reason TEXT` records a mid-sprint dropped
   outcome for an active item.
 - `decree sprint defer DOC_ID --reason TEXT` moves an active item to backlog
@@ -359,6 +364,9 @@ sprint, and an aged backlog item that produces a visible warning.
   commitment instead of leaving the SPEC invisible.
 - [x] PRD and ADR documents can be added only as planning items unless a future
   decision changes the executable-task model.
+- [x] `decree sprint move DOC-ID --to active|backlog|draft-pool` moves an
+  unresolved live item by rewriting only that item's membership file, requires a
+  reason when moving to backlog or draft pool, and refuses resolved items.
 - [x] `decree sprint rollover "Sprint 2" --outcomes FILE` atomically closes the
   old sprint, opens the successor, writes snapshots, and preserves exactly one
   active sprint.
