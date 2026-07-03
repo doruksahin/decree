@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "5d3cdc764fa9",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "files_touched": [
+    ".lychee.toml",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "changelog.d/AGENTS.md",
+    "decree/adr/adr-01kw1qghbt2bsz2hvt55g1qsjb-sprint-ledger-and-carryover-semantics.md",
+    "decree/adr/index.md",
+    "decree/prd/index.md",
+    "decree/spec/index.md",
+    "decree/spec/reports/SPEC-01KWKXHERB56W94SCRZEVMBQMJ.md",
+    "decree/spec/spec-01kw1qj27r175nvm8qngw1fx8n-sprint-ledger-cli-and-validation.md",
+    "decree/spec/sprints/spec-01kwkxherb56w94scrzevmbqmj-sprint-ledger-v2-storage-and-item-level-completion.md",
+    "decree/sprints/ledger.yaml",
+    "docs/architecture.md",
+    "docs/index.md",
+    "docs/market-analysis/research-frontiers.md",
+    "docs/plans/2026-06-26-sprint-scoped-execution-handoff.md",
+    "docs/release.md",
+    "docs/usage.md",
+    "pyproject.toml",
+    "skills/decree-ddd/SKILL.md",
+    "src/decree/CLAUDE.md",
+    "src/decree/cli.py",
+    "src/decree/commands/AGENTS.md",
+    "src/decree/commands/generate_html.py",
+    "src/decree/commands/migrate.py",
+    "src/decree/commands/new.py",
+    "src/decree/commands/sprint.py",
+    "src/decree/sprints.py",
+    "src/decree/templates/agent/skills/decree-ddd/SKILL.md",
+    "tests/CLAUDE.md",
+    "tests/test_cli.py",
+    "tests/test_generate_html.py",
+    "tests/test_sprint.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/5d/3cdc764fa9/0/metadata.json",
+      "transcript": "/5d/3cdc764fa9/0/full.jsonl",
+      "content_hash": "/5d/3cdc764fa9/0/content_hash.txt",
+      "prompt": "/5d/3cdc764fa9/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 636761,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 15187328,
+    "output_tokens": 51889,
+    "api_call_count": 125
+  }
+}

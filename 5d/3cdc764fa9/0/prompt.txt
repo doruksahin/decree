@@ -1,0 +1,28 @@
+bu repoda son yaptigimiz degisikliklere bak.
+ne yapildigini anla once.
+ledger isi paralel calismiyordu, onu degistiriyorduk. claude code ile yaptik. bugunku commitlere bak.
+ya da WIP, commitlenmemislere de bak.
+
+---
+
+yok duzeltebilirsin.
+senden istedigim: 
+bu library'in implementasyonunda falan eksik varsa duzeltmen, su anki ledger degisimini versiyon cikmak istiyoruz.
+
+---
+
+yani su anda bu yeni versiyon yayinlamaya uygun mu?
+/Users/doruk/Desktop/SIDE_HUSTLE/agentkith burada kullanabilir miyim?
+
+---
+
+tamam /Users/doruk/Desktop/SIDE_HUSTLE/agentkith
+burada 2.0.0 kullanmak istiyorum. reinstall yap ne gerekiyorsa yap.
+
+---
+
+$decree-ddd bunun da degismesi gerekiyor mu gerekmiyor mu?
+
+---
+
+bunu da reinstall etmen gerekiyor mu?
