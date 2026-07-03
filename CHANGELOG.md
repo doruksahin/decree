@@ -4,6 +4,14 @@ All notable changes to Decree are documented here.
 
 <!-- towncrier release notes start -->
 
+## v3.1.0 - 2026-07-03
+
+### Features
+
+- Add `decree sprint move` to promote backlog and draft-pool items into the
+  active sprint or move open items out with a reason.
+
+
 ## v3.0.0 - 2026-07-03
 
 ### Breaking Changes
