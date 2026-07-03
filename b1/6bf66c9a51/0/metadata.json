@@ -1,0 +1,76 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "b16bf66c9a51",
+  "session_id": "019f2826-1973-7382-89e5-130af5f9ec4d",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-03T14:32:44.137865Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "changelog.d/+f1b1d6b2.feature.md",
+    "decree/spec/spec-01kw1qj27r175nvm8qngw1fx8n-sprint-ledger-cli-and-validation.md",
+    "docs/index.md",
+    "docs/usage.md",
+    "src/decree/cli.py",
+    "src/decree/commands/sprint.py",
+    "src/decree/sprints.py",
+    "tests/test_sprint.py"
+  ],
+  "agent": "Codex",
+  "model": "gpt-5.5",
+  "turn_id": "2aadefc4bb7e",
+  "token_usage": {
+    "input_tokens": 1234736,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 31445248,
+    "output_tokens": 110801,
+    "api_call_count": 258
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-03T14:32:44.04239Z",
+    "agent_lines": 195,
+    "agent_removed": 4,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 195,
+    "total_lines_changed": 199,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2762,
+      "user_lines_removed": 2,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".handoff/HANDOFF.md": 95,
+        ".handoff/impl-facts.md": 121,
+        ".handoff/sprint-v2-design.md": 331,
+        ".handoff/worktree-sim.sh": 77,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    }
+  ]
+}

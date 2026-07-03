@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "b16bf66c9a51",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "changelog.d/+f1b1d6b2.feature.md",
+    "decree/spec/spec-01kw1qj27r175nvm8qngw1fx8n-sprint-ledger-cli-and-validation.md",
+    "docs/index.md",
+    "docs/usage.md",
+    "src/decree/cli.py",
+    "src/decree/commands/sprint.py",
+    "src/decree/sprints.py",
+    "tests/test_sprint.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b1/6bf66c9a51/0/metadata.json",
+      "transcript": "/b1/6bf66c9a51/0/full.jsonl",
+      "content_hash": "/b1/6bf66c9a51/0/content_hash.txt",
+      "prompt": "/b1/6bf66c9a51/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1234736,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 31445248,
+    "output_tokens": 110801,
+    "api_call_count": 258
+  }
+}
