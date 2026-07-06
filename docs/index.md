@@ -49,6 +49,7 @@ Decree is intentionally explicit:
 | Agent integration | `decree init --with-agents`, `decree agents install`, `decree mcp serve`, `decree hook install` | Install portable skills for Codex/Claude Code, then expose decree state through task-shaped tools and optional session-end snapshots. |
 | Retrieval evaluation | `decree retrieval-eval` | Measure query quality with labeled data, baselines, and optional calibrated abstention. |
 | Architecture modeling | `decree lint`, `decree graph` with `[types.<name>.c4]` | Validate and render C4 system/container/component relationships. |
+| Dogfooding feedback | [dogfooding-feedback](dogfooding-feedback/README.md) | Review real Agentkith workflow evidence for improving decree command output, governance hygiene, and agent skill usage. |
 | Package versioning | `decree --version` | Expose the installed package version from `pyproject.toml` metadata. |
 | Changelog fragments | `uv run towncrier create`, `uv run towncrier build` | Capture release notes at change time and generate `CHANGELOG.md` at release time. |
 | Release automation | `.github/workflows/release.yml` | Validate tag releases, build distributions, create GitHub Releases, and bump the Homebrew tap (not published to PyPI). |
