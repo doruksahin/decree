@@ -1,6 +1,6 @@
 [project]
 name = "decree"
-version = "3.1.0"
+version = "3.2.0"
 description = "Decree — software decision lifecycle toolkit (MADR v4.0.0 ADR management for CLI and LLMs)"
 requires-python = ">=3.11"
 license = "MIT"

@@ -4,6 +4,57 @@ All notable changes to Decree are documented here.
 
 <!-- towncrier release notes start -->
 
+## v3.2.0 - 2026-07-07
+
+### Features
+
+- Teach the `decree-ddd` agent skill to classify the work mode, name an
+  authoritative decision and prefer `intent-check --under`, and interpret
+  `intent-check` exit-1 findings by severity (blocking vs advisory vs corpus
+  maintenance) instead of resolving every finding first.
+- `decree health` gained two advisory governance-quality signals:
+  `lifecycle_drift` (a decision at 100% primary acceptance criteria with
+  commits attached but still non-terminal, or a terminal decision whose
+  governance has gone stale/dead) and `broad_governance` (governs-count,
+  exact/directory split, commits ratio, and shared-hot-file overlap). Both are
+  advisory and never affect the health exit code.
+- `decree intent-check` gained a first-class `--under` view — additive
+  `owned_files`, `contextual_overlaps`, and `contradictions` keys that frame
+  multi-governed paths around the active decision — plus an advisory
+  `directory_overlaps` list that surfaces co-governance via directory
+  `governs:` entries the exact-path conflict query cannot see. Both are
+  additive and never change the exit code.
+- `decree intent-check` now classifies planned files as `source_changes` /
+  `corpus_changes` / `generated_artifact_changes` (a decree-document self-edit
+  no longer earns `add_governance`) and classes findings as `blocking_findings`
+  / `advisory_findings` / `corpus_hygiene_findings`, with the human report
+  leading with a "Block now / Clean later" summary and a recommended next
+  command. The new keys are additive and the exit code is unchanged
+  (ADR-01KWXMRRB44CE78H0659D9WDY7).
+
+### Bug Fixes
+
+- `decree sprint drop` now works on backlog and draft-pool items, not only
+  active-sprint items, so a backlog item that shipped and reached a terminal
+  status can be removed from live membership (previously it errored and could
+  only be resolved by editing the store by hand).
+
+### Documentation
+
+- Add the Agentkith research backlog
+  (`docs/dogfooding-feedback/06-research-backlog.md`) grading the dogfooding
+  proposals against the real code and external precedent, with prioritized
+  buildable items `B1`–`B15`.
+- Document Agentkith dogfooding feedback for improving decree command output
+  and agent skill usage.
+
+### Internal Changes
+
+- Guard that the two `decree-ddd` SKILL.md copies (dev-facing and packaged
+  template) stay byte-identical so shipped agent guidance cannot silently
+  drift.
+
+
 ## v3.1.0 - 2026-07-03
 
 ### Features
