@@ -866,3 +866,34 @@ class TestUnderReframe:
         assert payload["owned_files"] == []
         assert payload["contextual_overlaps"] == []
         assert payload["contradictions"] == []
+
+
+class TestUnderHumanOutput:
+    def test_active_decision_block_shown(self, tmp_path: Path, monkeypatch) -> None:
+        info = fx.conflict_with_unrelated(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        text = _format_human(intent_check(db, tmp_path, "Work under owner", [info["hot"]], under=info["owner"]))
+        assert f"Active decision: {info['owner']}" in text
+        assert "Owned files" in text and info["hot"] in text
+        assert "Contextual overlaps" in text and info["contextual"] in text
+
+    def test_next_command_contextual_not_redundant(self, tmp_path: Path, monkeypatch) -> None:
+        info = fx.conflict_with_unrelated(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        text = _format_human(intent_check(db, tmp_path, "Work under owner", [info["hot"]], under=info["owner"]))
+        cmd = text.split("Recommended next command:")[1].split("Active decision:")[0]
+        assert f"Proceed under {info['owner']}" in cmd
+        assert "name the authoritative decision" not in cmd  # don't re-suggest --under when already set
+
+    def test_contradiction_block_and_command(self, tmp_path: Path, monkeypatch) -> None:
+        info = fx.conflict_with_unrelated(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        text = _format_human(intent_check(db, tmp_path, "Work under unrelated", [info["hot"]], under=info["unrelated"]))
+        assert "Contradictions" in text and info["hot"] in text
+        cmd = text.split("Recommended next command:")[1].split("Active decision:")[0]
+        assert "contradiction" in cmd.lower()
+
+    def test_no_active_decision_block_without_under(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        text = _format_human(intent_check(db, root, "p", ["src/foo.py"]))
+        assert "Active decision:" not in text

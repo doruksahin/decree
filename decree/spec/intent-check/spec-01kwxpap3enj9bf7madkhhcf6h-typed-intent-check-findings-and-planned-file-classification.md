@@ -67,5 +67,6 @@ two advisory governance-quality signals (lifecycle drift, broad governance).
 - [x] human output leads with "Block now" / "Clean later" and a recommended next command
 - [x] exit codes are unchanged: advisory/corpus-only exits 0, stale-only exits 1
 - [x] `--under` adds `owned_files`/`contextual_overlaps`/`contradictions` (B8); `directory_overlaps` is advisory (B12)
+- [x] `--under` human output renders an "Active decision" block and decision-relative next-step guidance (B8)
 - [x] `health` emits advisory `lifecycle_drift` and `broad_governance`, never affecting the exit code (B9/B10/B11)
 - [x] the new JSON keys are documented in json-contracts.md, usage.md, health-signals.md, and the MCP docstrings

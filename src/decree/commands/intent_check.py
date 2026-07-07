@@ -676,6 +676,20 @@ def _open_db_or_error(
 def _next_command(report: IntentCheckReport, blocking: list[dict], cleanup: list[dict]) -> str:
     """Deterministic single next-step suggestion, derived from the top blocker."""
     actions = {e["action"] for e in blocking}
+    # Under an active decision, give decision-relative guidance instead of
+    # re-suggesting --under (which is already set).
+    if report.under_decision:
+        if report.contradictions:
+            paths = ", ".join(c["path"] for c in report.contradictions)
+            return (
+                f"Resolve the contradiction on {paths} — governed by other decisions, not "
+                f"{report.under_decision} — or work under the decision that owns it."
+            )
+        if report.contextual_overlaps:
+            return (
+                f"Proceed under {report.under_decision}; the other governors are contextual — "
+                "resolve only if their acceptance criteria contradict your plan."
+            )
     if "resolve_conflict_first" in actions:
         first = report.conflicts[0] if report.conflicts else None
         pick = first.decision_ids[0] if first and first.decision_ids else "<SPEC-ID>"
@@ -730,6 +744,24 @@ def _format_human(report: IntentCheckReport) -> str:
     lines.append("")
     lines.append("Recommended next command:")
     lines.append(f"  {_next_command(report, blocking, cleanup)}")
+
+    # Decision-relative framing when working under an active decision (B8): what
+    # it owns, which other governors are contextual, and any path it does not own.
+    if report.under_decision:
+        lines.append("")
+        lines.append(f"Active decision: {report.under_decision}")
+        owned = ", ".join(report.owned_files) if report.owned_files else "(none)"
+        lines.append(f"  Owned files ({len(report.owned_files)}): {owned}")
+        if report.contextual_overlaps:
+            lines.append(f"  Contextual overlaps ({len(report.contextual_overlaps)}):")
+            for o in report.contextual_overlaps:
+                others = ", ".join(o["contextual_decision_ids"])
+                lines.append(f"    ~ {o['path']} — also governed by {others} (context, not a contradiction)")
+        if report.contradictions:
+            lines.append(f"  Contradictions ({len(report.contradictions)}):")
+            for c in report.contradictions:
+                govs = ", ".join(c["decision_ids"])
+                lines.append(f"    ✗ {c['path']} — governed by {govs}, none of which is {report.under_decision}")
 
     lines.append("")
     lines.append(f"Planned files ({len(report.planned_files)}):")
