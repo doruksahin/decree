@@ -1,0 +1,104 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "e15d38784400",
+  "session_id": "97e81602-5a57-4f68-807d-4f464be3f24b",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-07T12:17:02.973998Z",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "src/decree/commands/health.py"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-4-8",
+  "turn_id": "d8fe6df2fb94",
+  "checkpoint_transcript_start": 1184,
+  "transcript_lines_at_start": 1184,
+  "token_usage": {
+    "input_tokens": 4,
+    "cache_creation_tokens": 4458,
+    "cache_read_tokens": 846528,
+    "output_tokens": 4973,
+    "api_call_count": 2
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_017MbuTonzSexXiA6KzbgpcU",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "deep-research"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "d8fe6df2fb94",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 22,
+        "end": 23,
+        "entry_ids": [
+          "308d4506-65ec-4143-9027-425b2fae73ba"
+        ],
+        "tool_use_id": "toolu_017MbuTonzSexXiA6KzbgpcU"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_017MbuTonzSexXiA6KzbgpcU"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: deep-research",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_01ChJj8TYUo23pXvoZ9Kzciu",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "superpowers:test-driven-development"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "d8fe6df2fb94",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 352,
+        "end": 353,
+        "entry_ids": [
+          "afebabad-090c-4e43-a0d3-77bd46f572fd"
+        ],
+        "tool_use_id": "toolu_01ChJj8TYUo23pXvoZ9Kzciu"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01ChJj8TYUo23pXvoZ9Kzciu"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: superpowers:test-driven-development",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-07T12:17:02.928743Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 0,
+    "total_lines_changed": 0,
+    "agent_percentage": 0,
+    "metric_version": 2
+  }
+}
