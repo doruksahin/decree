@@ -1,1 +1,0 @@
-`decree intent-check --under` now renders the decision-relative framing in the human output, not only in `--json`: an "Active decision" block lists the files it owns, the contextual overlaps (other governors to treat as context), and any contradictions, and the recommended next command guides you to proceed under the active decision instead of re-suggesting `--under`.
