@@ -1,0 +1,180 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "4c2f91f5f118",
+  "session_id": "97e81602-5a57-4f68-807d-4f464be3f24b",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-07T11:49:30.161892Z",
+  "branch": "feat/decree-dogfooding-improvements",
+  "checkpoints_count": 3,
+  "save_step_count": 2,
+  "files_touched": [
+    "changelog.d/+decree-ddd-severity.feature",
+    "changelog.d/+intent-check-typed-findings.feature",
+    "changelog.d/+research-backlog.doc",
+    "changelog.d/+skill-sync-guard.misc",
+    "decree/adr/index.md",
+    "decree/adr/intent-check/adr-01kwxmrrb44ce78h0659d9wdy7-keep-intent-check-exit-codes-stable-typed-findings-are.md",
+    "decree/adr/reports/ADR-01KWXMRRB44CE78H0659D9WDY7.md",
+    "decree/prd/index.md",
+    "decree/prd/intent-check/prd-01kwxmrr7r3s5csaazrgfhr5qn-typed-intent-check-findings.md",
+    "decree/spec/index.md",
+    "decree/spec/intent-check/spec-01kwxpap3enj9bf7madkhhcf6h-typed-intent-check-findings-and-planned-file-classification.md",
+    "decree/spec/reports/SPEC-01KWXPAP3ENJ9BF7MADKHHCF6H.md",
+    "docs/dogfooding-feedback/06-research-backlog.md",
+    "docs/dogfooding-feedback/README.md",
+    "docs/json-contracts.md",
+    "docs/llm-agent-integration.md",
+    "docs/roadmap.md",
+    "docs/usage.md",
+    "skills/decree-ddd/SKILL.md",
+    "src/decree/commands/intent_check.py",
+    "src/decree/commands/mcp_server.py",
+    "src/decree/config.py",
+    "src/decree/templates/agent/skills/decree-ddd/SKILL.md",
+    "tests/test_agents.py",
+    "tests/test_classify_path.py",
+    "tests/test_intent_check.py"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-4-8",
+  "turn_id": "d8fe6df2fb94",
+  "token_usage": {
+    "input_tokens": 26262,
+    "cache_creation_tokens": 947078,
+    "cache_read_tokens": 24345512,
+    "output_tokens": 158584,
+    "api_call_count": 127
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_017MbuTonzSexXiA6KzbgpcU",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "deep-research"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "d8fe6df2fb94",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 22,
+        "end": 23,
+        "entry_ids": [
+          "308d4506-65ec-4143-9027-425b2fae73ba"
+        ],
+        "tool_use_id": "toolu_017MbuTonzSexXiA6KzbgpcU"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_017MbuTonzSexXiA6KzbgpcU"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: deep-research",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_01ChJj8TYUo23pXvoZ9Kzciu",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "superpowers:test-driven-development"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "d8fe6df2fb94",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 352,
+        "end": 353,
+        "entry_ids": [
+          "afebabad-090c-4e43-a0d3-77bd46f572fd"
+        ],
+        "tool_use_id": "toolu_01ChJj8TYUo23pXvoZ9Kzciu"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01ChJj8TYUo23pXvoZ9Kzciu"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: superpowers:test-driven-development",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-07T11:49:30.119296Z",
+    "agent_lines": 1160,
+    "agent_removed": 30,
+    "human_added": 0,
+    "human_modified": 4,
+    "human_removed": 0,
+    "total_committed": 1162,
+    "total_lines_changed": 1194,
+    "agent_percentage": 99.66499162479062,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2762,
+      "user_lines_removed": 2,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/agents/entire-search.md": 25,
+        ".claude/settings.json": 74,
+        ".codex/agents/entire-search.toml": 23,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        ".cursor/hooks.json": 40,
+        ".factory/settings.json": 90,
+        ".gemini/agents/entire-search.md": 28,
+        ".gemini/settings.json": 141,
+        ".github/hooks/entire.json": 61,
+        ".handoff/HANDOFF.md": 95,
+        ".handoff/impl-facts.md": 121,
+        ".handoff/sprint-v2-design.md": 331,
+        ".handoff/worktree-sim.sh": 77,
+        ".opencode/plugins/entire.ts": 267,
+        ".pi/extensions/entire/index.ts": 127,
+        ".playwright-mcp/console-2026-06-03T21-14-26-950Z.log": 8,
+        "sprint-execution-handoff.html": 1199
+      },
+      "user_removed_per_file": {
+        ".claude/settings.json": 2
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3350,
+      "agent_lines_removed": 28
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 2,
+      "user_lines_removed": 2,
+      "agent_lines_added": 3926,
+      "agent_lines_removed": 34,
+      "user_added_per_file": {
+        "decree/adr/intent-check/adr-01kwxmrrb44ce78h0659d9wdy7-keep-intent-check-exit-codes-stable-typed-findings-are.md": 2
+      },
+      "user_removed_per_file": {
+        "decree/adr/intent-check/adr-01kwxmrrb44ce78h0659d9wdy7-keep-intent-check-exit-codes-stable-typed-findings-are.md": 2
+      }
+    }
+  ]
+}
