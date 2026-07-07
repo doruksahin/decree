@@ -27,6 +27,17 @@ governance** is the lower-precision inverse, so it is advisory: it never changes
 the exit code and an agent must treat it as a *suggestion to consider*, never as
 a governance fact.
 
+### Two advisory governance-quality signals
+
+Two further signals report governance *quality* rather than coherence. Both are
+advisory — they appear in the JSON (`lifecycle_drift[]`, `broad_governance[]`) and
+human output but **never change the exit code**.
+
+| Signal | What it means |
+|---|---|
+| **Lifecycle drift** | A decision at 100% primary acceptance criteria with commits attached but a still-non-terminal status (`complete_but_not_terminal`), or a terminal-success decision whose governance has since gone stale or dead (`terminal_but_governance_stale` / `_dead`). Status stops signalling maturity when these accumulate. |
+| **Broad governance** | A decision whose declared `governs:` surface is broad or overlapping: `governs_count`, the exact-vs-directory split, the governs-to-commits ratio, and how many governed paths another decision also governs (`hot_file_overlap_count`) — the drift from "files owned" toward "files touched". |
+
 ## Trust the output honestly
 
 Every governance signal is computed deterministically over **trailer-grade**

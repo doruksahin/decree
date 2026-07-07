@@ -25,6 +25,7 @@ from decree.commands.intent_check import (
     report_to_dict,
 )
 from decree.index_db import IndexDB, default_db_path
+from tests import agentkith_fixtures as fx
 
 # ── Fixture helpers (mirrors test_intent_review.py) ─────────
 
@@ -422,6 +423,10 @@ class TestReportToDict:
             "blocking_findings",
             "advisory_findings",
             "corpus_hygiene_findings",
+            "directory_overlaps",
+            "owned_files",
+            "contextual_overlaps",
+            "contradictions",
         }
         # Round-trip through JSON.
         s = json.dumps(payload)
@@ -583,6 +588,10 @@ class TestIntentCheckCLI:
             "blocking_findings",
             "advisory_findings",
             "corpus_hygiene_findings",
+            "directory_overlaps",
+            "owned_files",
+            "contextual_overlaps",
+            "contradictions",
         }
         assert rc == 0
 
@@ -794,3 +803,66 @@ class TestExitCodeContract:
         assert payload["stale_governance"]
         assert payload["blocking_findings"]  # stale surfaces as a blocking finding
         assert rc == 1  # the exit contract is unchanged
+
+
+# ── Directory-prefix overlap advisory (B12) ─────────────────
+
+
+class TestDirectoryOverlap:
+    def test_directory_overlap_surfaced_and_not_an_exact_conflict(self, tmp_path: Path, monkeypatch) -> None:
+        info = fx.exact_and_directory_overlap(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        payload = report_to_dict(intent_check(db, tmp_path, "Touch baz", [info["target"]]))
+        # Exact conflict query misses the directory-prefix governor.
+        assert payload["conflicts"] == []
+        # But the overlap is surfaced as an advisory directory overlap.
+        overlaps = {o["path"]: set(o["decision_ids"]) for o in payload["directory_overlaps"]}
+        assert info["target"] in overlaps
+        assert overlaps[info["target"]] == {info["exact"], info["directory"]}
+
+    def test_directory_overlap_does_not_flip_exit(self, tmp_path: Path, monkeypatch) -> None:
+        info = fx.exact_and_directory_overlap(tmp_path)
+        _rebuild_index(tmp_path, monkeypatch)
+        rc, payload = _run_json(tmp_path, [info["target"]], plan="Touch baz")
+        assert payload["directory_overlaps"]
+        assert rc == 0  # advisory only
+
+
+# ── First-class --under decision-relative report (B8) ───────
+
+
+class TestUnderReframe:
+    def test_owned_files_when_under_governs_the_path(self, tmp_path: Path, monkeypatch) -> None:
+        info = fx.conflict_with_unrelated(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        report = intent_check(db, tmp_path, "Work under owner", [info["hot"]], under=info["owner"])
+        payload = report_to_dict(report)
+        assert info["hot"] in payload["owned_files"]
+
+    def test_contextual_overlap_when_under_owns_conflicted_path(self, tmp_path: Path, monkeypatch) -> None:
+        info = fx.conflict_with_unrelated(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        report = intent_check(db, tmp_path, "Work under owner", [info["hot"]], under=info["owner"])
+        payload = report_to_dict(report)
+        ctx = {o["path"]: set(o["contextual_decision_ids"]) for o in payload["contextual_overlaps"]}
+        assert info["hot"] in ctx
+        assert info["contextual"] in ctx[info["hot"]]
+        assert info["owner"] not in ctx[info["hot"]]  # the active decision is not "contextual"
+        assert payload["contradictions"] == []
+
+    def test_contradiction_when_under_does_not_govern_conflicted_path(self, tmp_path: Path, monkeypatch) -> None:
+        info = fx.conflict_with_unrelated(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        report = intent_check(db, tmp_path, "Work under unrelated", [info["hot"]], under=info["unrelated"])
+        payload = report_to_dict(report)
+        contra = {c["path"]: set(c["decision_ids"]) for c in payload["contradictions"]}
+        assert info["hot"] in contra
+        assert contra[info["hot"]] == {info["owner"], info["contextual"]}
+        assert payload["owned_files"] == []
+
+    def test_under_keys_empty_without_under(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        payload = report_to_dict(intent_check(db, root, "p", ["src/foo.py"]))
+        assert payload["owned_files"] == []
+        assert payload["contextual_overlaps"] == []
+        assert payload["contradictions"] == []

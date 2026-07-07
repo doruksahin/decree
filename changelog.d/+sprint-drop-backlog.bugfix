@@ -1,0 +1,1 @@
+`decree sprint drop` now works on backlog and draft-pool items, not only active-sprint items, so a backlog item that shipped and reached a terminal status can be removed from live membership (previously it errored and could only be resolved by editing the store by hand).

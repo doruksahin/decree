@@ -12,6 +12,7 @@
 | ADR-01KW2BEB2KK28J2G4QAQT81737 | Packaged Project Local Agent Skills Installer | accepted | 2026-06-26 |  |
 | ADR-01KWKXH8423XTBV6CDVXB4B2ZB | Directory-Decomposed Sprint Ledger | accepted | 2026-07-03 | ADR-01KW1QGHBT2BSZ2HVT55G1QSJB |
 | ADR-01KWXMRRB44CE78H0659D9WDY7 | Keep intent-check exit codes stable, typed findings are additive | accepted | 2026-07-07 |  |
+| ADR-01KWY7ENVMMAMS4HSBJ4C6XN4T | Defer intent-check baseline axis and AC-snapshot drift signal | accepted | 2026-07-07 |  |
 | ADR-01KW1Z7GGGQMRNN9W1KCDRD70T | Physical Folder Buckets for Document Organization | proposed | 2026-06-26 |  |
 | ADR-01KW22K6H6FFWJFTPHNXHA1GSD | Self-contained HTML Board Export | proposed | 2026-06-26 |  |
 | ADR-01KW1QGHBT2BSZ2HVT55G1QSJB | Sprint Ledger and Carryover Semantics | superseded | 2026-06-26 |  |

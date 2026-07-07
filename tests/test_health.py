@@ -12,11 +12,15 @@ import time
 from pathlib import Path
 
 from decree.commands.health import (
+    StaleDecision,
+    broad_governance,
     health,
+    lifecycle_drift,
     stale_decisions,
     ungoverned_hotspots,
 )
 from decree.index_db import IndexDB, default_db_path
+from tests import agentkith_fixtures as fx
 
 # ── Git fixture helpers (mirrors tests/test_index_db.py) ────
 
@@ -371,3 +375,80 @@ class TestHealthCLI:
         assert rc == 0
         # info() prints to stderr in decree.log
         assert "not a git repository" in captured.err
+
+
+# ── Governance-quality signals (B9/B10/B11) — all advisory (exit 0) ──
+
+
+class TestBroadGovernance:
+    def test_broad_governs_flagged_with_metrics(self, tmp_path: Path, monkeypatch) -> None:
+        sid, _paths = fx.broad_governs(tmp_path, n=30)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        findings = broad_governance(db, threshold=25)
+        assert len(findings) == 1
+        f = findings[0]
+        assert f.decision_id == sid
+        assert f.governs_count == 30
+        assert f.exact_governs_count == 30
+        assert f.directory_governs_count == 0
+        assert f.hot_file_overlap_count == 0  # nothing else governs these paths
+
+    def test_below_threshold_not_flagged(self, tmp_path: Path, monkeypatch) -> None:
+        fx.broad_governs(tmp_path, n=5)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        assert broad_governance(db, threshold=25) == []
+
+
+class TestLifecycleDrift:
+    def test_complete_but_not_terminal(self, tmp_path: Path, monkeypatch) -> None:
+        _git_init(tmp_path)
+        sid = fx.draft_at_100(tmp_path, governs="src/foo.py")
+        # One commit carrying the Implements trailer → the decision has attached commits.
+        _commit(
+            tmp_path,
+            "src/foo.py",
+            "impl\n",
+            f"feat: implement\n\nImplements: {sid}",
+        )
+        db = _rebuild_index(tmp_path, monkeypatch)
+        findings = lifecycle_drift(db, stale=[], dead=[])
+        drift = {f.decision_id: f for f in findings}
+        assert sid in drift
+        assert drift[sid].reason == "complete_but_not_terminal"
+
+    def test_terminal_with_stale_governance(self, tmp_path: Path, monkeypatch) -> None:
+        # `_bootstrap_repo` writes an *implemented* (terminal) SPEC …001.
+        _bootstrap_repo(tmp_path, ["src/governed.py"])
+        db = _rebuild_index(tmp_path, monkeypatch)
+        fake_stale = [StaleDecision("SPEC-00000000000000000000000001", "spec", 0, 20, ())]
+        findings = lifecycle_drift(db, stale=fake_stale, dead=[])
+        drift = {f.decision_id: f.reason for f in findings}
+        assert drift.get("SPEC-00000000000000000000000001") == "terminal_but_governance_stale"
+
+    def test_draft_incomplete_not_flagged(self, tmp_path: Path, monkeypatch) -> None:
+        # Draft SPEC with an unchecked primary AC and no commits → not complete, no drift.
+        _git_init(tmp_path)
+        fx._init(tmp_path)
+        fx._write_prd(tmp_path)
+        fx._write_spec(tmp_path, 1, status="draft", governs=["src/foo.py"], acs=["- [ ] Ships", "- [x] Tested"])
+        db = _rebuild_index(tmp_path, monkeypatch)
+        assert lifecycle_drift(db, stale=[], dead=[]) == []
+
+
+class TestAdvisorySignalsDoNotFlipExit:
+    def test_broad_governance_only_exits_zero(self, tmp_path: Path, monkeypatch, capsys) -> None:
+        # A clean repo whose only "finding" is broad governance must still exit 0.
+        _git_init(tmp_path)
+        fx.broad_governs(tmp_path, n=30)
+        subprocess.run(["git", "-C", str(tmp_path), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(tmp_path), "commit", "-m", "init"], check=True, capture_output=True)
+        _rebuild_index(tmp_path, monkeypatch)
+        import argparse
+
+        from decree.commands.health import health_run
+
+        args = argparse.Namespace(project=str(tmp_path), json=True, threshold_commits=10, threshold_days=30)
+        rc = health_run(args)
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["broad_governance"]  # signal present
+        assert rc == 0  # but advisory — does not flip the exit code

@@ -98,6 +98,13 @@ class IntentCheckReport:
     source_changes: tuple[str, ...] = ()
     corpus_changes: tuple[str, ...] = ()
     generated_artifact_changes: tuple[str, ...] = ()
+    # Directory-prefix overlaps (backlog B12): paths co-governed via a directory
+    # `governs:` entry that the exact-path conflict query cannot see. Advisory.
+    directory_overlaps: tuple[dict, ...] = ()
+    # Decision-relative framing when `--under` is given (backlog B8). Empty otherwise.
+    owned_files: tuple[str, ...] = ()
+    contextual_overlaps: tuple[dict, ...] = ()
+    contradictions: tuple[dict, ...] = ()
 
 
 # ── Internal helpers ────────────────────────────────────────
@@ -289,6 +296,39 @@ def intent_check(
         corpus_or_generated=nonsource_paths,
     )
 
+    # 7b. directory-prefix overlaps (B12) — why() sees a directory `governs:`
+    #     governor via prefix, but the exact-path conflict query (step 4) cannot.
+    #     Surfaced as advisory context, never as a blocking conflict.
+    exact_conflict_paths = {c.path for c in conflicts}
+    directory_overlaps = tuple(
+        {"path": p, "decision_ids": sorted(set(path_to_decisions.get(p, [])))}
+        for p in paths
+        if len(set(path_to_decisions.get(p, []))) > 1 and p not in exact_conflict_paths
+    )
+
+    # 7c. decision-relative framing when `--under` is given (B8): partition
+    #     multi-governed paths into contextual overlaps (the active decision owns
+    #     the path; others are context) vs contradictions (a multi-governed path
+    #     the active decision does not own).
+    owned_files: tuple[str, ...] = ()
+    contextual_overlaps: tuple[dict, ...] = ()
+    contradictions: tuple[dict, ...] = ()
+    if under:
+        owned_files = tuple(p for p in paths if under in set(path_to_decisions.get(p, [])))
+        multi: dict[str, set[str]] = {c.path: set(c.decision_ids) for c in conflicts}
+        for o in directory_overlaps:
+            multi.setdefault(o["path"], set()).update(o["decision_ids"])
+        ctx: list[dict] = []
+        contra: list[dict] = []
+        for p in sorted(multi):
+            ids = multi[p]
+            if under in ids:
+                ctx.append({"path": p, "contextual_decision_ids": sorted(ids - {under})})
+            else:
+                contra.append({"path": p, "decision_ids": sorted(ids)})
+        contextual_overlaps = tuple(ctx)
+        contradictions = tuple(contra)
+
     # 8. governs gaps for the active decision (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5) —
     #    appended after _build_recommendations so it stays out of the proceed guard.
     governs_gaps, under_error = compute_governs_gaps(db, under, paths)
@@ -323,6 +363,10 @@ def intent_check(
         source_changes=source_changes,
         corpus_changes=corpus_changes,
         generated_artifact_changes=generated_artifact_changes,
+        directory_overlaps=directory_overlaps,
+        owned_files=owned_files,
+        contextual_overlaps=contextual_overlaps,
+        contradictions=contradictions,
     )
 
 
@@ -575,6 +619,10 @@ def report_to_dict(report: IntentCheckReport) -> dict:
         "source_changes": list(report.source_changes),
         "corpus_changes": list(report.corpus_changes),
         "generated_artifact_changes": list(report.generated_artifact_changes),
+        "directory_overlaps": [dict(o) for o in report.directory_overlaps],
+        "owned_files": list(report.owned_files),
+        "contextual_overlaps": [dict(o) for o in report.contextual_overlaps],
+        "contradictions": [dict(c) for c in report.contradictions],
         **_bucket_findings(report),
     }
 

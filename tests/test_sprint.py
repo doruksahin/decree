@@ -954,3 +954,47 @@ def test_init_and_rollover_acquire_ledger_lock(tmp_path, monkeypatch) -> None:
     outcomes.write_text("outcomes: {}\n")
     assert sprint.run(argparse.Namespace(sprint_action="rollover", name="Sprint 2", outcomes=str(outcomes))) == 0
     assert calls == [fcntl.LOCK_EX]
+
+
+def _backlog_ledger(tmp_path, target: str) -> None:
+    _write_v2_ledger(
+        tmp_path,
+        live=[
+            {
+                "document": target,
+                "scope": "backlog",
+                "kind": "execution",
+                "source": "manual",
+                "added": "2026-06-26",
+                "since": "2026-06-26",
+                "reason": "next sprint",
+            },
+        ],
+    )
+
+
+def test_drop_removes_a_backlog_item(tmp_path, monkeypatch) -> None:
+    # A backlog item must be droppable — e.g. work that shipped and reached a
+    # terminal status, which cannot remain live sprint membership.
+    _write_config(tmp_path)
+    target = "SPEC-00000000000000000000000001"
+    _write_doc(tmp_path, target, "spec", "draft", "## Acceptance Criteria\n\n- [ ] Later\n")
+    _backlog_ledger(tmp_path, target)
+    monkeypatch.chdir(tmp_path)
+
+    updated = drop_item(target, reason="shipped; no longer sprint-planned")
+
+    assert updated.outcome is not None
+    assert updated.outcome["kind"] == "dropped"
+
+
+def test_complete_still_rejects_a_backlog_item(tmp_path, monkeypatch) -> None:
+    # Completing work remains an active-sprint concept; backlog stays rejected.
+    _write_config(tmp_path)
+    target = "SPEC-00000000000000000000000001"
+    _write_doc(tmp_path, target, "spec", "draft", "## Acceptance Criteria\n\n- [x] Done\n")
+    _backlog_ledger(tmp_path, target)
+    monkeypatch.chdir(tmp_path)
+
+    with pytest.raises(SprintLedgerError):
+        complete_item(target)

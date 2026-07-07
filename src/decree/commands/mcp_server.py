@@ -487,6 +487,16 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
                  "candidates": [{"path": str, "commit_count": int,
                                  "distinct_decisions": int}, ...]}, ...
               ],
+              "lifecycle_drift": [
+                {"decision_id": str, "type": str, "status": str,
+                 "reason": str, "detail": str}, ...
+              ],
+              "broad_governance": [
+                {"decision_id": str, "governs_count": int,
+                 "exact_governs_count": int, "directory_governs_count": int,
+                 "linked_commit_count": int, "governs_to_commits_ratio": float,
+                 "hot_file_overlap_count": int}, ...
+              ],
               "unobserved_decisions": [str, ...],
               "observed_as_of": str | null,
               "threshold_commits": int,
@@ -494,8 +504,9 @@ def health(threshold_commits: int = 10, threshold_days: int = 30) -> dict:
             }
 
         Empty findings arrays mean the corpus is in coherence with the
-        codebase at the given thresholds; `missing_governance` is advisory and
-        does not imply incoherence. On a non-git project or missing index the
+        codebase at the given thresholds; `missing_governance`, `lifecycle_drift`,
+        and `broad_governance` are advisory and do not imply incoherence (they
+        never affect the exit code). On a non-git project or missing index the
         response is `{"error": "<reason>", "hint": "..."}`.
 
     When to call:
@@ -744,6 +755,10 @@ def intent_check(
               "blocking_findings": [{"action": str, "target_id": str | None, "detail": str}, ...],
               "advisory_findings": [{"action": str, "target_id": str | None, "detail": str}, ...],
               "corpus_hygiene_findings": [{"action": str, "target_id": str | None, "detail": str}, ...],
+              "directory_overlaps": [{"path": str, "decision_ids": [str, ...]}, ...],
+              "owned_files": [str, ...],
+              "contextual_overlaps": [{"path": str, "contextual_decision_ids": [str, ...]}, ...],
+              "contradictions": [{"path": str, "decision_ids": [str, ...]}, ...],
             }
 
         Planned files are partitioned into `source_changes` / `corpus_changes`
@@ -751,8 +766,12 @@ def intent_check(
         generated path never earns `add_governance`. Findings are additionally
         classed as `blocking_findings` (the exit-1 drivers: conflicts, stale
         governance, live overlap), `advisory_findings`, or
-        `corpus_hygiene_findings`. These classes are additive and never change the
-        exit code (ADR-01KWXMRRB44CE78H0659D9WDY7).
+        `corpus_hygiene_findings`. `directory_overlaps` surfaces co-governance via
+        directory `governs:` entries the exact-path conflict query misses
+        (advisory). When `under` is given, `owned_files` / `contextual_overlaps` /
+        `contradictions` frame multi-governed paths around the active decision.
+        All of these classes/keys are additive and never change the exit code
+        (ADR-01KWXMRRB44CE78H0659D9WDY7).
 
         `governs_gaps` and the `declare_governs` action appear only when `under`
         is given (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5); they are advisory.

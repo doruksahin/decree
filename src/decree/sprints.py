@@ -695,7 +695,10 @@ def drop_item(
     """Record a dropped outcome on one live active item, touching only its file."""
     clean_reason = _require_reason(reason)
     with _ledger_lock(root):
-        item = _open_active_item(document, root)
+        # Drop works on any live item (active, backlog, or draft-pool) — e.g. a
+        # backlog item that shipped and reached a terminal status, which must be
+        # removable from live membership.
+        item = _open_active_item(document, root, require_active=False)
         outcome = {
             "kind": "dropped",
             "at": today or _today(),
@@ -877,13 +880,13 @@ def _fold_item(item: LiveItem) -> SprintItem:
     )
 
 
-def _open_active_item(document: str, root: Path | None) -> LiveItem:
+def _open_active_item(document: str, root: Path | None, *, require_active: bool = True) -> LiveItem:
     view = load_view(root)
     doc_id = require_doc_id(document)
     item = view.live.get(doc_id)
     if item is None:
         raise SprintLedgerError(f"{doc_id} is not an active sprint item")
-    if item.scope != "active":
+    if require_active and item.scope != "active":
         raise SprintLedgerError(f"{doc_id} is in {item.scope}, not the active sprint")
     if item.outcome is not None:
         kind = str(item.outcome.get("kind", "")).strip() or "resolved"

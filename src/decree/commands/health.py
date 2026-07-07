@@ -29,8 +29,12 @@ import subprocess
 from datetime import UTC
 from pathlib import Path
 
+from decree.config import load_doc_types
 from decree.index_db import IndexDB, default_db_path
 from decree.log import fail, info, success
+
+# Governs-count above which a decision's ownership surface is "broad" (advisory, B11).
+_BROAD_GOVERNS_THRESHOLD = 25
 
 # ── Dataclasses ────────────────────────────────────────────
 
@@ -92,6 +96,42 @@ class MissingGovernance:
 
 
 @dataclasses.dataclass(frozen=True)
+class LifecycleDrift:
+    """A decision whose lifecycle status has drifted from reality (advisory, B10/B9).
+
+    ``reason`` is one of ``complete_but_not_terminal`` (all primary ACs checked +
+    commits attached, but status is still non-terminal — the Agentkith Case-4
+    "100% but draft" drift), ``terminal_but_governance_stale``, or
+    ``terminal_but_governance_dead`` (a shipped decision whose governance rotted).
+    Never affects `decree health` exit status.
+    """
+
+    decision_id: str
+    type: str
+    status: str
+    reason: str
+    detail: str
+
+
+@dataclasses.dataclass(frozen=True)
+class BroadGovernance:
+    """A decision whose declared `governs:` surface is broad or overlapping (advisory, B11).
+
+    Path-only and index-derived. ``hot_file_overlap_count`` counts governed paths
+    another decision also governs — the Case-3 signal where `governs:` drifted
+    from "files owned" toward "files touched". Never affects exit status.
+    """
+
+    decision_id: str
+    governs_count: int
+    exact_governs_count: int
+    directory_governs_count: int
+    linked_commit_count: int
+    governs_to_commits_ratio: float
+    hot_file_overlap_count: int
+
+
+@dataclasses.dataclass(frozen=True)
 class HealthReport:
     stale_decisions: tuple[StaleDecision, ...]
     ungoverned_hotspots: tuple[UngovernedHotspot, ...]
@@ -101,6 +141,8 @@ class HealthReport:
     unobserved_decision_ids: tuple[str, ...] = ()
     last_rebuilt_at: str | None = None
     missing_governance: tuple[MissingGovernance, ...] = ()
+    lifecycle_drift: tuple[LifecycleDrift, ...] = ()
+    broad_governance: tuple[BroadGovernance, ...] = ()
 
 
 # ── git shellout helpers ───────────────────────────────────
@@ -488,6 +530,95 @@ def missing_governance(db: IndexDB) -> list[MissingGovernance]:
     return findings
 
 
+def broad_governance(db: IndexDB, threshold: int = _BROAD_GOVERNS_THRESHOLD) -> list[BroadGovernance]:
+    """Advisory (B11): decisions whose declared `governs:` surface is broad or overlapping.
+
+    Path-only and index-derived (no git). ``hot_file_overlap_count`` counts a
+    decision's governed paths that another decision also governs — the Case-3
+    signal where `governs:` drifted from "files owned" toward "files touched".
+    """
+    declared, linked = _declared_and_linked(db)
+    path_owners: dict[str, set[str]] = {}
+    for did, paths in declared.items():
+        for p in paths:
+            path_owners.setdefault(p, set()).add(did)
+
+    findings: list[BroadGovernance] = []
+    for did, paths in declared.items():
+        gc = len(paths)
+        if gc < threshold:
+            continue
+        exact = sum(1 for p in paths if not p.endswith("/"))
+        directory = gc - exact
+        lc = linked.get(did, 0)
+        ratio = round(gc / lc, 2) if lc else float(gc)
+        hot = sum(1 for p in paths if len(path_owners.get(p, ())) > 1)
+        findings.append(BroadGovernance(did, gc, exact, directory, lc, ratio, hot))
+    findings.sort(key=lambda f: f.governs_count, reverse=True)
+    return findings
+
+
+def lifecycle_drift(
+    db: IndexDB,
+    stale: list[StaleDecision],
+    dead: list[DeadGovernance],
+) -> list[LifecycleDrift]:
+    """Advisory (B10/B9): decisions whose lifecycle status has drifted from reality.
+
+    ``complete_but_not_terminal`` — every primary acceptance criterion is checked
+    and commits are attached, but the status is still non-terminal (Agentkith
+    Case 4). ``terminal_but_governance_dead`` / ``_stale`` — a terminal-success
+    decision whose governance has since rotted. Never affects exit status.
+    """
+    from decree.commands.report import is_terminal_success
+
+    conn = db.db.conn  # type: ignore[attr-defined]
+    decisions = {row[0]: (row[1], row[2]) for row in conn.execute("SELECT id, type, status FROM decisions")}
+    ac_counts: dict[str, tuple[int, int]] = {}
+    for did, done, total in conn.execute(
+        "SELECT decision_id, SUM(done), COUNT(*) FROM acceptance_criteria WHERE deferred = 0 GROUP BY decision_id"
+    ):
+        ac_counts[did] = (int(done or 0), int(total or 0))
+    linked: dict[str, int] = {
+        row[0]: row[1]
+        for row in conn.execute("SELECT decision_id, COUNT(DISTINCT sha) FROM commits GROUP BY decision_id")
+    }
+    doctypes = {dt.name: dt for dt in load_doc_types()}
+    stale_ids = {sd.decision_id for sd in stale}
+    dead_ids = {dg.decision_id for dg in dead}
+
+    findings: list[LifecycleDrift] = []
+    for did in sorted(decisions):
+        type_name, status = decisions[did]
+        dt = doctypes.get(type_name)
+        if is_terminal_success(dt, status):
+            if did in dead_ids:
+                findings.append(
+                    LifecycleDrift(
+                        did, type_name, status, "terminal_but_governance_dead",
+                        f"{did} is {status} (terminal) but its declared governance is dead (unobserved in commits).",
+                    )
+                )
+            elif did in stale_ids:
+                findings.append(
+                    LifecycleDrift(
+                        did, type_name, status, "terminal_but_governance_stale",
+                        f"{did} is {status} (terminal) but its governed files have churned since (stale).",
+                    )
+                )
+            continue
+        done, total = ac_counts.get(did, (0, 0))
+        if total > 0 and done == total and linked.get(did, 0) >= 1:
+            findings.append(
+                LifecycleDrift(
+                    did, type_name, status, "complete_but_not_terminal",
+                    f"{did} has {done}/{total} primary ACs done and {linked[did]} commit(s) attached, "
+                    f"but status is '{status}'. Transition it, or move incomplete work to a deferred section.",
+                )
+            )
+    return findings
+
+
 def health(
     db: IndexDB,
     project_root: Path,
@@ -495,15 +626,19 @@ def health(
     threshold_days: int,
 ) -> HealthReport:
     """Compose the full health report — stale, ungoverned, and dead governance."""
+    stale = stale_decisions(db, project_root, threshold_commits)
+    dead = dead_governance(db)
     return HealthReport(
-        stale_decisions=tuple(stale_decisions(db, project_root, threshold_commits)),
+        stale_decisions=tuple(stale),
         ungoverned_hotspots=tuple(ungoverned_hotspots(db, project_root, threshold_commits, threshold_days)),
         threshold_commits=threshold_commits,
         threshold_days=threshold_days,
-        dead_governance=tuple(dead_governance(db)),
+        dead_governance=tuple(dead),
         unobserved_decision_ids=tuple(unobserved_decisions(db)),
         last_rebuilt_at=db.status().last_rebuilt_at,
         missing_governance=tuple(missing_governance(db)),
+        lifecycle_drift=tuple(lifecycle_drift(db, stale, dead)),
+        broad_governance=tuple(broad_governance(db)),
     )
 
 
@@ -590,6 +725,23 @@ def _format_human(report: HealthReport) -> str:
     )
     lines.append("")
 
+    if report.lifecycle_drift:
+        lines.append(f"Lifecycle drift ({len(report.lifecycle_drift)}) — advisory:")
+        for ld in report.lifecycle_drift:
+            lines.append(f"  ~ {ld.decision_id} [{ld.reason}]: {ld.detail}")
+        lines.append("")
+
+    if report.broad_governance:
+        lines.append(f"Broad governance ({len(report.broad_governance)}) — advisory:")
+        for bg in report.broad_governance:
+            lines.append(
+                f"  ~ {bg.decision_id}: governs {bg.governs_count} "
+                f"({bg.exact_governs_count} exact / {bg.directory_governs_count} dir), "
+                f"{bg.hot_file_overlap_count} shared hot file(s), "
+                f"ratio {bg.governs_to_commits_ratio}"
+            )
+        lines.append("")
+
     lines.append(f"Thresholds: --threshold-commits={report.threshold_commits} --threshold-days={report.threshold_days}")
     return "\n".join(lines)
 
@@ -637,6 +789,28 @@ def _report_to_dict(report: HealthReport) -> dict:
                 ],
             }
             for mg in report.missing_governance
+        ],
+        "lifecycle_drift": [
+            {
+                "decision_id": ld.decision_id,
+                "type": ld.type,
+                "status": ld.status,
+                "reason": ld.reason,
+                "detail": ld.detail,
+            }
+            for ld in report.lifecycle_drift
+        ],
+        "broad_governance": [
+            {
+                "decision_id": bg.decision_id,
+                "governs_count": bg.governs_count,
+                "exact_governs_count": bg.exact_governs_count,
+                "directory_governs_count": bg.directory_governs_count,
+                "linked_commit_count": bg.linked_commit_count,
+                "governs_to_commits_ratio": bg.governs_to_commits_ratio,
+                "hot_file_overlap_count": bg.hot_file_overlap_count,
+            }
+            for bg in report.broad_governance
         ],
         "unobserved_decisions": list(report.unobserved_decision_ids),
         "observed_as_of": report.last_rebuilt_at,

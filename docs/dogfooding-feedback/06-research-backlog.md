@@ -27,12 +27,21 @@ SPEC-01KWXPAP3ENJ9BF7MADKHHCF6H (Option A: additive, exit-code stable):
 - **B4** — human "Block now / Clean later" output + recommended next command.
 - **B5** — exit-code contract regression tests (advisory/corpus stay exit 0;
   stale-only stays exit 1).
+- **B2** — shared Agentkith fixture module (`tests/agentkith_fixtures.py`).
+- **B8** — first-class `--under`: additive `owned_files` / `contextual_overlaps`
+  / `contradictions` (exit unchanged, per the accepted ADR).
+- **B12** — advisory `directory_overlaps` (co-governance the exact conflict query
+  misses), surfaced without flipping the exit code.
+- **B9 / B10 / B11** — governance-quality health signals: `lifecycle_drift`
+  (terminal-with-rotted-governance; 100%-primary-ACs-but-non-terminal) and
+  `broad_governance` — all advisory (exit 0).
+- Fixed the decree gap found along the way: `decree sprint drop` now removes
+  backlog/draft-pool items, not only active-sprint items.
 
-Still open (need a human decision first): **B8** `--under` reframe, **B2** full
-5-case fixture module, **B9–B13** health signals, **B12** directory-prefix
-overlap, **B15** baseline/new-vs-debt. Also found: the sprint CLI cannot
-`complete`/`drop` a *backlog* item that reaches terminal status — a small decree
-gap worth its own fix.
+Deferred by decision (ADR-01KWY7ENVMMAMS4HSBJ4C6XN4T, with re-triggers recorded):
+**B13** AC-snapshot terminal drift and **B15** baseline/new-vs-debt axis — the
+shipped finding classes and `progress --changed` cover the current need, and both
+would add fragile/contested surface ahead of evidence.
 
 ## TL;DR
 

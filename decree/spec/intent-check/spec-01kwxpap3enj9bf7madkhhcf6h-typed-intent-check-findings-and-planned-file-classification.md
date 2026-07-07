@@ -3,10 +3,12 @@ date: '2026-07-07'
 governs:
 - src/decree/config.py
 - src/decree/commands/intent_check.py
+- src/decree/commands/health.py
 id: SPEC-01KWXPAP3ENJ9BF7MADKHHCF6H
 references:
 - PRD-01KWXMRR7R3S5CSAAZRGFHR5QN
 - ADR-01KWXMRRB44CE78H0659D9WDY7
+- ADR-01KWY7ENVMMAMS4HSBJ4C6XN4T
 status: implemented
 ---
 
@@ -14,14 +16,16 @@ status: implemented
 
 ## Overview
 
-Implements the in-scope slice of PRD-01KWXMRR7R3S5CSAAZRGFHR5QN (backlog items
-`B7`, `B6`, `B3`, `B4`, `B5` in
+Implements PRD-01KWXMRR7R3S5CSAAZRGFHR5QN (backlog items `B3`–`B12` in
 [docs/dogfooding-feedback/06-research-backlog.md](../../../docs/dogfooding-feedback/06-research-backlog.md))
-under the additive-and-exit-stable decision of ADR-01KWXMRRB44CE78H0659D9WDY7.
+under the additive-and-exit-stable decision of ADR-01KWXMRRB44CE78H0659D9WDY7;
+ADR-01KWY7ENVMMAMS4HSBJ4C6XN4T defers B13/B15.
 
-`intent-check` now tells an agent what *kind* of finding each result is, so a
-contextual overlap or a decree-document self-edit is no longer indistinguishable
-from a real blocker in one flat exit-1 bucket.
+`intent-check` now tells an agent what *kind* of finding each result is, frames
+multi-governed paths around the active `--under` decision, and surfaces directory
+overlap — so a contextual overlap or a decree-document self-edit is no longer
+indistinguishable from a real blocker in one flat exit-1 bucket. `health` gains
+two advisory governance-quality signals (lifecycle drift, broad governance).
 
 ## Technical Design
 
@@ -62,4 +66,6 @@ from a real blocker in one flat exit-1 bucket.
 - [x] `blocking_findings`/`advisory_findings`/`corpus_hygiene_findings` are additive JSON keys
 - [x] human output leads with "Block now" / "Clean later" and a recommended next command
 - [x] exit codes are unchanged: advisory/corpus-only exits 0, stale-only exits 1
-- [x] the new JSON keys are documented in json-contracts.md, usage.md, and the MCP docstring
+- [x] `--under` adds `owned_files`/`contextual_overlaps`/`contradictions` (B8); `directory_overlaps` is advisory (B12)
+- [x] `health` emits advisory `lifecycle_drift` and `broad_governance`, never affecting the exit code (B9/B10/B11)
+- [x] the new JSON keys are documented in json-contracts.md, usage.md, health-signals.md, and the MCP docstrings
