@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "5774daebd790",
+  "strategy": "manual-commit",
+  "branch": "feat/decree-dogfooding-improvements",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "changelog.d/+health-governance-quality.feature",
+    "changelog.d/+intent-check-under-and-overlap.feature",
+    "changelog.d/+sprint-drop-backlog.bugfix",
+    "decree/adr/intent-check/adr-01kwy7envmmams4hsbj4c6xn4t-defer-intent-check-baseline-axis-and-ac-snapshot-drift.md",
+    "decree/spec/intent-check/spec-01kwxpap3enj9bf7madkhhcf6h-typed-intent-check-findings-and-planned-file-classification.md",
+    "docs/dogfooding-feedback/06-research-backlog.md",
+    "docs/health-signals.md",
+    "docs/json-contracts.md",
+    "src/decree/commands/health.py",
+    "src/decree/commands/intent_check.py",
+    "src/decree/commands/mcp_server.py",
+    "src/decree/sprints.py",
+    "tests/agentkith_fixtures.py",
+    "tests/test_health.py",
+    "tests/test_intent_check.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/57/74daebd790/0/metadata.json",
+      "transcript": "/57/74daebd790/0/full.jsonl",
+      "content_hash": "/57/74daebd790/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 2953,
+    "cache_creation_tokens": 107913,
+    "cache_read_tokens": 25770586,
+    "output_tokens": 80874,
+    "api_call_count": 71
+  }
+}
