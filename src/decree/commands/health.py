@@ -595,14 +595,20 @@ def lifecycle_drift(
             if did in dead_ids:
                 findings.append(
                     LifecycleDrift(
-                        did, type_name, status, "terminal_but_governance_dead",
+                        did,
+                        type_name,
+                        status,
+                        "terminal_but_governance_dead",
                         f"{did} is {status} (terminal) but its declared governance is dead (unobserved in commits).",
                     )
                 )
             elif did in stale_ids:
                 findings.append(
                     LifecycleDrift(
-                        did, type_name, status, "terminal_but_governance_stale",
+                        did,
+                        type_name,
+                        status,
+                        "terminal_but_governance_stale",
                         f"{did} is {status} (terminal) but its governed files have churned since (stale).",
                     )
                 )
@@ -611,7 +617,10 @@ def lifecycle_drift(
         if total > 0 and done == total and linked.get(did, 0) >= 1:
             findings.append(
                 LifecycleDrift(
-                    did, type_name, status, "complete_but_not_terminal",
+                    did,
+                    type_name,
+                    status,
+                    "complete_but_not_terminal",
                     f"{did} has {done}/{total} primary ACs done and {linked[did]} commit(s) attached, "
                     f"but status is '{status}'. Transition it, or move incomplete work to a deferred section.",
                 )
