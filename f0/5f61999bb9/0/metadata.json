@@ -1,0 +1,114 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "f05f61999bb9",
+  "session_id": "97e81602-5a57-4f68-807d-4f464be3f24b",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-07T12:17:13.063935Z",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "CHANGELOG.md",
+    "changelog.d/+.doc",
+    "changelog.d/+decree-ddd-severity.feature",
+    "changelog.d/+health-governance-quality.feature",
+    "changelog.d/+intent-check-typed-findings.feature",
+    "changelog.d/+intent-check-under-and-overlap.feature",
+    "changelog.d/+research-backlog.doc",
+    "changelog.d/+skill-sync-guard.misc",
+    "changelog.d/+sprint-drop-backlog.bugfix",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-4-8",
+  "turn_id": "d8fe6df2fb94",
+  "checkpoint_transcript_start": 1196,
+  "transcript_lines_at_start": 1196,
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_017MbuTonzSexXiA6KzbgpcU",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "deep-research"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "d8fe6df2fb94",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 22,
+        "end": 23,
+        "entry_ids": [
+          "308d4506-65ec-4143-9027-425b2fae73ba"
+        ],
+        "tool_use_id": "toolu_017MbuTonzSexXiA6KzbgpcU"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_017MbuTonzSexXiA6KzbgpcU"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: deep-research",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_01ChJj8TYUo23pXvoZ9Kzciu",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "superpowers:test-driven-development"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "d8fe6df2fb94",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 352,
+        "end": 353,
+        "entry_ids": [
+          "afebabad-090c-4e43-a0d3-77bd46f572fd"
+        ],
+        "tool_use_id": "toolu_01ChJj8TYUo23pXvoZ9Kzciu"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01ChJj8TYUo23pXvoZ9Kzciu"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: superpowers:test-driven-development",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-07T12:17:13.021207Z",
+    "agent_lines": 53,
+    "agent_removed": 10,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 53,
+    "total_lines_changed": 63,
+    "agent_percentage": 100,
+    "metric_version": 2
+  }
+}

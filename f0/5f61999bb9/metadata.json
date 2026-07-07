@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.7.7",
+  "checkpoint_id": "f05f61999bb9",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "CHANGELOG.md",
+    "changelog.d/+.doc",
+    "changelog.d/+decree-ddd-severity.feature",
+    "changelog.d/+health-governance-quality.feature",
+    "changelog.d/+intent-check-typed-findings.feature",
+    "changelog.d/+intent-check-under-and-overlap.feature",
+    "changelog.d/+research-backlog.doc",
+    "changelog.d/+skill-sync-guard.misc",
+    "changelog.d/+sprint-drop-backlog.bugfix",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "sessions": [
+    {
+      "metadata": "/f0/5f61999bb9/0/metadata.json",
+      "transcript": "/f0/5f61999bb9/0/full.jsonl",
+      "content_hash": "/f0/5f61999bb9/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 0,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 0,
+    "output_tokens": 0,
+    "api_call_count": 0
+  }
+}
