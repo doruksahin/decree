@@ -1,0 +1,12 @@
+simdi, decree.doruk.uk'ta websitemiz var.
+getirdigin yeni ozellikleri iyice acikliyor olmamiz lazim.
+website koduna bak
+burayi duzeltelim.
+eski olan ornekleri vs kaldiralim.
+
+---
+
+eski gereksiz ve artik olmayan ornekleri kaldir.
+ve eksik olan kismi giderebilirsin.
+bunu ekleyip yeni versiyon cikar.
+borc birakmadan sonuna kadar gidelim.
