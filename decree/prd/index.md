@@ -15,5 +15,6 @@
 | PRD-01KW1Z5ZYPQGB8E35RWP3CA9R3 | Foldered Document Buckets | draft | 2026-06-26 |
 | PRD-01KW22JY2RQJD7B759ET0BM2NP | HTML Board Export and Required Buckets | draft | 2026-06-26 |
 | PRD-01KWKXH2EX1WH7XWXCNKSMRW24 | Parallel-Safe Sprint Execution | draft | 2026-07-03 |
+| PRD-01KWXMRR7R3S5CSAAZRGFHR5QN | Typed intent-check findings | draft | 2026-07-07 |
 
 <!-- GENERATED:decree-graph — do not edit below this line -->

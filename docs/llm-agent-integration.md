@@ -56,10 +56,16 @@ with the [Capability Index](index.md).
    `live_conflicts` (files another live session is about to write). In a governed
    session, pass `--under <your-decision>` so the report also surfaces
    `governs_gaps` — files your decision repeat-touches but doesn't declare.
-5. If the response recommends `draft_adr_first`, `update_spec_first`,
-   `resolve_conflict_first`, or `isolate_session`, resolve it before
-   implementation. For `isolate_session`, run in a dedicated worktree or split
-   the overlapping file out of one plan.
+5. Interpret the recommendations by severity rather than resolving every finding
+   first. `resolve_conflict_first`, `update_decision` (stale), and
+   `isolate_session` (the exit-1 findings) are **blocking**: resolve or, for a
+   complementary multi-decision overlap, name the authoritative decision with
+   `--under` and justify proceeding. `update_spec_first`, `add_governance`,
+   `draft_adr_first`, and `check_ac` are **advisory** (exit 0 on their own):
+   proceed and note them. When the planned file is itself a decree document,
+   treat `add_governance` as corpus maintenance, not a governance gap. For
+   `isolate_session`, run in a dedicated worktree or split the overlapping file
+   out of one plan. The `decree-ddd` skill carries the full severity mapping.
 6. After code exists, run `decree intent-review --json` to compare the diff
    against the same governance corpus. Commit through `decree commit` so the
    change carries an `Implements:` trailer linking it to its decision, and gate

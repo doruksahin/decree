@@ -1,0 +1,1 @@
+Guard that the two `decree-ddd` SKILL.md copies (dev-facing and packaged template) stay byte-identical so shipped agent guidance cannot silently drift.

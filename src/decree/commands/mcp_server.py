@@ -738,7 +738,21 @@ def intent_check(
               "under_decision": str | None,
               "under_error": str | None,
               "governs_gaps": [{"path": str, "commit_count": int}, ...],
+              "source_changes": [str, ...],
+              "corpus_changes": [str, ...],
+              "generated_artifact_changes": [str, ...],
+              "blocking_findings": [{"action": str, "target_id": str | None, "detail": str}, ...],
+              "advisory_findings": [{"action": str, "target_id": str | None, "detail": str}, ...],
+              "corpus_hygiene_findings": [{"action": str, "target_id": str | None, "detail": str}, ...],
             }
+
+        Planned files are partitioned into `source_changes` / `corpus_changes`
+        (a decree-document self-edit) / `generated_artifact_changes`; a corpus or
+        generated path never earns `add_governance`. Findings are additionally
+        classed as `blocking_findings` (the exit-1 drivers: conflicts, stale
+        governance, live overlap), `advisory_findings`, or
+        `corpus_hygiene_findings`. These classes are additive and never change the
+        exit code (ADR-01KWXMRRB44CE78H0659D9WDY7).
 
         `governs_gaps` and the `declare_governs` action appear only when `under`
         is given (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5); they are advisory.

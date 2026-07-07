@@ -16,6 +16,8 @@ on real workflow pain.
 4. [Command improvements](03-command-improvements.md)
 5. [Skill and usage improvements](04-skill-and-usage-improvements.md)
 6. [Controlled rollout plan](05-controlled-rollout-plan.md)
+7. [Research backlog](06-research-backlog.md) — proposals graded against the real
+   code + external precedent, prioritized into buildable items `B1`–`B15`
 
 ## Scope
 

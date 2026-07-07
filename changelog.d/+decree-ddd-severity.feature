@@ -1,0 +1,1 @@
+Teach the `decree-ddd` agent skill to classify the work mode, name an authoritative decision and prefer `intent-check --under`, and interpret `intent-check` exit-1 findings by severity (blocking vs advisory vs corpus maintenance) instead of resolving every finding first.

@@ -13,6 +13,7 @@ decree.toml is the only supported config format. No pyproject.toml fallback.
 import dataclasses
 import functools
 import re
+from collections.abc import Iterable
 from pathlib import Path
 
 try:
@@ -66,6 +67,47 @@ def load_doc_types():
         raise ValueError("decree.toml has no [types.*] sections. Define at least one document type.")
 
     return tuple(_build_doc_type(name, cfg) for name, cfg in types_config.items())
+
+
+def classify_path(rel_path: str, doc_type_dirs: Iterable[str] | None = None) -> str:
+    """Classify a repo-relative path as ``"source"``, ``"corpus"``, or ``"generated"``.
+
+    Path-only and therefore deterministic (never reads the working tree), so a
+    planned decree-document edit is not mistaken for ungoverned source code:
+
+    * ``corpus`` — a decree decision document (a file under a configured document
+      type's ``dir``). Editing one is authoring truth, not missing governance.
+    * ``generated`` — a decree-produced artifact under a document dir: the
+      ``index.md`` written by ``decree index regenerate``, or a completion report
+      under a ``reports/`` bucket. These should be regenerated, not hand-edited.
+    * ``source`` — everything else, including ordinary markdown outside the
+      document dirs (which *can* legitimately be governed).
+
+    ``doc_type_dirs`` defaults to the configured types' ``dir`` values; pass an
+    explicit list to classify without loading project config.
+    """
+    if doc_type_dirs is None:
+        doc_type_dirs = [dt.dir for dt in load_doc_types()]
+
+    norm = rel_path.strip()
+    while norm.startswith("./"):
+        norm = norm[2:]
+    norm = norm.lstrip("/")
+    segments = norm.split("/")
+    base = segments[-1]
+
+    under_doc_dir = False
+    for d in doc_type_dirs:
+        dn = d.strip().strip("/")
+        if dn and (norm == dn or norm.startswith(dn + "/")):
+            under_doc_dir = True
+            break
+
+    if under_doc_dir:
+        if base == "index.md" or "reports" in segments:
+            return "generated"
+        return "corpus"
+    return "source"
 
 
 def find_doc_type(doc_id: str):

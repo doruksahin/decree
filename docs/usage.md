@@ -508,6 +508,16 @@ does not declare, the report adds an advisory `governs_gaps` list and a
 For `intent-review` this needs a structured diff (`--diff`/`--diff-base`). An
 unknown `--under` id exits 2.
 
+`intent-check` also classifies every planned file as `source_changes`,
+`corpus_changes` (a decree-document self-edit), or `generated_artifact_changes` —
+a corpus or generated path never earns an `add_governance` recommendation. Each
+finding is additionally classed as `blocking_findings` (the exit-1 drivers:
+conflicts, stale governance, live overlap), `advisory_findings`, or
+`corpus_hygiene_findings`, and the human output leads with a "Block now / Clean
+later" summary. These classes are additive and never change the exit code
+(ADR-01KWXMRRB44CE78H0659D9WDY7); the exit stays `1` only for conflicts, stale
+governance, or live overlap.
+
 ```bash
 decree intent-check  --plan "..." --files src/foo.py --under SPEC-01KT... --json
 decree intent-review --diff-base origin/main          --under SPEC-01KT... --json

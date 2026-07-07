@@ -7,6 +7,8 @@ Core intent-check is deterministic and does not call LLM providers.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
 import json
 import subprocess
 import time
@@ -16,6 +18,7 @@ import pytest
 
 from decree.commands.intent_check import (
     IntentCheckReport,
+    _format_human,
     _plan_mentions_architecture,
     intent_check,
     intent_check_run,
@@ -413,6 +416,12 @@ class TestReportToDict:
             "under_decision",
             "under_error",
             "governs_gaps",
+            "source_changes",
+            "corpus_changes",
+            "generated_artifact_changes",
+            "blocking_findings",
+            "advisory_findings",
+            "corpus_hygiene_findings",
         }
         # Round-trip through JSON.
         s = json.dumps(payload)
@@ -568,6 +577,12 @@ class TestIntentCheckCLI:
             "under_decision",
             "under_error",
             "governs_gaps",
+            "source_changes",
+            "corpus_changes",
+            "generated_artifact_changes",
+            "blocking_findings",
+            "advisory_findings",
+            "corpus_hygiene_findings",
         }
         assert rc == 0
 
@@ -595,3 +610,187 @@ class TestRecommendationDeterminism:
         actions_a = [(r.action, r.target_id, r.detail) for r in a.recommended_actions]
         actions_b = [(r.action, r.target_id, r.detail) for r in b.recommended_actions]
         assert actions_a == actions_b
+
+
+# ── Planned-file classification (B6) ────────────────────────
+
+
+def _add_gov_paths(report) -> list[str]:
+    """Paths that got an ``add_governance`` recommendation (detail starts with the path)."""
+    return [r.detail.split()[0] for r in report.recommended_actions if r.action == "add_governance"]
+
+
+class TestPlannedFileClassification:
+    def test_corpus_self_edit_not_flagged_add_governance(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        corpus = "decree/spec/spec-00000000000000000000000001-test.md"
+        report = intent_check(db, root, "Update the SPEC design", [corpus])
+        assert corpus not in _add_gov_paths(report)
+        assert corpus in report.corpus_changes
+        assert corpus not in report.source_changes
+
+    def test_generated_artifact_classified_and_not_flagged(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        generated = "decree/spec/index.md"
+        report = intent_check(db, root, "regen", [generated])
+        assert generated not in _add_gov_paths(report)
+        assert generated in report.generated_artifact_changes
+
+    def test_ungoverned_source_still_flagged_and_classified_source(
+        self, basic_db_and_root: tuple[IndexDB, Path]
+    ) -> None:
+        db, root = basic_db_and_root
+        src = "src/brandnew.py"
+        report = intent_check(db, root, "Add a module", [src])
+        assert src in _add_gov_paths(report)
+        assert src in report.source_changes
+
+    def test_classification_partitions_all_planned_files(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        files = ["src/foo.py", "decree/adr/adr-00000000000000000000000009-x.md", "decree/prd/index.md"]
+        report = intent_check(db, root, "Mixed change", files)
+        union = set(report.source_changes) | set(report.corpus_changes) | set(report.generated_artifact_changes)
+        assert union == set(files)
+        # No path lands in two buckets.
+        assert len(report.source_changes) + len(report.corpus_changes) + len(report.generated_artifact_changes) == len(
+            files
+        )
+
+    def test_classification_keys_serialized(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        payload = report_to_dict(intent_check(db, root, "p", ["src/foo.py"]))
+        assert payload["source_changes"] == ["src/foo.py"]
+        assert payload["corpus_changes"] == []
+        assert payload["generated_artifact_changes"] == []
+
+
+# ── Typed finding-class buckets (B3) ────────────────────────
+
+
+def _actions_in(bucket: list[dict]) -> set[str]:
+    return {e["action"] for e in bucket}
+
+
+class TestFindingClassBuckets:
+    def test_conflict_is_blocking(self, tmp_path: Path, monkeypatch) -> None:
+        _write_corpus_two_specs_same_file(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        payload = report_to_dict(intent_check(db, tmp_path, "Plan", ["src/foo.py"]))
+        assert "resolve_conflict_first" in _actions_in(payload["blocking_findings"])
+        assert "resolve_conflict_first" not in _actions_in(payload["advisory_findings"])
+        assert "resolve_conflict_first" not in _actions_in(payload["corpus_hygiene_findings"])
+
+    def test_live_conflict_is_blocking(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        report = intent_check(db, root, "Plan", ["src/foo.py"], other_active_files={"session-b": ["src/foo.py"]})
+        payload = report_to_dict(report)
+        assert "isolate_session" in _actions_in(payload["blocking_findings"])
+
+    def test_ungoverned_source_is_advisory(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        payload = report_to_dict(intent_check(db, root, "Add a module", ["src/brandnew.py"]))
+        assert "add_governance" in _actions_in(payload["advisory_findings"])
+        assert payload["blocking_findings"] == []
+
+    def test_corpus_self_edit_is_corpus_hygiene(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        corpus = "decree/spec/spec-00000000000000000000000001-test.md"
+        payload = report_to_dict(intent_check(db, root, "Update the SPEC", [corpus]))
+        targets = {e["target_id"] for e in payload["corpus_hygiene_findings"]}
+        assert corpus in targets
+        assert payload["blocking_findings"] == []
+        assert payload["advisory_findings"] == []
+
+    def test_bucket_keys_serialized(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        payload = report_to_dict(intent_check(db, root, "p", ["src/foo.py"]))
+        for key in ("blocking_findings", "advisory_findings", "corpus_hygiene_findings"):
+            assert isinstance(payload[key], list)
+
+
+# ── Human "block now / clean later" output (B4) ─────────────
+
+
+class TestHumanBlockCleanOutput:
+    def test_sections_and_next_command_always_present(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        text = _format_human(intent_check(db, root, "p", ["src/foo.py"]))
+        assert "Block now" in text
+        assert "Clean later" in text
+        assert "Recommended next command" in text
+
+    def test_conflict_routes_to_block_now(self, tmp_path: Path, monkeypatch) -> None:
+        _write_corpus_two_specs_same_file(tmp_path)
+        db = _rebuild_index(tmp_path, monkeypatch)
+        text = _format_human(intent_check(db, tmp_path, "Plan", ["src/foo.py"]))
+        block_section = text.split("Clean later")[0]
+        assert "resolve_conflict_first" in block_section
+
+    def test_advisory_routes_to_clean_later_not_block_now(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        text = _format_human(intent_check(db, root, "Add a module", ["src/brandnew.py"]))
+        block_section, _, clean_section = text.partition("Clean later")
+        assert "add_governance" not in block_section
+        assert "add_governance" in clean_section
+
+    def test_corpus_self_edit_routes_to_clean_later(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        db, root = basic_db_and_root
+        corpus = "decree/spec/spec-00000000000000000000000001-test.md"
+        text = _format_human(intent_check(db, root, "Update SPEC", [corpus]))
+        _block, _, clean_section = text.partition("Clean later")
+        assert corpus in clean_section
+
+
+# ── Exit-code contract freeze (B5 / ADR-01KWXMRRB44CE78H0659D9WDY7) ──
+#
+# The typed finding buckets are additive: they must NOT change the exit code.
+# Exit 1 stays driven by conflicts / stale governance / live overlap; advisory
+# and corpus-hygiene findings never flip it. These tests pin that contract so a
+# future bucket change cannot silently make a formerly-blocking run pass.
+
+
+def _run_json(root: Path, files: list[str], **kw) -> tuple[int, dict]:
+    args = _make_args(plan=kw.pop("plan", "Plan"), files=files, json=True, project=str(root), **kw)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = intent_check_run(args)
+    return rc, json.loads(buf.getvalue())
+
+
+class TestExitCodeContract:
+    def test_advisory_only_source_exits_0(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        _db, root = basic_db_and_root
+        rc, payload = _run_json(root, ["src/brandnew.py"])
+        assert payload["advisory_findings"]  # add_governance present
+        assert payload["blocking_findings"] == []
+        assert rc == 0
+
+    def test_corpus_self_edit_exits_0(self, basic_db_and_root: tuple[IndexDB, Path]) -> None:
+        _db, root = basic_db_and_root
+        rc, payload = _run_json(root, ["decree/spec/spec-00000000000000000000000001-test.md"])
+        assert payload["corpus_hygiene_findings"]
+        assert payload["blocking_findings"] == []
+        assert rc == 0
+
+    def test_conflict_exits_1_with_nonempty_blocking(self, tmp_path: Path, monkeypatch) -> None:
+        _write_corpus_two_specs_same_file(tmp_path)
+        _rebuild_index(tmp_path, monkeypatch)
+        rc, payload = _run_json(tmp_path, ["src/foo.py"])
+        assert payload["blocking_findings"]
+        assert rc == 1
+
+    def test_stale_only_still_exits_1_after_buckets(self, tmp_path: Path, monkeypatch) -> None:
+        _git_init(tmp_path)
+        _write_corpus_basic(tmp_path)
+        _git(tmp_path, "add", "-A")
+        _git(tmp_path, "commit", "-m", "init")
+        _rebuild_index(tmp_path, monkeypatch)
+        time.sleep(1.1)
+        for i in range(15):
+            _commit(tmp_path, "src/foo.py", f"v{i}\n", f"edit {i}")
+
+        rc, payload = _run_json(tmp_path, ["src/foo.py"], plan="Touch src/foo.py")
+        assert payload["conflicts"] == []  # stale-only, no structural conflict
+        assert payload["stale_governance"]
+        assert payload["blocking_findings"]  # stale surfaces as a blocking finding
+        assert rc == 1  # the exit contract is unchanged

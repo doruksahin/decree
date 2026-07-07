@@ -2,6 +2,11 @@
 
 Feature ideas and open questions for decree. Items here are not committed — they're candidates for future PRDs.
 
+> **Active workstream:** the [Agentkith dogfooding research backlog](dogfooding-feedback/06-research-backlog.md)
+> turns live-usage friction into prioritized, code-grounded items (`B1`–`B15`) — typed
+> `intent-check` findings, first-class `--under`, and governance-quality health signals.
+> Phase 1 (skill/agent-loop guidance) is landing first; core changes follow via PRD/ADR/SPEC.
+
 ## Planned (has PRD)
 
 ### DDD CLI Command & Proofshot Integration

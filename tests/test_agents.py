@@ -148,3 +148,23 @@ def test_run_rejects_hooks_for_user_scope(project: Path, monkeypatch: pytest.Mon
 
     assert rc == 1
     assert not (project / ".claude").exists()
+
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_decree_ddd_skill_copies_stay_in_sync() -> None:
+    """The dev-facing skill and the packaged template must not drift.
+
+    Guidance edits (e.g. severity interpretation) must land in both copies or the
+    packaged skill ships stale advice while the repo looks updated.
+    """
+    top_level = _REPO_ROOT / "skills" / "decree-ddd" / "SKILL.md"
+    packaged = _REPO_ROOT / "src" / "decree" / "templates" / "agent" / "skills" / "decree-ddd" / "SKILL.md"
+
+    assert top_level.exists(), f"missing {top_level}"
+    assert packaged.exists(), f"missing {packaged}"
+    assert top_level.read_text() == packaged.read_text(), (
+        "decree-ddd SKILL.md copies have drifted — sync skills/decree-ddd/SKILL.md and "
+        "src/decree/templates/agent/skills/decree-ddd/SKILL.md"
+    )

@@ -42,7 +42,7 @@ from decree.commands.intent_review import (
     compute_governs_gaps,
 )
 from decree.commands.queries import _calibrated_assess, why
-from decree.config import load_doc_types
+from decree.config import classify_path, load_doc_types
 from decree.index_db import IndexDB, default_db_path
 from decree.log import error, info
 
@@ -92,6 +92,12 @@ class IntentCheckReport:
     under_decision: str | None = None
     under_error: str | None = None
     governs_gaps: tuple[GovernsGap, ...] = ()
+    # Planned files partitioned by kind (SPEC-01KWXMRR7R3S5CSAAZRGFHR5QN / backlog B6):
+    # a decree-document self-edit (``corpus``) or a decree-generated artifact
+    # (``generated``) is not ungoverned source, so it never earns ``add_governance``.
+    source_changes: tuple[str, ...] = ()
+    corpus_changes: tuple[str, ...] = ()
+    generated_artifact_changes: tuple[str, ...] = ()
 
 
 # ── Internal helpers ────────────────────────────────────────
@@ -158,6 +164,16 @@ def intent_check(
     for p in planned_files or ():
         seen.setdefault(p, None)
     paths = list(seen.keys())
+
+    # 0b. Classify each planned file (path-only, deterministic). A decree
+    #     document self-edit (``corpus``) or generated artifact (``generated``)
+    #     is not ungoverned source, so it is excluded from ``add_governance``.
+    doc_dirs = [dt.dir for dt in load_doc_types()]
+    path_class = {p: classify_path(p, doc_dirs) for p in paths}
+    source_changes = tuple(p for p in paths if path_class[p] == "source")
+    corpus_changes = tuple(p for p in paths if path_class[p] == "corpus")
+    generated_artifact_changes = tuple(p for p in paths if path_class[p] == "generated")
+    nonsource_paths = {p for p, c in path_class.items() if c != "source"}
 
     # 1. governing_decisions — dedupe across paths by decision_id.
     govs_by_id: dict[str, GoverningSnapshot] = {}
@@ -270,6 +286,7 @@ def intent_check(
         unchecked=unchecked,
         conflicts=conflicts,
         live_conflicts=live_conflicts,
+        corpus_or_generated=nonsource_paths,
     )
 
     # 8. governs gaps for the active decision (SPEC-01KT6TCFMWAV6N8G5DR5QMX1P5) —
@@ -303,6 +320,9 @@ def intent_check(
         under_decision=under,
         under_error=under_error,
         governs_gaps=governs_gaps,
+        source_changes=source_changes,
+        corpus_changes=corpus_changes,
+        generated_artifact_changes=generated_artifact_changes,
     )
 
 
@@ -316,6 +336,7 @@ def _build_recommendations(
     unchecked: list[UncheckedAC],
     conflicts: list[Conflict],
     live_conflicts: list[LiveSessionConflict] | None = None,
+    corpus_or_generated: set[str] | None = None,
 ) -> list[Recommendation]:
     """Generate pre-code-phase recommendation verbs from collected signals.
 
@@ -369,8 +390,11 @@ def _build_recommendations(
             )
         )
 
-    # add_governance — one per ungoverned planned file.
-    ungoverned_paths = [p for p in paths if not path_to_decisions.get(p)]
+    # add_governance — one per ungoverned planned *source* file. A decree
+    # document self-edit or generated artifact (``corpus_or_generated``) is
+    # authoring/derived, not ungoverned source, so it is excluded here.
+    skip = corpus_or_generated or set()
+    ungoverned_paths = [p for p in paths if not path_to_decisions.get(p) and p not in skip]
     for path in ungoverned_paths:
         recs.append(
             Recommendation(
@@ -478,6 +502,54 @@ def _build_recommendations(
 # ── JSON shape ──────────────────────────────────────────────
 
 
+# Recommendation verbs that drive exit 1 (conflicts, stale governance, live overlap).
+_BLOCKING_ACTIONS = frozenset({"resolve_conflict_first", "update_decision", "isolate_session"})
+# Advisory verbs: surfaced, but never flip the exit code on their own.
+_ADVISORY_ACTIONS = frozenset({"add_governance", "draft_adr_first", "update_spec_first", "check_ac", "declare_governs"})
+
+
+def _bucket_findings(report: IntentCheckReport) -> dict[str, list[dict]]:
+    """Partition findings into ``blocking`` / ``advisory`` / ``corpus_hygiene`` classes.
+
+    The class is a *kind* of finding (SARIF-style), distinct from any severity
+    axis, and additive: it never changes the exit code
+    (ADR-01KWXMRRB44CE78H0659D9WDY7). Blocking findings are exactly the exit-1
+    drivers (conflicts, stale governance, live-session overlap); advisory findings
+    are surfaced but never flip the exit on their own; corpus-hygiene findings are
+    decree document/artifact edits that need lint/regen, not governance.
+    """
+    blocking: list[dict] = []
+    advisory: list[dict] = []
+    corpus: list[dict] = []
+    for r in report.recommended_actions:
+        entry = {"action": r.action, "target_id": r.target_id, "detail": r.detail}
+        if r.action in _BLOCKING_ACTIONS:
+            blocking.append(entry)
+        elif r.action in _ADVISORY_ACTIONS:
+            advisory.append(entry)
+        # ``proceed`` (and any unknown verb) belongs to no class.
+    for p in report.corpus_changes:
+        corpus.append(
+            {
+                "action": "corpus_maintenance",
+                "target_id": p,
+                "detail": (
+                    f"{p} is a decree document; run `decree lint` "
+                    "(and `decree index rebuild` after governs:/frontmatter edits) — no governance needed."
+                ),
+            }
+        )
+    for p in report.generated_artifact_changes:
+        corpus.append(
+            {
+                "action": "generated_artifact",
+                "target_id": p,
+                "detail": f"{p} is a decree-generated artifact; regenerate it rather than hand-editing.",
+            }
+        )
+    return {"blocking_findings": blocking, "advisory_findings": advisory, "corpus_hygiene_findings": corpus}
+
+
 def report_to_dict(report: IntentCheckReport) -> dict:
     """Serialize an ``IntentCheckReport`` to the JSON shape used by --json + MCP."""
     return {
@@ -500,6 +572,10 @@ def report_to_dict(report: IntentCheckReport) -> dict:
         "under_decision": report.under_decision,
         "under_error": report.under_error,
         "governs_gaps": [{"path": g.path, "commit_count": g.commit_count} for g in report.governs_gaps],
+        "source_changes": list(report.source_changes),
+        "corpus_changes": list(report.corpus_changes),
+        "generated_artifact_changes": list(report.generated_artifact_changes),
+        **_bucket_findings(report),
     }
 
 
@@ -549,17 +625,63 @@ def _open_db_or_error(
     return db, root, 0
 
 
+def _next_command(report: IntentCheckReport, blocking: list[dict], cleanup: list[dict]) -> str:
+    """Deterministic single next-step suggestion, derived from the top blocker."""
+    actions = {e["action"] for e in blocking}
+    if "resolve_conflict_first" in actions:
+        first = report.conflicts[0] if report.conflicts else None
+        pick = first.decision_ids[0] if first and first.decision_ids else "<SPEC-ID>"
+        return (
+            f'decree intent-check --under {pick} --plan "..." --files ...  '
+            "(name the authoritative decision; treat the other governors as contextual)"
+        )
+    if "isolate_session" in actions:
+        return "Run in a dedicated worktree, or split the overlapping file out of one plan, before starting."
+    if "update_decision" in actions:
+        return "Refresh the stale governing decision, then re-run intent-check."
+    if cleanup:
+        return "Proceed; address the advisory / corpus-hygiene items when convenient."
+    return "Proceed — no blockers detected."
+
+
 def _format_human(report: IntentCheckReport) -> str:
     """Render a human-readable intent-check report.
 
-    Same visual idiom as ``intent_review._format_human`` so the two
-    commands look like siblings.
+    Leads with a "Block now" / "Clean later" summary so a reader can tell an
+    exit-1 blocker from cleanup at a glance (backlog B4), then keeps the detailed
+    sections below for full context.
     """
     lines: list[str] = []
     lines.append("Intent check — pre-PR governance map")
     if report.plan:
         snippet = report.plan if len(report.plan) <= 200 else report.plan[:197] + "..."
         lines.append(f"  Plan: {snippet}")
+
+    buckets = _bucket_findings(report)
+    blocking = buckets["blocking_findings"]
+    cleanup = buckets["advisory_findings"] + buckets["corpus_hygiene_findings"]
+
+    lines.append("")
+    lines.append(f"Block now ({len(blocking)}):")
+    if blocking:
+        for e in blocking:
+            target = f" [{e['target_id']}]" if e.get("target_id") else ""
+            lines.append(f"  ✗ {e['action']}{target}: {e['detail']}")
+    else:
+        lines.append("  (none)")
+
+    lines.append("")
+    lines.append(f"Clean later ({len(cleanup)}):")
+    if cleanup:
+        for e in cleanup:
+            target = f" [{e['target_id']}]" if e.get("target_id") else ""
+            lines.append(f"  ~ {e['action']}{target}: {e['detail']}")
+    else:
+        lines.append("  (none)")
+
+    lines.append("")
+    lines.append("Recommended next command:")
+    lines.append(f"  {_next_command(report, blocking, cleanup)}")
 
     lines.append("")
     lines.append(f"Planned files ({len(report.planned_files)}):")
